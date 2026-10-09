@@ -1,0 +1,388 @@
+/* To_Done 全局样式 —— 色值唯一来源（见系统设计说明书 8.7） */
+
+/* ① 项目语义变量：组件只引用这一层，切主题 = 换一组取值 */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-text: #1a1a1a;
+  --color-text-2: #8c8c8c;
+  --color-text-3: #bfbfbf;
+  --color-border: #efefef;
+  --color-border-strong: #dcdcdc;
+  --color-hover: #fafafa;
+  --color-primary-bg: #1a1a1a;
+  --color-primary-bg-hover: #333333;
+  --color-primary-bg-active: #000000;
+  --color-primary-fg: #ffffff;
+  --color-danger: #d9534f;
+  --color-danger-hover: #c9302c;
+  --color-danger-border: #f0c8c6;
+  --color-danger-bg: #fdf5f5;
+  --color-status-done: #4c9a6a;
+  --color-priority-high: #d08a3e;
+  --color-priority-normal: #8c8c8c;
+  --color-mask: rgba(0, 0, 0, 0.28);
+  /*
+   * 圆角阶梯：全站（含 Element Plus）只从这四档取值，不再出现零散数值。
+   * sm 6px   极小 / 紧凑件：复选框、标签、分页按钮、骨架条
+   * md 12px  常规控件：输入框、按钮、图标按钮、下拉框
+   * lg 20px  容器：任务行、弹窗、消息框、气泡面板、表格
+   * pill     胶囊与圆形：优先级标签、勾选按钮、徽章、头像
+   */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  /* 主题切换的缓慢过渡（约 0.8 秒）：唯一来源，useTheme 也读它来决定何时摘掉过渡类 */
+  --dur-theme: 800ms;
+  /* 弹窗开合：比常规动效慢一点，让"从卡片点开浮窗"这件事看得清 */
+  --dur-dialog: 320ms;
+  /* 勾选完成时横线自左向右划掉的时长；JS 也读它，用来决定何时让卡片下移 */
+  --dur-strike: 300ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.08);
+  --font-stack: -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --content-width: 880px;
+  color-scheme: light;
+}
+
+html.dark {
+  --color-bg: #121212;
+  --color-surface: #1a1a1a;
+  --color-text: #e8e8e8;
+  --color-text-2: #9a9a9a;
+  --color-text-3: #6b6b6b;
+  --color-border: #2a2a2a;
+  --color-border-strong: #3a3a3a;
+  --color-hover: #1f1f1f;
+  --color-primary-bg: #e8e8e8;
+  --color-primary-bg-hover: #cfcfcf;
+  --color-primary-bg-active: #ffffff;
+  --color-primary-fg: #121212;
+  --color-danger: #e06c68;
+  --color-danger-hover: #ef8884;
+  --color-danger-border: #4a2b2a;
+  --color-danger-bg: #241818;
+  --color-status-done: #6fbf8f;
+  --color-priority-high: #d9a05b;
+  --color-priority-normal: #9a9a9a;
+  --color-mask: rgba(0, 0, 0, 0.6);
+  --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+/*
+ * ② Element Plus：把 --el-* 映射到语义变量，两种主题共用这一段映射。
+ * 说明：8.7 只给了主干映射，若不补齐 light-3 / dark-2 这类派生档，EP 自带的蓝色会在
+ * 按钮 hover、pagination 选中态等位置漏出来，与「页面上不存在主操作/危险色/状态色之外的彩色」冲突，
+ * 故按同一套语义变量补齐派生档（无新增色值来源）。
+ */
+:root,
+html.dark {
+  --el-color-primary: var(--color-primary-bg);
+  --el-color-primary-light-3: var(--color-primary-bg-hover);
+  --el-color-primary-light-5: var(--color-primary-bg-hover);
+  --el-color-primary-light-7: var(--color-border-strong);
+  --el-color-primary-light-8: var(--color-border);
+  --el-color-primary-light-9: var(--color-hover);
+  --el-color-primary-dark-2: var(--color-primary-bg-active);
+  --el-color-danger: var(--color-danger);
+  --el-color-danger-light-3: var(--color-danger-hover);
+  --el-color-danger-light-5: var(--color-danger-hover);
+  --el-color-danger-light-7: var(--color-danger-border);
+  --el-color-danger-light-8: var(--color-danger-border);
+  --el-color-danger-light-9: var(--color-danger-bg);
+  --el-color-danger-dark-2: var(--color-danger-hover);
+  --el-color-success: var(--color-status-done);
+  --el-color-warning: var(--color-priority-high);
+  --el-color-info: var(--color-text-2);
+  --el-text-color-primary: var(--color-text);
+  --el-text-color-regular: var(--color-text);
+  --el-text-color-secondary: var(--color-text-2);
+  --el-text-color-placeholder: var(--color-text-3);
+  --el-text-color-disabled: var(--color-text-3);
+  --el-text-color-primary-2: var(--color-text);
+  --el-border-color: var(--color-border-strong);
+  --el-border-color-light: var(--color-border);
+  --el-border-color-lighter: var(--color-border);
+  --el-border-color-extra-light: var(--color-border);
+  --el-border-color-dark: var(--color-border-strong);
+  --el-border-color-hover: var(--color-text-2);
+  --el-fill-color: var(--color-hover);
+  --el-fill-color-light: var(--color-hover);
+  --el-fill-color-lighter: var(--color-hover);
+  --el-fill-color-extra-light: var(--color-hover);
+  --el-fill-color-blank: var(--color-surface);
+  --el-bg-color: var(--color-surface);
+  --el-bg-color-page: var(--color-bg);
+  --el-bg-color-overlay: var(--color-surface);
+  --el-disabled-bg-color: var(--color-hover);
+  --el-disabled-text-color: var(--color-text-3);
+  --el-disabled-border-color: var(--color-border);
+  /*
+   * Element Plus 只在 :root 声明了这三个圆角变量，改它们就能覆盖一大片：
+   * 输入框、按钮、下拉框、提示条、下拉面板、复选框等都由它们派生。
+   * 另有若干圆角 EP 是声明在组件元素自身的（见下面对应的选择器规则），这里写无效。
+   */
+  --el-border-radius-base: var(--radius-md);
+  --el-border-radius-small: var(--radius-sm);
+  --el-border-radius-round: var(--radius-pill);
+  --el-box-shadow-light: none;
+  --el-box-shadow: var(--shadow-dialog);
+  --el-box-shadow-lighter: none;
+  --el-mask-color: var(--color-mask);
+  --el-font-family: var(--font-stack);
+  --el-transition-duration: var(--dur-base);
+}
+
+/* ③ 基础排版与重置 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+/*
+ * 主题切换过渡：只在切换过程中由 useTheme 给 <html> 挂上 .theme-transition，约 0.8 秒后摘掉。
+ * 为什么不把 transition 常驻：各组件自己的过渡（悬停、边框）只有 150/200ms，主题色若跟着它们走会显得很硬；
+ * 常驻全站过渡又会让悬停被拖成 0.8 秒，所以只在切换窗口内用 !important 临时接管。
+ * 只过渡颜色类属性，不动 transform / box-shadow，避免整页重排与掉帧。
+ */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition:
+    background-color var(--dur-theme) var(--ease),
+    color var(--dur-theme) var(--ease),
+    border-color var(--dur-theme) var(--ease),
+    outline-color var(--dur-theme) var(--ease),
+    fill var(--dur-theme) var(--ease),
+    stroke var(--dur-theme) var(--ease) !important;
+}
+
+/*
+ * 弹窗开合动效：遮罩淡入 + 面板上浮放大。
+ * Element Plus 自带这套机制（.dialog-fade-enter-active 给遮罩、.el-overlay-dialog 给面板），
+ * 这里只做两件事：把时长与曲线换成项目自己的（默认 320ms 缓出），并把面板的关键帧改成带轻微缩放的上浮。
+ * 选择器与 EP 完全同名同形，靠 main.css 在 EP 样式之后加载来覆盖。
+ */
+.dialog-fade-enter-active,
+.dialog-fade-leave-active {
+  animation-duration: var(--dur-dialog);
+  animation-timing-function: var(--ease);
+}
+
+.dialog-fade-enter-active .el-overlay-dialog,
+.dialog-fade-leave-active .el-overlay-dialog {
+  animation-duration: var(--dur-dialog);
+  animation-timing-function: var(--ease);
+}
+
+@keyframes dialog-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dialog-fade-out {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.99);
+  }
+}
+
+/*
+ * 表格：Element Plus 没给表格容器留圆角变量（默认方角），
+ * 不补的话管理页会出现一块与整页圆角语言不一致的方角区域。
+ * overflow: hidden 是为了让表头背景与斑马纹跟着圆角裁切。
+ */
+.el-table {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/*
+ * 按钮：EP 对 small 尺寸算的是「base − 1px」（11px），落在阶梯之外。
+ * 这里把普通按钮压平回控件档；round / circle 仍走胶囊档，不受影响。
+ */
+.el-button:not(.is-round):not(.is-circle) {
+  border-radius: var(--radius-md);
+}
+
+/*
+ * 以下圆角 EP 声明在**组件元素自身**而非 :root：元素上的直接声明会压过 :root 的继承值，
+ * 所以必须写在同一个选择器上，否则弹窗、确认框、分页、标签这些会漏在阶梯之外。
+ * 分档：模态浮层（弹窗 / 确认框 / 卡片）走容器档 lg；
+ *       贴着控件出现的小浮层（下拉面板、气泡、提示）走控件档 md，与它们的主控件同档。
+ */
+.el-dialog {
+  --el-dialog-border-radius: var(--radius-lg);
+}
+
+.el-message-box {
+  --el-messagebox-border-radius: var(--radius-lg);
+}
+
+.el-card {
+  --el-card-border-radius: var(--radius-lg);
+}
+
+.el-pagination {
+  --el-pagination-border-radius: var(--radius-sm);
+}
+
+.el-tag {
+  --el-tag-border-radius: var(--radius-sm);
+  --el-tag-border-radius-rounded: var(--radius-pill);
+}
+
+.el-popover,
+.el-popper {
+  --el-popover-border-radius: var(--radius-md);
+  --el-popper-border-radius: var(--radius-md);
+}
+
+/*
+ * 下拉项：EP 默认是方角高亮，在圆角面板里会露出直角，归到紧凑档 sm 与标签同档。
+ * 下拉面板本身仍是控件档 md（--el-border-radius-base 派生）。
+ */
+.el-select-dropdown__item,
+.el-dropdown-menu__item {
+  border-radius: var(--radius-sm);
+}
+
+body {
+  font-family: var(--font-stack);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* 键盘可达性：可见聚焦环（对比度 ≥ 3:1） */
+:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+/* ④ 通用容器：内容区最大宽 880px 居中，上下留白 40px */
+.page {
+  width: 100%;
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.text-2 {
+  color: var(--color-text-2);
+}
+
+.text-3 {
+  color: var(--color-text-3);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+/* 分区容器：个人中心这类多段页面共用，靠 1px 分隔线划分（8.7 落地要求） */
+.section {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.section__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.section__hint {
+  margin: 6px 0 16px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text-2);
+}
+
+.section__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 图标按钮里跟在图标后面的文字：全站只此一处定义 */
+.btn-text {
+  margin-left: 6px;
+}
+
+/* ⑤ 减少动效：命中系统偏好时动画退化为瞬时 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    /* 上面那条 html.theme-transition 的选择器权重高于 *，光靠下面的 * 规则压不住它，
+       所以这里显式把时长归零：既让偏好生效，也让 useTheme 立刻摘掉过渡类 */
+    --dur-theme: 0ms;
+    --dur-dialog: 0ms;
+    --dur-strike: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

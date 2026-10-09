@@ -1,0 +1,105 @@
+/** 登录态 / 用户 / 头像（见 8.3；登录态由 localStorage 的 token 推导，刷新不掉线） */
+import { computed, ref } from 'vue'
+import { defineStore } from 'pinia'
+import * as authApi from '@/api/auth'
+import { TOKEN_KEY } from '@/constants'
+import type {
+  ChangeEmailPayload,
+  ChangePasswordPayload,
+  LoginPayload,
+  RegisterPayload,
+  ResetPasswordPayload,
+  UpdateProfilePayload,
+  User,
+} from '@/types'
+
+export const useAuthStore = defineStore('auth', () => {
+  const token = ref(localStorage.getItem(TOKEN_KEY) ?? '')
+  const user = ref<User | null>(null)
+  const loading = ref(false)
+
+  const isLoggedIn = computed(() => token.value !== '')
+
+  function setToken(value: string) {
+    token.value = value
+    localStorage.setItem(TOKEN_KEY, value)
+  }
+
+  async function login(payload: LoginPayload) {
+    loading.value = true
+    try {
+      const result = await authApi.login(payload)
+      setToken(result.token)
+      user.value = result.user
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function register(payload: RegisterPayload) {
+    loading.value = true
+    try {
+      const result = await authApi.register(payload)
+      setToken(result.token)
+      user.value = result.user
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function resetPassword(payload: ResetPasswordPayload) {
+    await authApi.resetPassword(payload)
+  }
+
+  async function fetchProfile() {
+    if (!isLoggedIn.value) return
+    user.value = await authApi.getProfile()
+  }
+
+  async function updateProfile(payload: UpdateProfilePayload) {
+    user.value = await authApi.updateProfile(payload)
+  }
+
+  async function changeEmail(payload: ChangeEmailPayload) {
+    await authApi.changeEmail(payload)
+    await fetchProfile()
+  }
+
+  async function changePassword(payload: ChangePasswordPayload) {
+    await authApi.changePassword(payload)
+  }
+
+  async function uploadAvatar(file: File) {
+    await authApi.uploadAvatar(file)
+    await fetchProfile()
+  }
+
+  async function removeAvatar() {
+    await authApi.removeAvatar()
+    await fetchProfile()
+  }
+
+  /** 退出登录：只清用户 token，不碰管理员 token（8.4） */
+  function logout() {
+    token.value = ''
+    user.value = null
+    localStorage.removeItem(TOKEN_KEY)
+  }
+
+  return {
+    token,
+    user,
+    loading,
+    isLoggedIn,
+    login,
+    register,
+    resetPassword,
+    fetchProfile,
+    updateProfile,
+    changeEmail,
+    changePassword,
+    uploadAvatar,
+    removeAvatar,
+    logout,
+  }
+})
