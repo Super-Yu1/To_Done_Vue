@@ -37,7 +37,7 @@ defineProps<{ title: string; subtitle?: string }>()
   max-width: var(--content-width);
   height: 56px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 clamp(16px, 2.5vw, 40px);
 }
 
 .auth-shell__brand {

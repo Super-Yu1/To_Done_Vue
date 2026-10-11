@@ -44,7 +44,14 @@
   --ease: cubic-bezier(0.2, 0.8, 0.3, 1);
   --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.08);
   --font-stack: -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-  --content-width: 880px;
+  /*
+   * 内容区最大宽：随窗口自适应（2026-10-12 按使用反馈从固定 880px 改为自适应）。
+   * 94vw 让左右各留约 3% 呼吸位；上限 1920px 防止超宽屏把列表行拉成超长横条；
+   * 下限 880px 只是兜底——窄屏时容器仍受视口约束（width: 100%），不会横向溢出。
+   */
+  --content-width: clamp(880px, 94vw, 1920px);
+  /* 表单字段与阅读型文本的最大宽：跟着窗口无限拉伸会难填也难读 */
+  --reading-width: 560px;
   color-scheme: light;
 }
 
@@ -309,12 +316,12 @@ img {
   outline-offset: 2px;
 }
 
-/* ④ 通用容器：内容区最大宽 880px 居中，上下留白 40px */
+/* ④ 通用容器：内容区随窗口自适应并居中，左右内边距也随窗口缩放；上下留白 40px */
 .page {
   width: 100%;
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 40px 24px;
+  padding: 40px clamp(16px, 2.5vw, 40px);
 }
 
 .page-title {
@@ -343,6 +350,14 @@ img {
 
 .section:last-child {
   border-bottom: none;
+}
+
+/*
+ * 区块内的表单：字段宽度不跟着窗口拉伸。
+ * 一行一个字段的表单被拉到 1700px 宽会难填也难读，收到 --reading-width 为止。
+ */
+.section .el-form {
+  max-width: var(--reading-width);
 }
 
 .section__title {

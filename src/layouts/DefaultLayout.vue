@@ -97,7 +97,8 @@ async function handleLogout() {
   max-width: var(--content-width);
   height: 56px;
   margin: 0 auto;
-  padding: 0 24px;
+  /* 与 .page 的左右内边距一致，顶栏文字才和内容左边缘对齐 */
+  padding: 0 clamp(16px, 2.5vw, 40px);
 }
 
 .brand {

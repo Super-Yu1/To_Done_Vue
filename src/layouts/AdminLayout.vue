@@ -116,7 +116,7 @@ async function handleLogout() {
   align-items: center;
   justify-content: flex-end;
   height: 56px;
-  padding: 0 24px;
+  padding: 0 clamp(16px, 2.5vw, 40px);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -150,6 +150,6 @@ async function handleLogout() {
 }
 
 .admin-layout__main {
-  padding: 24px;
+  padding: 24px clamp(16px, 2.5vw, 40px);
 }
 </style>
