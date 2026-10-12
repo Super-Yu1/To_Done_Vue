@@ -60,9 +60,13 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await authApi.updateProfile(payload)
   }
 
+  /**
+   * 换邮箱：不在这里回读资料。
+   * 邮箱是登录凭证，调用方（个人中心）成功后会立即退出登录，回读没有意义；
+   * 反过来若回读失败还会把「已经改成功」误报成失败。
+   */
   async function changeEmail(payload: ChangeEmailPayload) {
     await authApi.changeEmail(payload)
-    await fetchProfile()
   }
 
   async function changePassword(payload: ChangePasswordPayload) {

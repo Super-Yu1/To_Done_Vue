@@ -13,6 +13,7 @@ export type IconName =
   | 'trash'
   | 'check'
   | 'restore'
+  | 'camera'
   | 'logout'
   | 'user'
   | 'key'
@@ -41,6 +42,7 @@ export const ICON_PATHS: Record<IconName, string[]> = {
   trash: ['M4 7h16', 'M9.5 7V4.5h5V7', 'M6 7l1 13h10l1-13', 'M10 11v6', 'M14 11v6'],
   check: ['M5 13l4.5 4.5L19 7'],
   restore: ['M4 12a8 8 0 1 0 2.6-5.9', 'M4 4v4.5h4.5', 'M12 8.5v4l3 1.8'],
+  camera: ['M4 8h3l1.5-2.5h7L17 8h3v10H4z', 'M12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
   logout: ['M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3', 'M10 16l-4-4 4-4', 'M6 12h9'],
   user: ['M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', 'M4 20.5c0-3.6 3.6-6.5 8-6.5s8 2.9 8 6.5'],
   key: ['M15.5 4a4.5 4.5 0 1 1-3.6 7.2L4 19v-2.5h2.5V14H9l2.9-2.9A4.5 4.5 0 0 1 15.5 4z'],

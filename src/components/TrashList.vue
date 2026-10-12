@@ -1,8 +1,12 @@
 <script setup lang="ts">
-/** 回收站列表（UC-06 / 8.8）：真实页与演示页共用；只负责渲染与转发动作，不含数据来源 */
+/**
+ * 回收站列表（UC-06 / 8.8）：真实页与演示页共用；只负责渲染与转发动作，不含数据来源。
+ * 行版式与主页的 TaskList 对齐：同为「一行一任务 + 行距 8px + TransitionGroup 让位」，
+ * 具体行长什么样见 TrashItem.vue。
+ */
 import AppIcon from './AppIcon.vue'
 import EmptyState from './EmptyState.vue'
-import { formatDateTime } from '@/utils/date'
+import TrashItem from './TrashItem.vue'
 import type { TrashTask } from '@/types'
 
 defineProps<{
@@ -12,9 +16,6 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{ restore: [TrashTask]; purge: [TrashTask]; clear: [] }>()
-
-/** 剩余天数进入一周内就用危险色提示，对齐「到期自动清理」的紧迫感 */
-const SOON_DAYS = 7
 </script>
 
 <template>
@@ -38,34 +39,24 @@ const SOON_DAYS = 7
       description="删掉的任务会先放到这里，不会立刻消失。"
     />
 
-    <ul v-else class="trash__list">
-      <li v-for="task in tasks" :key="task.id" class="trash__item">
-        <div class="trash__main">
-          <p class="trash__title">{{ task.title }}</p>
-          <p class="trash__meta">
-            <span>删除于 {{ formatDateTime(task.deletedAt) }}</span>
-            <span class="trash__dot">·</span>
-            <span :class="{ 'trash__remaining--soon': task.remainingDays <= SOON_DAYS }">
-              剩余 {{ task.remainingDays }} 天
-            </span>
-          </p>
-        </div>
-        <div class="trash__actions">
-          <el-button size="small" @click="emit('restore', task)">
-            <AppIcon name="restore" />
-            <span class="btn-text">恢复</span>
-          </el-button>
-          <el-button size="small" @click="emit('purge', task)">
-            <AppIcon name="trash" />
-            <span class="btn-text">彻底删除</span>
-          </el-button>
-        </div>
-      </li>
-    </ul>
+    <TransitionGroup v-else name="row" tag="div" class="trash__rows">
+      <TrashItem
+        v-for="task in tasks"
+        :key="task.id"
+        :task="task"
+        @restore="emit('restore', $event)"
+        @purge="emit('purge', $event)"
+      />
+    </TransitionGroup>
   </div>
 </template>
 
 <style scoped>
+/* 让 TrashItem 里的 @container 断点以列表宽度为准（与 TaskList 同一做法） */
+.trash {
+  container-type: inline-size;
+}
+
 .trash__header {
   display: flex;
   align-items: flex-start;
@@ -80,52 +71,29 @@ const SOON_DAYS = 7
   color: var(--color-text-2);
 }
 
-.trash__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.trash__item {
+.trash__rows {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.trash__main {
-  min-width: 0;
-}
-
-.trash__title {
-  font-size: 14px;
-  word-break: break-word;
-}
-
-.trash__meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-2);
-}
-
-.trash__dot {
-  color: var(--color-text-3);
-}
-
-.trash__remaining--soon {
-  color: var(--color-danger);
-}
-
-.trash__actions {
-  display: flex;
-  flex-shrink: 0;
+  flex-direction: column;
   gap: 8px;
+  margin-top: 20px;
+}
+
+/* 行进退场与让位：与 TaskList.vue 的同名规则一致（两处都用 TransitionGroup name="row"） */
+.row-enter-active {
+  transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+}
+
+.row-leave-active {
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.row-enter-from,
+.row-leave-to {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+.row-move {
+  transition: transform var(--dur-base) var(--ease);
 }
 </style>

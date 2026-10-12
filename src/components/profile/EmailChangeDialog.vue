@@ -1,17 +1,28 @@
 <script setup lang="ts">
 /**
  * 更换邮箱（UC-04 / 6.5 ⑤）：新邮箱 + 邮箱验证码 + 图形验证码。
- * 邮箱是登录凭证，换完需要用新邮箱重新登录。
- * demo 为真时两个验证码控件都不请求后端（8.6）。
+ * 邮箱是登录凭证，成功后由调用方清 token 跳登录，所以这里不提供「关闭后再看结果」的中间态。
+ * 每次打开都重置输入并换一张图形码——图形码是一次性的，复用上一次的必然失败。
  */
-import { reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import CaptchaField from '@/components/CaptchaField.vue'
 import EmailCodeField from '@/components/EmailCodeField.vue'
 import type { ChangeEmailPayload } from '@/types'
 
-defineProps<{ demo?: boolean; saving?: boolean }>()
-const emit = defineEmits<{ submit: [ChangeEmailPayload] }>()
+const props = defineProps<{
+  visible: boolean
+  saving?: boolean
+  /** 演示模式：两个验证码控件都不请求后端（8.6） */
+  demo?: boolean
+}>()
+
+const emit = defineEmits<{ 'update:visible': [boolean]; submit: [ChangeEmailPayload] }>()
+
+const visibleProxy = computed({
+  get: () => props.visible,
+  set: (value) => emit('update:visible', value),
+})
 
 const formRef = ref<FormInstance>()
 const captchaRef = ref<InstanceType<typeof CaptchaField>>()
@@ -26,33 +37,42 @@ const rules: FormRules = {
   captchaCode: [{ required: true, message: '请填写图形验证码', trigger: 'blur' }],
 }
 
+watch(
+  () => props.visible,
+  async (visible) => {
+    if (!visible) return
+    form.email = ''
+    form.emailCode = ''
+    form.captchaCode = ''
+    formRef.value?.clearValidate()
+    await nextTick()
+    await refreshCaptcha()
+  },
+)
+
 async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   emit('submit', { email: form.email.trim(), emailCode: form.emailCode })
 }
 
-/** 换图形码：它是一次性的，校验失败后必须换 */
+/** 换图形码：校验失败后由调用方触发（一次性，失败必须换） */
 async function refreshCaptcha() {
   await captchaRef.value?.refresh()
 }
 
-/** 成功后清空输入并换一张图形码 */
-async function reset() {
-  form.email = ''
-  form.emailCode = ''
-  formRef.value?.clearValidate()
-  await refreshCaptcha()
-}
-
-defineExpose({ refreshCaptcha, reset })
+defineExpose({ refreshCaptcha })
 </script>
 
 <template>
-  <section class="section">
-    <h2 class="section__title">更换邮箱</h2>
-    <p class="section__hint">邮箱是登录凭证，更换后需要用新邮箱重新登录。</p>
-    <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
+  <el-dialog v-model="visibleProxy" title="更换邮箱" width="460px">
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
+      label-position="top"
+      @submit.prevent="handleSubmit"
+    >
       <el-form-item label="新邮箱" prop="email">
         <el-input v-model="form.email" type="email" placeholder="new@example.com" />
       </el-form-item>
@@ -75,7 +95,21 @@ defineExpose({ refreshCaptcha, reset })
           :demo="demo"
         />
       </el-form-item>
-      <el-button type="primary" :loading="saving" @click="handleSubmit">更换邮箱</el-button>
+      <p class="dialog-hint">邮箱是登录凭证，更换成功后会退出登录，需要（用新邮箱）重新登录。</p>
     </el-form>
-  </section>
+
+    <template #footer>
+      <el-button @click="visibleProxy = false">取消</el-button>
+      <el-button type="primary" :loading="saving" @click="handleSubmit">更换邮箱</el-button>
+    </template>
+  </el-dialog>
 </template>
+
+<style scoped>
+.dialog-hint {
+  margin-top: -6px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text-2);
+}
+</style>
