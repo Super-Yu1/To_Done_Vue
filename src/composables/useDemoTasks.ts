@@ -19,8 +19,6 @@ export function useDemoTasks() {
     keyword: '',
     status: undefined,
     priority: undefined,
-    sortBy: 'recordedAt',
-    sortDirection: 'DESC',
   })
 
   const loading = ref(false)

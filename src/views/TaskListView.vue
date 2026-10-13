@@ -15,6 +15,12 @@ const todo = useTodoStore()
 const dialogVisible = ref(false)
 const editingTask = ref<Task | null>(null)
 const submitting = ref(false)
+/** 配图上传进度（0~100）：有图在传时弹窗里显示进度条 */
+const uploadProgress = ref(0)
+
+function onUploadProgress(percent: number) {
+  uploadProgress.value = percent
+}
 
 const hasFilters = computed(() =>
   Boolean(todo.query.keyword || todo.query.status || todo.query.priority),
@@ -41,14 +47,15 @@ function openEdit(task: Task) {
   dialogVisible.value = true
 }
 
-async function handleSubmit(payload: TaskPayload) {
+async function handleSubmit(payload: TaskPayload, images: File[]) {
   const editing = editingTask.value
   submitting.value = true
+  uploadProgress.value = 0
   try {
     if (editing) {
-      await todo.updateTask(editing.id, payload)
+      await todo.updateTask(editing.id, payload, images, onUploadProgress)
     } else {
-      await todo.createTask(payload)
+      await todo.createTask(payload, images, onUploadProgress)
     }
     dialogVisible.value = false
     ElMessage.success(editing ? '已保存' : '已创建')
@@ -56,6 +63,7 @@ async function handleSubmit(payload: TaskPayload) {
     // 失败时保持弹窗打开，便于修改后重试
   } finally {
     submitting.value = false
+    uploadProgress.value = 0
   }
 }
 
@@ -123,6 +131,7 @@ function handleEmptyAction() {
       v-model:visible="dialogVisible"
       :task="editingTask"
       :submitting="submitting"
+      :progress="uploadProgress"
       @submit="handleSubmit"
     />
   </div>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** 登录（UC-02 / 6.5 ④）：邮箱 + 密码 + 图形验证码；用户名不再用于登录 */
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import AuthShell from '@/components/AuthShell.vue'
@@ -10,6 +10,21 @@ import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+
+/**
+ * token 失效被踢回来时，http 层在地址栏留了 expired=1（那边不弹 toast 的原因见 http.ts）。
+ * 这里做成**页面内的常驻提示**而不是 toast：整页跳转刚结束时弹提示容易与加载抢时序，
+ * 常驻一行反而看得清，提交一次后自然消失。
+ */
+const expiredNotice = ref(false)
+
+onMounted(() => {
+  if (!route.query.expired) return
+  expiredNotice.value = true
+  const rest = { ...route.query }
+  delete rest.expired
+  void router.replace({ path: route.path, query: rest })
+})
 
 const formRef = ref<FormInstance>()
 const captchaRef = ref<InstanceType<typeof CaptchaField>>()
@@ -48,6 +63,8 @@ async function handleSubmit() {
 
 <template>
   <AuthShell title="登录" subtitle="用邮箱登录，管理员请走后台入口">
+    <p v-if="expiredNotice" class="expired-notice">登录状态已失效，请重新登录</p>
+
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
       <el-form-item label="邮箱" prop="email">
         <el-input v-model="form.email" type="email" autocomplete="username" placeholder="you@example.com" />
@@ -80,6 +97,18 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
+/* 失效提示与表单同宽，用次要底色区分于校验错误（那是红字，这是状态说明） */
+.expired-notice {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-hover);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-2);
+}
+
 .submit {
   width: 100%;
 }

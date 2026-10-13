@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** 管理员登录（6.5 ⑫）：用独立账号 + 图形验证码；后台没有注册入口（8.9） */
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import AuthShell from '@/components/AuthShell.vue'
@@ -10,6 +10,17 @@ import { useAdminStore } from '@/stores/admin'
 const adminStore = useAdminStore()
 const route = useRoute()
 const router = useRouter()
+
+/** 管理员 token 失效被踢回来时读地址栏的 expired=1，与前台登录页同一处理（常驻提示而非 toast） */
+const expiredNotice = ref(false)
+
+onMounted(() => {
+  if (!route.query.expired) return
+  expiredNotice.value = true
+  const rest = { ...route.query }
+  delete rest.expired
+  void router.replace({ path: route.path, query: rest })
+})
 
 const formRef = ref<FormInstance>()
 const captchaRef = ref<InstanceType<typeof CaptchaField>>()
@@ -48,6 +59,8 @@ async function handleSubmit() {
 
 <template>
   <AuthShell title="后台登录" subtitle="管理员账号由服务器配置创建，后台没有注册入口">
+    <p v-if="expiredNotice" class="expired-notice">登录状态已失效，请重新登录</p>
+
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
       <el-form-item label="管理员名" prop="name">
         <el-input v-model="form.name" autocomplete="username" />
@@ -67,6 +80,18 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
+/* 与前台登录页同款：状态说明用次要底色，与红色校验错误区分开 */
+.expired-notice {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-hover);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text-2);
+}
+
 .submit {
   width: 100%;
 }

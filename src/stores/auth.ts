@@ -73,14 +73,19 @@ export const useAuthStore = defineStore('auth', () => {
     await authApi.changePassword(payload)
   }
 
+  /**
+   * 上传头像：直接用响应里的新直链替换本地的那个。
+   * 不能沿用旧 URL——后端换头像时已把旧对象删掉，旧直链当场失效。
+   */
   async function uploadAvatar(file: File) {
-    await authApi.uploadAvatar(file)
-    await fetchProfile()
+    const result = await authApi.uploadAvatar(file)
+    if (user.value) user.value.avatarUrl = result.avatarUrl
   }
 
+  /** 移除头像：接口幂等，本地同步清掉直链即可，不必再多拉一次资料 */
   async function removeAvatar() {
     await authApi.removeAvatar()
-    await fetchProfile()
+    if (user.value) user.value.avatarUrl = null
   }
 
   /** 退出登录：只清用户 token，不碰管理员 token（8.4） */

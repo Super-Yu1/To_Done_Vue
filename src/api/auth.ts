@@ -5,6 +5,7 @@
 import { request, upload } from './http'
 import type {
   AuthResult,
+  AvatarVO,
   ChangeEmailPayload,
   ChangePasswordPayload,
   LoginPayload,
@@ -49,11 +50,11 @@ export function changePassword(payload: ChangePasswordPayload): Promise<void> {
   return request<void>({ url: '/users/me/password', method: 'PUT', data: payload })
 }
 
-/** 上传 / 替换头像（multipart，字段名 file；前端裁成 1:1 后上传） */
-export function uploadAvatar(file: File): Promise<void> {
+/** 上传 / 替换头像（multipart，字段名 file；前端裁成 1:1 后上传）→ 返回新的预签名直链 */
+export function uploadAvatar(file: File): Promise<AvatarVO> {
   const form = new FormData()
   form.append('file', file)
-  return upload<void>('/users/me/avatar', form)
+  return upload<AvatarVO>('/users/me/avatar', form)
 }
 
 /** 移除头像（本来就没有头像时也返回成功） */

@@ -22,18 +22,24 @@ function isAdminUrl(url?: string): boolean {
   return url?.startsWith('/admin') ?? false
 }
 
-function redirectToLogin(isAdmin: boolean) {
+/**
+ * 401：清掉对应 token 并整页跳登录页。
+ * 这里**不弹提示**——紧接着的整页跳转会把刚弹出的 toast 冲掉，用户只会莫名其妙地回到登录页；
+ * 改成把原因写进 URL（`expired=1`），由登录页挂载时提示一次，跳转后仍能看到。
+ */
+function redirectToLogin(isAdmin: boolean, expired = false) {
   const from = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+  const suffix = expired ? '&expired=1' : ''
   if (isAdmin) {
     localStorage.removeItem(ADMIN_TOKEN_KEY)
     if (window.location.pathname !== '/admin/login') {
-      window.location.assign(`/admin/login?redirect=${from}`)
+      window.location.assign(`/admin/login?redirect=${from}${suffix}`)
     }
     return
   }
   localStorage.removeItem(TOKEN_KEY)
   if (window.location.pathname !== '/login') {
-    window.location.assign(`/login?redirect=${from}`)
+    window.location.assign(`/login?redirect=${from}${suffix}`)
   }
 }
 
@@ -62,9 +68,11 @@ http.interceptors.response.use(
       const status = error.response?.status
       const body = error.response?.data as ApiResult<unknown> | undefined
       if (status === 401) {
-        message = body?.message || '登录状态已失效，请重新登录'
-        redirectToLogin(isAdmin)
-      } else if (status === 413 || body?.code === 3002) {
+        // 提示交给登录页（见 redirectToLogin 的说明），这里直接跳
+        redirectToLogin(isAdmin, true)
+        return Promise.reject(error)
+      }
+      if (status === 413 || body?.code === 3002) {
         message = '图片不能超过 10MB'
       } else if (status === 403) {
         message = '没有访问权限'

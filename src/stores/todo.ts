@@ -16,8 +16,6 @@ export const useTodoStore = defineStore('todo', () => {
     keyword: '',
     status: undefined,
     priority: undefined,
-    sortBy: 'recordedAt',
-    sortDirection: 'DESC',
   })
 
   const tasks = ref<Task[]>([])
@@ -68,13 +66,24 @@ export const useTodoStore = defineStore('todo', () => {
     await Promise.all([fetchTasks(), fetchStats()])
   }
 
-  async function createTask(payload: TaskPayload, images: File[] = []) {
-    await taskApi.createTask(payload, images)
+  /** 新建：images 为新增配图；onProgress 透传上传进度（0~100），无图时不会触发 */
+  async function createTask(
+    payload: TaskPayload,
+    images: File[] = [],
+    onProgress?: (percent: number) => void,
+  ) {
+    await taskApi.createTask(payload, images, onProgress)
     await refresh()
   }
 
-  async function updateTask(id: string, payload: TaskPayload, images: File[] = []) {
-    await taskApi.updateTask(id, payload, images)
+  /** 更新：images 为本次新增的图，payload.imageOrder 表达最终顺序（含删除） */
+  async function updateTask(
+    id: string,
+    payload: TaskPayload,
+    images: File[] = [],
+    onProgress?: (percent: number) => void,
+  ) {
+    await taskApi.updateTask(id, payload, images, onProgress)
     await refresh()
   }
 

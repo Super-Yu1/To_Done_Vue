@@ -72,8 +72,9 @@ export interface TaskStats {
 
 /**
  * 任务列表查询条件（6.5 ⑥ + 6.6）。
- * 说明：界面不再发送 onlyUnfinished（被两态状态筛选取代）与 sortBy / sortDirection
- * （顺序改为固定规则，见 utils/task），这两个字段保留是因为后端接口仍接受它们。
+ * 不含 onlyUnfinished 与 sortBy / sortDirection：状态筛选已由两态状态取代，排序由后端按固定规则处理。
+ * 曾经留过这两个字段，但后端 PageQuery 的 sortDirection 有 @Pattern("asc|desc")，
+ * 前端传大写 DESC 会被判 400「请求参数不合法」——干脆不传。
  */
 export interface TaskQuery {
   page: number
@@ -81,11 +82,9 @@ export interface TaskQuery {
   keyword?: string
   status?: TaskStatus
   priority?: TaskPriority
-  sortBy?: TaskSortField
-  sortDirection?: 'ASC' | 'DESC'
 }
 
-export type TaskSortField = 'recordedAt' | 'dueDate' | 'priority'
+
 
 /** 回收站查询条件（6.5 ⑩，按 deletedAt DESC） */
 export interface TrashQuery {
@@ -131,6 +130,14 @@ export interface ResetPasswordPayload {
   email: string
   emailCode: string
   newPassword: string
+}
+
+/**
+ * 头像上传响应（6.5 ⑨）：返回新的预签名直链。
+ * 换头像后旧 URL 立即失效（后端已删旧对象），所以必须用这里的值替换本地缓存的那个。
+ */
+export interface AvatarVO {
+  avatarUrl: string
 }
 
 /** 修改资料：phone 传空串即解绑（6.5 ⑤） */
