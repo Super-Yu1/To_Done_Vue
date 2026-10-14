@@ -77,14 +77,12 @@ defineExpose({ refreshCaptcha })
         <el-input v-model="form.email" type="email" placeholder="new@example.com" />
       </el-form-item>
       <el-form-item label="邮箱验证码" prop="emailCode">
+        <!-- 发信的图形码由字段自己的弹窗处理（点「获取验证码」时弹）；下面那个图形码留给提交用 -->
         <EmailCodeField
           v-model="form.emailCode"
           :email="form.email"
           scene="CHANGE_EMAIL"
-          :captcha-id="form.captchaId"
-          :captcha-code="form.captchaCode"
           :demo="demo"
-          @refresh-captcha="refreshCaptcha"
         />
       </el-form-item>
       <el-form-item label="图形验证码" prop="captchaCode">

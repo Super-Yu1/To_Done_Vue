@@ -6,6 +6,7 @@ import { reactive, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as adminApi from '@/api/admin'
 import { ADMIN_INFO_KEY, ADMIN_TOKEN_KEY, PAGE_SIZE } from '@/constants'
+import { readTokenState } from '@/utils/token'
 import type {
   AdminInfo,
   AdminLoginPayload,
@@ -29,7 +30,9 @@ function readStoredAdmin(): AdminInfo | null {
 }
 
 export const useAdminStore = defineStore('admin', () => {
-  const token = ref(localStorage.getItem(ADMIN_TOKEN_KEY) ?? '')
+  const token = ref(
+    readTokenState(ADMIN_TOKEN_KEY) === 'valid' ? (localStorage.getItem(ADMIN_TOKEN_KEY) ?? '') : '',
+  )
   const admin = ref<AdminInfo | null>(readStoredAdmin())
 
   const query = reactive<AdminUserQuery>({

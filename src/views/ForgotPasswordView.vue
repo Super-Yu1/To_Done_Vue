@@ -4,7 +4,6 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import AuthShell from '@/components/AuthShell.vue'
-import CaptchaField from '@/components/CaptchaField.vue'
 import EmailCodeField from '@/components/EmailCodeField.vue'
 import { PASSWORD_HINT, PASSWORD_PATTERN } from '@/constants'
 import { useAuthStore } from '@/stores/auth'
@@ -13,15 +12,12 @@ const auth = useAuthStore()
 const router = useRouter()
 
 const formRef = ref<FormInstance>()
-const captchaRef = ref<InstanceType<typeof CaptchaField>>()
 const submitting = ref(false)
 
 const form = reactive({
   email: '',
   emailCode: '',
   newPassword: '',
-  captchaId: '',
-  captchaCode: '',
 })
 
 const rules: FormRules = {
@@ -36,10 +32,9 @@ const rules: FormRules = {
       validator: (_rule, value: string, callback) =>
         PASSWORD_PATTERN.test(value) ? callback() : callback(new Error(PASSWORD_HINT)),
       trigger: 'blur',
-    },
-  ],
-  captchaCode: [{ required: true, message: '请填写图形验证码', trigger: 'blur' }],
-}
+      },
+      ],
+      }
 
 async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
@@ -54,7 +49,7 @@ async function handleSubmit() {
     ElMessage.success('密码已重置，请用新密码登录')
     await router.push('/login')
   } catch {
-    await captchaRef.value?.refresh()
+    // 失败原因已由 http 层提示（防枚举：邮箱不存在也返回成功）
   } finally {
     submitting.value = false
   }
@@ -68,17 +63,7 @@ async function handleSubmit() {
         <el-input v-model="form.email" type="email" autocomplete="username" placeholder="you@example.com" />
       </el-form-item>
       <el-form-item label="邮箱验证码" prop="emailCode">
-        <EmailCodeField
-          v-model="form.emailCode"
-          :email="form.email"
-          scene="RESET_PASSWORD"
-          :captcha-id="form.captchaId"
-          :captcha-code="form.captchaCode"
-          @refresh-captcha="captchaRef?.refresh()"
-        />
-      </el-form-item>
-      <el-form-item label="图形验证码" prop="captchaCode">
-        <CaptchaField ref="captchaRef" v-model="form.captchaCode" v-model:captcha-id="form.captchaId" />
+        <EmailCodeField v-model="form.emailCode" :email="form.email" scene="RESET_PASSWORD" />
       </el-form-item>
       <el-form-item label="新密码" prop="newPassword">
         <el-input v-model="form.newPassword" type="password" autocomplete="new-password" show-password />

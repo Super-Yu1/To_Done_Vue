@@ -1,11 +1,13 @@
 <script setup lang="ts">
 /**
- * 邮箱验证码字段（3.2 / 6.5 ②，交互见 8.8）：6 位数字，按钮进入 60 秒倒计时；
- * 发送失败（图形码错 / 频次限制等）时通知调用方刷新图形验证码。
- * demo 为真时不请求后端，也不真的发信，直接进入倒计时（8.6）。
+ * 邮箱验证码字段（3.2 / 6.5 ②，交互见 8.8）：6 位数字，按钮进入 60 秒倒计时。
+ * 2026-10-14 起：图形码不再常驻表单 —— 点「获取验证码」弹窗输入，发出后自动关掉；
+ * 发送失败（图形码错 / 频次限制）弹窗保持打开并换一张新图形码。
+ * demo 为真时不请求后端、也不真发信，走同一套弹窗交互（图形码本地生成），只把倒计时跑起来。
  */
 import { computed, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import CaptchaDialog from '@/components/CaptchaDialog.vue'
 import { sendEmailCode } from '@/api/verify'
 import { EMAIL_CODE_LENGTH, EMAIL_CODE_RESEND_SECONDS } from '@/constants'
 import type { EmailCodeScene } from '@/types'
@@ -16,16 +18,18 @@ const DEMO_CODE_EXPIRE_SECONDS = 300
 const props = defineProps<{
   email: string
   scene: EmailCodeScene
-  captchaId: string
-  captchaCode: string
   demo?: boolean
 }>()
 
 const code = defineModel<string>({ required: true })
-const emit = defineEmits<{ sent: [number]; 'refresh-captcha': [] }>()
+const emit = defineEmits<{ sent: [number] }>()
 
 const seconds = ref(0)
 let timer: number | undefined
+
+const captchaVisible = ref(false)
+const sending = ref(false)
+const captchaDialogRef = ref<InstanceType<typeof CaptchaDialog>>()
 
 const buttonText = computed(() => (seconds.value > 0 ? `${seconds.value} 秒后重发` : '获取验证码'))
 const isDisabled = computed(() => seconds.value > 0)
@@ -45,35 +49,41 @@ function startCountdown(secondsToWait: number) {
 
 onUnmounted(stopTimer)
 
-async function handleSend() {
+/** 点按钮只负责打开图形码弹窗；真正发信在弹窗确认后 */
+function handleSend() {
   if (!props.email) {
     ElMessage.warning('请先填写邮箱')
     return
   }
-  if (!props.captchaCode) {
-    ElMessage.warning('请先填写图形验证码')
-    return
-  }
+  captchaVisible.value = true
+}
+
+async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: string }) {
   if (props.demo) {
+    captchaVisible.value = false
     startCountdown(EMAIL_CODE_RESEND_SECONDS)
     ElMessage.success('演示模式不会真的发邮件，填任意 6 位数字即可继续')
     emit('sent', DEMO_CODE_EXPIRE_SECONDS)
     return
   }
 
+  sending.value = true
   try {
     const result = await sendEmailCode({
       email: props.email,
       scene: props.scene,
-      captchaId: props.captchaId,
-      captchaCode: props.captchaCode,
+      captchaId: payload.captchaId,
+      captchaCode: payload.captchaCode,
     })
+    captchaVisible.value = false
     startCountdown(result.resendAfterSeconds || EMAIL_CODE_RESEND_SECONDS)
     ElMessage.success('验证码已发送，请查收邮件')
     emit('sent', result.expiresInSeconds)
   } catch {
-    // 失败原因已由 http 层提示；图形码一次性，失败后必须换一张
-    emit('refresh-captcha')
+    // 失败原因已由 http 层提示；图形码一次机会，换一张并让弹窗留着
+    captchaDialogRef.value?.refresh()
+  } finally {
+    sending.value = false
   }
 }
 </script>
@@ -89,6 +99,15 @@ async function handleSend() {
     <el-button class="email-code-field__button" :disabled="isDisabled" @click="handleSend">
       {{ buttonText }}
     </el-button>
+
+    <CaptchaDialog
+      ref="captchaDialogRef"
+      v-model:visible="captchaVisible"
+      tip="邮箱验证码需要先过一次图形码（防刷），输入后它会自动发出。"
+      :loading="sending"
+      :demo="demo"
+      @confirm="handleCaptchaConfirm"
+    />
   </div>
 </template>
 

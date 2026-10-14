@@ -5,6 +5,7 @@
  */
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { ADMIN_TOKEN_KEY, TOKEN_KEY } from '@/constants'
+import { readTokenState } from '@/utils/token'
 
 const APP_NAME = 'To_Done'
 
@@ -15,6 +16,19 @@ declare module 'vue-router' {
     /** 公开页：不需要登录 */
     isPublic?: boolean
   }
+}
+
+/**
+ * 站点根路径落到哪（2026-10-14 需求）：
+ * - 有可用 token → 任务页
+ * - token 过期（登录过期）→ 登录页
+ * - 没有 token（从没登录过 / 已登出）→ 演示模式首页
+ * 直接读 localStorage 而不是走 store：redirect 在导航解析时就要出结果，那时不该依赖 store 是否已初始化。
+ */
+function resolveEntry(): string {
+  const state = readTokenState(TOKEN_KEY)
+  if (state === 'valid') return '/tasks'
+  return state === 'expired' ? '/login' : '/demo'
 }
 
 const routes: RouteRecordRaw[] = [
@@ -65,7 +79,7 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: () => import('@/layouts/DefaultLayout.vue'),
     children: [
-      { path: '', redirect: '/tasks' },
+      { path: '', redirect: () => resolveEntry() },
       {
         path: 'tasks',
         name: 'tasks',
@@ -128,19 +142,24 @@ const router = createRouter({
 router.beforeEach((to) => {
   // 后台是另一套守卫：/admin/** 不参与演示模式，没有管理员 token 一律按未登录处理
   if (to.path.startsWith('/admin')) {
-    const hasAdminToken = localStorage.getItem(ADMIN_TOKEN_KEY) !== null
+    const hasAdminToken = readTokenState(ADMIN_TOKEN_KEY) === 'valid'
     if (to.meta.isPublic) {
       return to.name === 'admin-login' && hasAdminToken ? { path: '/admin/users' } : true
     }
     return hasAdminToken ? true : { path: '/admin/login', query: { redirect: to.fullPath } }
   }
 
-  const hasToken = localStorage.getItem(TOKEN_KEY) !== null
+  const tokenState = readTokenState(TOKEN_KEY)
   if (to.meta.isPublic) {
     const isAuthPage = to.name === 'login' || to.name === 'register'
-    return isAuthPage && hasToken ? { path: '/tasks' } : true
+    // 已登录的人不必停在登录/注册页；过期票允许停着，否则会在登录页与任务页之间来回跳
+    return isAuthPage && tokenState === 'valid' ? { path: '/tasks' } : true
   }
-  return hasToken ? true : { path: '/login', query: { redirect: to.fullPath } }
+  if (tokenState === 'valid') return true
+  // 登录过期 → 回登录页（带上回跳地址）；从没登录过或已登出 → 演示模式
+  return tokenState === 'expired'
+    ? { path: '/login', query: { redirect: to.fullPath } }
+    : { path: '/demo' }
 })
 
 router.afterEach((to) => {

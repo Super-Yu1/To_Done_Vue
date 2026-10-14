@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as authApi from '@/api/auth'
 import { TOKEN_KEY } from '@/constants'
+import { readTokenState } from '@/utils/token'
 import type {
   ChangeEmailPayload,
   ChangePasswordPayload,
@@ -14,7 +15,8 @@ import type {
 } from '@/types'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref(localStorage.getItem(TOKEN_KEY) ?? '')
+  // 过期票不算登录态；但**不删**它——路由要靠它区分「登录过期」与「从没登录过」
+  const token = ref(readTokenState(TOKEN_KEY) === 'valid' ? (localStorage.getItem(TOKEN_KEY) ?? '') : '')
   const user = ref<User | null>(null)
   const loading = ref(false)
 

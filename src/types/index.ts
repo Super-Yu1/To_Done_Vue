@@ -115,8 +115,13 @@ export interface RegisterPayload {
   password: string
   name: string
   emailCode: string
-  captchaId: string
-  captchaCode: string
+  /**
+   * 图形码（2026-10-14 定稿）：只在「获取验证码」时用一次，注册提交不再带。
+   * 保留为可选是为了配合后端 —— 它目前仍把这两个字段列为必填（会返回 400「请求参数不合法」，
+   * 见 `docs/后端修改说明.md`），改成可选后前端无需再动。
+   */
+  captchaId?: string
+  captchaCode?: string
 }
 
 export interface LoginPayload {
