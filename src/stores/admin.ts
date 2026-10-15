@@ -11,6 +11,7 @@ import type {
   AdminInfo,
   AdminLoginPayload,
   AdminUser,
+  AdminUserCreatePayload,
   AdminUserQuery,
   AdminUserUpdatePayload,
   CreateAdminPayload,
@@ -87,6 +88,15 @@ export const useAdminStore = defineStore('admin', () => {
     return adminApi.fetchAdminUser(id)
   }
 
+  /**
+   * 建号（8.9 新增）：只填邮箱 + 名字，密码由服务端生成。
+   * 结果原样返回、不缓存——initialPassword 只该出现在调用方手里那一次；
+   * 列表刷新由调用方在「初始密码」弹窗关闭后触发。
+   */
+  function createUser(payload: AdminUserCreatePayload) {
+    return adminApi.createAdminUser(payload)
+  }
+
   /** 改资料（名字 / 邮箱）；改了邮箱该用户会被强制重新登录（6.5 ⑫） */
   async function updateUser(id: string, payload: AdminUserUpdatePayload) {
     await adminApi.updateAdminUser(id, payload)
@@ -135,6 +145,7 @@ export const useAdminStore = defineStore('admin', () => {
     logout,
     fetchUsers,
     fetchUser,
+    createUser,
     updateUser,
     setFrozen,
     setDeleted,

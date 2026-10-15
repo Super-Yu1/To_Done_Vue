@@ -28,7 +28,7 @@ export function fetchTask(id: string): Promise<Task> {
   return request<Task>({ url: `/tasks/${id}`, method: 'GET' })
 }
 
-/** 新建任务（multipart：任务 + 配图） */
+/** 新建任务（multipart：任务 + 配图；imageOrder 已正式生效，'NEW' 数须与文件数一致） */
 export function createTask(
   payload: TaskPayload,
   images: File[] = [],

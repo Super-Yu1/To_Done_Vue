@@ -10,7 +10,7 @@ import { PAGE_SIZE, TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from '@/constants'
 import { groupTasksByState } from '@/utils/task'
 import { readStrikeMs, sleep } from '@/utils/timing'
 import { isDueToday, isOverdue, toIsoLocal } from '@/utils/date'
-import type { Task, TaskPayload, TaskQuery, TaskStats, TaskStatus } from '@/types'
+import type { Task, TaskPayload, TaskPriority, TaskQuery, TaskStats, TaskStatus } from '@/types'
 
 export function useDemoTasks() {
   const query = reactive<TaskQuery>({
@@ -157,6 +157,58 @@ export function useDemoTasks() {
     rebuild()
   }
 
+  /**
+   * 行内快捷改（E）：与真实 store 的 patchTask 同构 —— 只改这一行，
+   * recordedAt 不动，所以 rebuild() 之后位置不会跳。
+   */
+  function patchTask(id: string, patch: { priority?: TaskPriority; dueDate?: string | null }) {
+    const target = demoTasks.value.find((task) => task.id === id)
+    if (!target) return
+    if (patch.priority) {
+      target.priority = patch.priority
+      target.priorityLabel = TASK_PRIORITY_LABEL[patch.priority]
+    }
+    if (patch.dueDate !== undefined) target.dueDate = patch.dueDate
+    rebuild()
+  }
+
+  /** 批量改状态（F）：演示态没有后端，直接遍历内存，最后统一重排一次；返回失败条数（恒 0） */
+  function batchSetStatus(ids: string[], status: TaskStatus) {
+    ids.forEach((id) => {
+      const target = demoTasks.value.find((task) => task.id === id)
+      if (!target) return
+      target.status = status
+      target.statusLabel = TASK_STATUS_LABEL[status]
+      target.completedAt = status === 'DONE' ? toIsoLocal(new Date()) : null
+    })
+    rebuild()
+    return 0
+  }
+
+  function batchSetPriority(ids: string[], priority: TaskPriority) {
+    ids.forEach((id) => {
+      const target = demoTasks.value.find((task) => task.id === id)
+      if (!target) return
+      target.priority = priority
+      target.priorityLabel = TASK_PRIORITY_LABEL[priority]
+    })
+    rebuild()
+    return 0
+  }
+
+  /** 批量删除：一次性移入演示回收站（沿用各自 id，与真实链路的软删除一致） */
+  function batchRemove(ids: string[]) {
+    const targets = demoTasks.value.filter((task) => ids.includes(task.id))
+    const now = toIsoLocal(new Date())
+    demoTasks.value = demoTasks.value.filter((task) => !ids.includes(task.id))
+    demoTrash.value = [
+      ...targets.map((task) => ({ ...task, deletedAt: now, remainingDays: DEMO_TRASH_RETENTION_DAYS })),
+      ...demoTrash.value,
+    ]
+    rebuild()
+    return 0
+  }
+
   return {
     query,
     tasks,
@@ -170,5 +222,9 @@ export function useDemoTasks() {
     create,
     update,
     remove,
+    patchTask,
+    batchSetStatus,
+    batchSetPriority,
+    batchRemove,
   }
 }

@@ -5,6 +5,7 @@
  */
 import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import BackToTop from '@/components/BackToTop.vue'
 import TrashList from '@/components/TrashList.vue'
 import { useDemoTrash } from '@/composables/useDemoTrash'
 import type { TrashTask } from '@/types'
@@ -75,5 +76,7 @@ async function handleClear() {
       @purge="handlePurge"
       @clear="handleClear"
     />
+
+    <BackToTop />
   </div>
 </template>

@@ -66,6 +66,16 @@ export const TASK_PRIORITY_COLOR: Record<TaskPriority, string> = {
   HIGH: 'var(--color-priority-high)',
 }
 
+/**
+ * 优先级胶囊的样式类（2026-10-15 改版）：样式在 main.css 的 .prio / .prio--* 里定义，
+ * 这里只给出「三档 → 类名」的映射，组件用 :class 挂上去即可，避免各处再写一遍色值。
+ */
+export const TASK_PRIORITY_CLASS: Record<TaskPriority, string> = {
+  LOW: 'prio--low',
+  MEDIUM: 'prio--medium',
+  HIGH: 'prio--high',
+}
+
 /*
  * 优先级权重与排序选项已移除：列表顺序改为固定规则（见 utils/task），
  * 前端不再按优先级排序，6.5 ⑥ 的「priority 按业务权重排」由后端实现。

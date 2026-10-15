@@ -44,7 +44,7 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
     <el-select
       v-model="query.status"
       class="filter-bar__select"
-      placeholder="全部"
+      placeholder="全部状态"
       clearable
       @change="emit('change')"
     >
@@ -60,6 +60,9 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
       <AppIcon name="refresh" />
       <span class="filter-bar__refresh-text">刷新</span>
     </el-button>
+
+    <!-- 排序口径说明（G）：顺序是固定规则，没有排序控件，所以把规则写在明面上 -->
+    <span class="filter-bar__order">未完成在前 · 按创建时间；已完成按完成时间</span>
   </div>
 </template>
 
@@ -83,5 +86,11 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 
 .filter-bar__refresh-text {
   margin-left: 6px;
+}
+
+.filter-bar__order {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-text-3);
 }
 </style>

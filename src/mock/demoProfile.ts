@@ -8,9 +8,9 @@ import type { User } from '@/types'
 
 export const DEMO_USER: User = {
   id: 'demo-user',
-  email: 'zhilin@example.com',
-  name: '林知远',
+  email: 'todone@example.com',
+  name: 'ToDone',
   phone: '13912345678',
-  avatarUrl: placeholderAvatar('林'),
+  avatarUrl: placeholderAvatar('T'),
   createdAt: isoDaysFromNow(-46, 10),
 }

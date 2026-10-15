@@ -25,7 +25,12 @@ interface Slot {
   objectUrl?: string
 }
 
-const props = defineProps<{ images?: TaskImage[]; submitting?: boolean }>()
+const props = defineProps<{
+  images?: TaskImage[]
+  submitting?: boolean
+  /** 只读（详情模式）：只铺缩略图，不给添加 / 拖动 / 删除的入口，点图可放大看 */
+  readonly?: boolean
+}>()
 const model = defineModel<{ order: string[]; files: File[] }>({ required: true })
 
 const slots = ref<Slot[]>([])
@@ -35,6 +40,11 @@ const dragKey = ref('')
 const hint = computed(
   () => `最多 ${TASK_MAX_IMAGES} 张，单张不超过 ${UPLOAD_MAX_BYTES / 1024 / 1024}MB；` +
     '超过 1920px 或 1MB 的图会在本地压一次（GIF 不压）',
+)
+
+/** 只读时点图放大的预览列表：只含已有图（新选的图还没上传，没有可预览的直链） */
+const previewList = computed(() =>
+  slots.value.filter((slot) => slot.ref !== 'NEW').map((slot) => slot.preview),
 )
 
 /** 已有图（编辑时）同步成槽位；新选的图不动 */
@@ -128,21 +138,32 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
 </script>
 
 <template>
-  <div class="images">
+  <div class="images" :class="{ 'images--readonly': readonly }">
     <ul v-if="slots.length" class="images__list">
       <li
         v-for="slot in slots"
         :key="slot.key"
         class="images__item"
-        :draggable="!submitting"
-        :title="slot.ref === 'NEW' ? '新选择的图片（保存时上传）' : '已有图片'"
+        :draggable="!submitting && !readonly"
+        :title="readonly ? '点击放大' : slot.ref === 'NEW' ? '新选择的图片（保存时上传）' : '已有图片'"
         @dragstart="onDragStart(slot)"
         @dragover.prevent
         @drop.prevent="onDrop(slot)"
       >
-        <img class="images__thumb" :src="slot.preview" alt="" draggable="false" />
+        <!-- 只读：缩略图可点开放大看（已有图是预签名直链） -->
+        <el-image
+          v-if="readonly && slot.ref !== 'NEW'"
+          class="images__thumb"
+          :src="slot.preview"
+          :preview-src-list="previewList"
+          :initial-index="previewList.indexOf(slot.preview)"
+          fit="cover"
+          preview-teleported
+        />
+        <img v-else class="images__thumb" :src="slot.preview" alt="" draggable="false" />
         <span v-if="slot.ref === 'NEW'" class="images__badge">新</span>
         <button
+          v-if="!readonly"
           class="images__remove"
           type="button"
           :aria-label="'移除这张配图'"
@@ -154,7 +175,7 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
       </li>
     </ul>
 
-    <div class="images__footer">
+    <div v-if="!readonly" class="images__footer">
       <button
         class="row-action"
         type="button"
@@ -167,6 +188,7 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
     </div>
 
     <input
+      v-if="!readonly"
       ref="inputRef"
       class="images__input"
       type="file"
@@ -199,6 +221,17 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
   border-radius: var(--radius-md);
   overflow: hidden;
   cursor: grab;
+}
+
+/* 只读：不能拖（没有排序这回事了），点图是放大看 */
+.images--readonly .images__item {
+  cursor: zoom-in;
+}
+
+.images--readonly .images__thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .images__thumb {

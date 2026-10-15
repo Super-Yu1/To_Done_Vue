@@ -6,7 +6,6 @@
  */
 import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { RouterLink } from 'vue-router'
 import AppearanceSettings from '@/components/profile/AppearanceSettings.vue'
 import AvatarCropDialog from '@/components/profile/AvatarCropDialog.vue'
 import BasicInfoDialog from '@/components/profile/BasicInfoDialog.vue'
@@ -114,20 +113,6 @@ async function handleRemoveAvatar() {
       <AppearanceSettings />
     </div>
 
-    <h2 class="settings-group-title">下一步</h2>
-    <div class="settings-group">
-      <SettingRow label="注册账号" value="注册后就能真正记录并管理你的任务">
-        <div class="demo-actions">
-          <RouterLink to="/register">
-            <el-button type="primary" size="small">注册账号</el-button>
-          </RouterLink>
-          <RouterLink to="/login">
-            <el-button size="small">登录</el-button>
-          </RouterLink>
-        </div>
-      </SettingRow>
-    </div>
-
     <BasicInfoDialog v-model:visible="basicVisible" :user="DEMO_USER" @submit="handleBasicSubmit" />
     <EmailChangeDialog v-model:visible="emailVisible" demo @submit="handleEmailSubmit" />
     <PasswordChangeDialog
@@ -148,10 +133,5 @@ async function handleRemoveAvatar() {
 
 .profile-block {
   margin-top: 20px;
-}
-
-.demo-actions {
-  display: flex;
-  gap: 8px;
 }
 </style>

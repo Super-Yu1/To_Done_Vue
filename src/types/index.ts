@@ -117,8 +117,7 @@ export interface RegisterPayload {
   emailCode: string
   /**
    * 图形码（2026-10-14 定稿）：只在「获取验证码」时用一次，注册提交不再带。
-   * 保留为可选是为了配合后端 —— 它目前仍把这两个字段列为必填（会返回 400「请求参数不合法」，
-   * 见 `docs/后端修改说明.md`），改成可选后前端无需再动。
+   * 后端已把注册接口的这两个字段改为可选并忽略（2026-10-15 确认），保留为可选仅为兼容。
    */
   captchaId?: string
   captchaCode?: string
@@ -224,6 +223,18 @@ export interface AdminUserQuery {
 export interface AdminUserUpdatePayload {
   name?: string
   email?: string
+}
+
+/** 后台创建用户（8.9 新增）：只填邮箱 + 名字，密码由服务端随机生成 */
+export interface AdminUserCreatePayload {
+  email: string
+  name: string
+}
+
+/** 后台创建用户的结果：initialPassword 只在本次响应里返回一次（服务端不存明文） */
+export interface AdminUserCreateResult {
+  user: AdminUser
+  initialPassword: string
 }
 
 export interface FreezePayload {

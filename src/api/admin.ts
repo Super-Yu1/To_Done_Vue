@@ -5,6 +5,8 @@ import type {
   AdminInfo,
   AdminLoginPayload,
   AdminUser,
+  AdminUserCreatePayload,
+  AdminUserCreateResult,
   AdminUserQuery,
   AdminUserUpdatePayload,
   CreateAdminPayload,
@@ -20,6 +22,15 @@ export function adminLogin(payload: AdminLoginPayload): Promise<AdminAuthResult>
 /** 用户列表（分页 + 按邮箱/名字/手机号搜索 + 状态筛选；不传 status = 正常 + 已冻结） */
 export function fetchAdminUsers(params: AdminUserQuery): Promise<PageResult<AdminUser>> {
   return request<PageResult<AdminUser>>({ url: '/admin/users', method: 'GET', params })
+}
+
+/**
+ * 创建用户（管理员直接建号，不需要邮箱验证码与图形码）。
+ * 响应里的 initialPassword 是唯一一次明文：服务端只存 BCrypt、不写日志，必须立刻展示并复制。
+ * 邮箱已被活跃账号占用 → 1002；已注销账号占用的邮箱可复用。
+ */
+export function createAdminUser(payload: AdminUserCreatePayload): Promise<AdminUserCreateResult> {
+  return request<AdminUserCreateResult>({ url: '/admin/users', method: 'POST', data: payload })
 }
 
 /** 用户详情（含任务数、图片数、冻结信息） */

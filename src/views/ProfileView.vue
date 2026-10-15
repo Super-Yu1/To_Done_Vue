@@ -40,7 +40,6 @@ const savingAvatar = ref(false)
 
 /** 选中的原图：交给裁剪弹窗，确认后才有 File 上传 */
 const pickedFile = ref<File | null>(null)
-const emailDialogRef = ref<InstanceType<typeof EmailChangeDialog>>()
 
 const user = computed(() => auth.user)
 
@@ -88,8 +87,7 @@ async function handleChangeEmail(payload: ChangeEmailPayload) {
     auth.logout()
     await router.push('/login')
   } catch {
-    // 1002 邮箱被占用等由 http 层提示；图形码一次性，失败后换一张
-    await emailDialogRef.value?.refreshCaptcha()
+    // 1002 邮箱被占用等由 http 层提示；弹窗保持打开，用户在原地改
   } finally {
     savingEmail.value = false
   }
@@ -242,7 +240,6 @@ async function handleLogout() {
       @submit="handleEditBasic"
     />
     <EmailChangeDialog
-      ref="emailDialogRef"
       v-model:visible="emailVisible"
       :saving="savingEmail"
       @submit="handleChangeEmail"

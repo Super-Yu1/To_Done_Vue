@@ -1,12 +1,12 @@
 <script setup lang="ts">
 /**
- * 回收站行（一行一任务），与主页的 TaskItem.vue 同一套行版式：
- * 26px 前置位 + 正文（标题 + 一行描述）+ 168px 右对齐元信息 + 图标操作，卡片壳同为
- * 圆角 / 1px 描边 / 16×20 内边距 / 悬停提亮——目的就是让两个页面读起来是同一列表。
+ * 回收站行（一行一任务），与主页的 TaskItem.vue 同一套行版式（2026-10-15 同步改版）：
+ * 34px 前置位 + 正文（标题 / 一行描述 / 元信息行）+ 图标操作，卡片壳同为
+ * 圆角 / 1px 描边 / 16×20 内边距 / 悬停提亮 —— 目的就是让两个页面读起来是同一列表。
  *
  * 两处刻意的差异：
  *   ① 前置位是「已删除」标记（描边圆圈 + 垃圾桶图标），不是可点的勾选框；
- *   ② 元信息第一行放「剩余 N 天」而不是优先级——回收站里要抢注意的是保留期。
+ *   ② 元信息行第一项是「剩余 N 天」而不是优先级——回收站里要抢注意的是保留期。
  * 整行不可点（回收站没有编辑入口），所以不加 role="button" 与 cursor: pointer。
  * 样式与 TaskItem.vue 的 .task-row 成对维护：改一处要同步另一处。
  */
@@ -28,19 +28,21 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
 <template>
   <article class="trash-row">
     <span class="trash-row__mark" aria-hidden="true">
-      <AppIcon name="trash" :size="14" />
+      <span class="trash-row__mark-ring">
+        <AppIcon name="trash" :size="14" />
+      </span>
     </span>
 
     <div class="trash-row__body">
       <h3 class="trash-row__title">{{ task.title }}</h3>
       <p v-if="task.description" class="trash-row__description">{{ task.description }}</p>
-    </div>
 
-    <div class="trash-row__meta">
-      <span class="trash-row__pill" :class="{ 'trash-row__pill--soon': soon }">
-        剩余 {{ task.remainingDays }} 天
-      </span>
-      <p class="trash-row__deleted">{{ deletedText }}</p>
+      <div class="trash-row__meta">
+        <span class="trash-row__pill" :class="{ 'trash-row__pill--soon': soon }">
+          剩余 {{ task.remainingDays }} 天
+        </span>
+        <p class="trash-row__deleted">{{ deletedText }}</p>
+      </div>
     </div>
 
     <div class="trash-row__actions">
@@ -69,8 +71,8 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
 <style scoped>
 .trash-row {
   display: grid;
-  /* 前四列与 TaskItem 一致；操作列因要放「恢复 + 彻底删除」两个 32px 图标而宽到 72px */
-  grid-template-columns: 26px minmax(0, 1fr) 168px 72px;
+  /* 前置位与主页同为 34px（那边是命中区、这边是标记位），操作列 72px 放两个 32px 图标 */
+  grid-template-columns: 34px minmax(0, 1fr) 72px;
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
@@ -87,8 +89,17 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
   background-color: var(--color-hover);
 }
 
-/* 前置位：与主页勾选框同尺寸的描边圆圈，里面放垃圾桶图标表示「已删除」 */
+/* 前置位：34px 框里放一个 26px 描边圆圈，与主页勾选框同尺寸 */
 .trash-row__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--color-text-3);
+}
+
+.trash-row__mark-ring {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -96,7 +107,6 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
   height: 26px;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
-  color: var(--color-text-3);
 }
 
 .trash-row__body {
@@ -124,20 +134,20 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
   word-break: break-word;
 }
 
-/* 元信息列：右对齐 + 等宽数字，与主页的优先级/时间列同宽同对齐方式 */
+/* 元信息行：与主页同一位置（正文下方左对齐），保证两页竖扫时行高节奏一致 */
 .trash-row__meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  text-align: right;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
 }
 
+/* 胶囊尺寸与主页优先级胶囊一致（20px 高 / 8px 内边距） */
 .trash-row__pill {
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 10px;
+  height: 20px;
+  padding: 0 8px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
   font-size: 12px;
@@ -192,20 +202,11 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
   background-color: var(--color-bg);
 }
 
-/* 窄屏：元信息与操作换到第二段、左对齐（与主页行同一套断点与行为） */
+/* 窄屏：操作换到第二段、左对齐（与主页行同一套断点与行为） */
 @container (max-width: 640px) {
   .trash-row {
-    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-columns: 34px minmax(0, 1fr);
     gap: 12px;
-  }
-
-  .trash-row__meta {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    grid-column: 2;
-    text-align: left;
   }
 
   .trash-row__actions {

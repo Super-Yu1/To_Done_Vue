@@ -20,6 +20,8 @@ export type IconName =
   | 'lock'
   | 'back'
   | 'inbox'
+  | 'copy'
+  | 'up'
 
 export const ICON_PATHS: Record<IconName, string[]> = {
   monitor: ['M3 4h18v12H3z', 'M8 20h8', 'M12 16v4'],
@@ -49,4 +51,6 @@ export const ICON_PATHS: Record<IconName, string[]> = {
   lock: ['M6 11h12v9H6z', 'M9 11V8a3 3 0 0 1 6 0v3'],
   back: ['M15 5l-7 7 7 7'],
   inbox: ['M4 13h5l1 2h4l1-2h5', 'M4 13 6.5 5h11L20 13v6H4z'],
+  copy: ['M9 9h11v11H9z', 'M15 9V4H4v11h5'],
+  up: ['M5 15l7-7 7 7'],
 }

@@ -1,18 +1,45 @@
 <script setup lang="ts">
 /**
- * 任务行（一行一任务）：
- * 只显示标题 + **一行**描述，不展示配图；整行就是编辑入口——点卡片进编辑，
- * 勾选与删除各自 stop，不会连带触发编辑。
- * 右侧元信息列定宽右对齐，让优先级与截止时间在整页形成可竖扫的一条线。
+ * 任务行（8.5；2026-10-15 改版）：
+ * 信息全部聚在左侧一列 —— 标题 / 描述 / 元信息行（优先级 · 截止时间）左对齐，
+ * 右侧只留操作。原「168px 右对齐元信息列」在宽屏下离标题隔了一整屏（问题见
+ * docs/前端修改说明 第 3 条 A），故去掉；元信息行的左边缘与标题对齐，整列竖扫仍是齐的。
+ *
+ * 整行点击 = 打开**只读详情**（不是直接进编辑）：编辑入口挪到详情弹窗右上角那个按钮上。
+ *
+ * 行内快捷入口（E）：优先级胶囊点开就是三档选择、截止时间点开就地弹日期面板；
+ * 本组件只发事件，落接口由调用方负责（真实页走 store、演示页走内存态）。
+ * 勾选完成：视觉仍是 26px 圆环，命中区扩到 34px（D）。
+ * 批量选择（F）：前置位换成方形多选框，行内快捷入口与删除整体禁用/隐藏。
  */
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
-import { TASK_PRIORITY_COLOR, TASK_PRIORITY_LABEL } from '@/constants'
+import PriorityPicker from './PriorityPicker.vue'
+import { TASK_PRIORITY_CLASS, TASK_PRIORITY_LABEL } from '@/constants'
 import { formatDateTime, isOverdue } from '@/utils/date'
-import type { Task } from '@/types'
+import type { Task, TaskPriority } from '@/types'
 
-const props = defineProps<{ task: Task }>()
-const emit = defineEmits<{ edit: [Task]; remove: [Task]; 'toggle-status': [Task] }>()
+const props = defineProps<{
+  task: Task
+  /** 批量选择模式：前置位换方形框、行内快捷入口禁用、点击整行 = 勾选 */
+  selectMode?: boolean
+  selected?: boolean
+}>()
+
+const emit = defineEmits<{
+  /** 点击整行：打开只读详情（编辑入口在详情弹窗右上角，2026-10-15 起） */
+  open: [Task]
+  remove: [Task]
+  'toggle-status': [Task]
+  'change-priority': [Task, TaskPriority]
+  'change-due-date': [Task, string | null]
+  'toggle-select': [Task]
+}>()
+
+/** 日期选择器只用到「展开面板」这一个能力，这里只声明用到的那部分，不引组件内部类型 */
+interface PickerHandle {
+  handleOpen: () => void
+}
 
 const isDone = computed(() => props.task.status === 'DONE')
 const overdue = computed(() => isOverdue(props.task.dueDate, props.task.status))
@@ -20,50 +47,146 @@ const dueText = computed(() =>
   props.task.dueDate ? formatDateTime(props.task.dueDate) : '未设截止时间',
 )
 
-/** 整行点击即编辑；但用户若正在划选文字（例如想复制描述），这一下不该被当成点击 */
-function handleEdit() {
+const priorityOpen = ref(false)
+
+function pickPriority(priority: TaskPriority) {
+  priorityOpen.value = false
+  if (priority === props.task.priority) return
+  emit('change-priority', props.task, priority)
+}
+
+/**
+ * 截止时间：平时是文字按钮，点开才实例化日期选择器并展开面板 ——
+ * 一行只实例化一个，长列表滚动时不会为每行都建一个 picker。
+ * 收起时机取「面板关闭」（visible-change = false）：用 blur 会在点面板时误收。
+ */
+const dueEditing = ref(false)
+const duePicker = ref<PickerHandle | null>(null)
+
+async function openDue() {
+  dueEditing.value = true
+  await nextTick()
+  duePicker.value?.handleOpen()
+}
+
+function commitDue(value: string | null) {
+  dueEditing.value = false
+  emit('change-due-date', props.task, value || null)
+}
+
+function handleDueVisible(visible: boolean) {
+  if (!visible) dueEditing.value = false
+}
+
+/** 整行点击：选择模式下改为勾选；用户正在划选文字（想复制）时不触发 */
+function handleRowClick() {
+  if (props.selectMode) {
+    emit('toggle-select', props.task)
+    return
+  }
   if (window.getSelection()?.toString()) return
-  emit('edit', props.task)
+  emit('open', props.task)
 }
 </script>
 
 <template>
   <article
     class="task-row"
-    :class="{ 'task-row--done': isDone }"
+    :class="{ 'task-row--done': isDone, 'task-row--select': selectMode, 'task-row--selected': selected }"
     role="button"
     tabindex="0"
-    :aria-label="`编辑任务：${task.title}`"
-    @click="handleEdit"
-    @keydown.enter.prevent="handleEdit"
-    @keydown.space.prevent="handleEdit"
+    :aria-label="selectMode ? `选择任务：${task.title}` : `查看任务详情：${task.title}`"
+    @click="handleRowClick"
+    @keydown.enter.prevent="handleRowClick"
+    @keydown.space.prevent="handleRowClick"
   >
+    <!-- 批量选择模式：方形多选框 —— 形状与「完成」圆环不同，避免两种语义混淆 -->
+    <span
+      v-if="selectMode"
+      class="task-row__box"
+      :class="{ 'task-row__box--on': selected }"
+      aria-hidden="true"
+    >
+      <AppIcon v-if="selected" name="check" :size="14" />
+    </span>
+
     <button
+      v-else
       class="task-row__check"
       type="button"
       :aria-pressed="isDone"
       :aria-label="isDone ? '标记为未完成' : '标记为已完成'"
+      :title="isDone ? '标记为未完成' : '标记为已完成'"
       @click.stop="emit('toggle-status', task)"
     >
-      <AppIcon name="check" :size="14" />
+      <span class="task-row__check-ring">
+        <AppIcon name="check" :size="14" />
+      </span>
     </button>
 
     <div class="task-row__body">
       <h3 class="task-row__title">{{ task.title }}</h3>
       <p v-if="task.description" class="task-row__description">{{ task.description }}</p>
+
+      <div class="task-row__meta">
+        <el-popover
+          v-model:visible="priorityOpen"
+          trigger="click"
+          placement="bottom-start"
+          :width="128"
+          :disabled="selectMode"
+        >
+          <template #reference>
+            <button
+              class="task-row__prio prio"
+              :class="TASK_PRIORITY_CLASS[task.priority]"
+              type="button"
+              :disabled="selectMode"
+              :aria-label="`优先级 ${TASK_PRIORITY_LABEL[task.priority]}，点击修改`"
+              :title="selectMode ? '' : '修改优先级'"
+              @click.stop
+            >
+              <span
+                class="prio__dot"
+                :class="{ 'prio__dot--hollow': task.priority !== 'HIGH' }"
+                aria-hidden="true"
+              />
+              {{ TASK_PRIORITY_LABEL[task.priority] }}
+            </button>
+          </template>
+          <PriorityPicker :value="task.priority" @pick="pickPriority" />
+        </el-popover>
+
+        <el-date-picker
+          v-if="dueEditing"
+          ref="duePicker"
+          class="task-row__picker"
+          size="small"
+          type="datetime"
+          value-format="YYYY-MM-DDTHH:mm:ss"
+          format="YYYY-MM-DD HH:mm"
+          :model-value="task.dueDate"
+          :editable="false"
+          clearable
+          placeholder="未设截止时间"
+          @change="commitDue"
+          @visible-change="handleDueVisible"
+        />
+        <button
+          v-else
+          class="task-row__due"
+          :class="{ 'task-row__due--overdue': overdue, 'task-row__due--empty': !task.dueDate }"
+          type="button"
+          :disabled="selectMode"
+          :title="selectMode ? '' : task.dueDate ? '修改截止时间' : '设置截止时间'"
+          @click.stop="openDue"
+        >
+          {{ dueText }}
+        </button>
+      </div>
     </div>
 
-    <div class="task-row__meta">
-      <span class="task-row__pill" :style="{ color: TASK_PRIORITY_COLOR[task.priority] }">
-        {{ TASK_PRIORITY_LABEL[task.priority] }}
-      </span>
-      <p class="task-row__due" :class="{ 'task-row__due--overdue': overdue }">
-        <span v-if="overdue" class="task-row__overdue-dot" aria-hidden="true"></span>
-        {{ dueText }}
-      </p>
-    </div>
-
-    <div class="task-row__actions">
+    <div v-if="!selectMode" class="task-row__actions">
       <button
         class="task-row__action"
         type="button"
@@ -80,7 +203,8 @@ function handleEdit() {
 <style scoped>
 .task-row {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 168px 32px;
+  /* 前置位 34px：勾选圈的命中区（圆环本身仍是 26px），与回收站的标记列同宽，两页文字左边缘对齐 */
+  grid-template-columns: 34px minmax(0, 1fr) 32px;
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
@@ -97,26 +221,70 @@ function handleEdit() {
   background-color: var(--color-hover);
 }
 
-/* 勾选：26px 命中区，全圆描边，完成后填状态色 */
+/* 批量选择：选中行留一个持久的高亮，避免与 hover 混在一起认不出来 */
+.task-row--selected {
+  border-color: var(--color-border-strong);
+  background-color: var(--color-hover);
+}
+
+/* 勾选：34px 命中区包着 26px 圆环，视觉尺寸不变、点得更容易（D） */
 .task-row__check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  cursor: pointer;
+}
+
+.task-row__check-ring {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 26px;
   height: 26px;
-  padding: 0;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-pill);
-  background-color: transparent;
   color: transparent;
-  cursor: pointer;
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
 
-.task-row__check:hover {
+/* 悬停时给出「点一下就会完成」的预览：淡绿底 + 半透明勾号 */
+.task-row__check:hover .task-row__check-ring {
   border-color: var(--color-status-done);
+  background-color: color-mix(in srgb, var(--color-status-done) 12%, transparent);
   color: var(--color-status-done);
+}
+
+.task-row__check:active .task-row__check-ring {
+  background-color: color-mix(in srgb, var(--color-status-done) 22%, transparent);
+}
+
+/* 批量选择：前置位换成方形框（与完成圆环区分开） */
+.task-row__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0 6px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: transparent;
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
+}
+
+.task-row__box--on {
+  border-color: var(--color-primary-bg);
+  background-color: var(--color-primary-bg);
+  color: var(--color-primary-fg);
 }
 
 .task-row__body {
@@ -153,44 +321,73 @@ function handleEdit() {
   word-break: break-word;
 }
 
-/* 元信息列：右对齐 + 等宽数字，整页竖扫时优先级与时间对齐成一条线 */
+/*
+ * 元信息行：优先级与截止时间和标题同一起点，宽屏下也不用横穿整屏去找它们（A/C）。
+ * 固定顺序（优先级在前、时间在后）与 10px 间距，让整列竖扫时两项都在同一条线上。
+ */
 .task-row__meta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  text-align: right;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
 }
 
-.task-row__pill {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  font-size: 12px;
-  line-height: 1;
+.task-row__prio {
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+
+.task-row__prio:hover:not(:disabled) {
+  border-color: currentColor;
 }
 
 .task-row__due {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  padding: 0;
+  border: none;
+  background-color: transparent;
+  color: var(--color-text-2);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-2);
+  line-height: 1.6;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease);
 }
 
-.task-row__due--overdue {
+.task-row__due:hover:not(:disabled) {
+  color: var(--color-text);
+}
+
+.task-row__due--empty {
+  color: var(--color-text-3);
+}
+
+/* 逾期：只用红字（原先左边插一个小圆点，会让整列左右晃） */
+.task-row__due--overdue,
+.task-row__due--overdue:hover:not(:disabled) {
   color: var(--color-danger);
+  font-weight: 500;
 }
 
-.task-row__overdue-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: var(--radius-pill);
-  background-color: currentColor;
+.task-row__prio:disabled,
+.task-row__due:disabled {
+  cursor: default;
+}
+
+/* 就地编辑的日期面板：外观贴着元信息文字，点开才出现 */
+.task-row__picker {
+  width: 152px;
+}
+
+.task-row__picker :deep(.el-input__wrapper) {
+  padding: 0 4px;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.task-row__picker :deep(.el-input__inner) {
+  height: 20px;
+  color: var(--color-text-2);
+  font-size: 12px;
 }
 
 .task-row__actions {
@@ -225,7 +422,7 @@ function handleEdit() {
   background-size: 100% 1px;
 }
 
-.task-row--done .task-row__check {
+.task-row--done .task-row__check-ring {
   border-color: var(--color-status-done);
   background-color: var(--color-status-done);
   color: var(--color-surface);
@@ -235,17 +432,11 @@ function handleEdit() {
   color: var(--color-text-3);
 }
 
-/* 窄屏：元信息与删除换到第二段，左对齐（桌面优先，这里只保证不挤坏） */
+/* 窄屏：元信息与操作换到第二段，左对齐（桌面优先，这里只保证不挤坏） */
 @container (max-width: 640px) {
   .task-row {
-    grid-template-columns: 26px minmax(0, 1fr);
+    grid-template-columns: 34px minmax(0, 1fr);
     gap: 12px;
-  }
-
-  .task-row__meta {
-    grid-column: 2;
-    align-items: flex-start;
-    text-align: left;
   }
 
   .task-row__actions {

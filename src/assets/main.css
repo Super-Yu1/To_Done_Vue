@@ -21,6 +21,20 @@
   --color-status-done: #4c9a6a;
   --color-priority-high: #d08a3e;
   --color-priority-normal: #8c8c8c;
+  /*
+   * 优先级三档（2026-10-15 改版）：低 / 中 / 高各一套「浅底 + 描边 + 文字」。
+   * 文字色比原先的 --color-priority-high 更深，是为了在有色底上仍能读到 4.5:1 以上；
+   * 形状（实心 / 空心 / 无点）是第二重编码，色觉差异下也分得开。
+   */
+  --color-priority-high-fg: #9a5f1c;
+  --color-priority-high-bg: #fbf1e4;
+  --color-priority-high-border: #eeddc4;
+  --color-priority-medium-fg: #6f6f6f;
+  --color-priority-medium-bg: #f3f3f3;
+  --color-priority-medium-border: #e6e6e6;
+  --color-priority-low-fg: #8c8c8c;
+  --color-priority-low-bg: transparent;
+  --color-priority-low-border: #e2e2e2;
   --color-mask: rgba(0, 0, 0, 0.28);
   /*
    * 圆角阶梯：全站（含 Element Plus）只从这四档取值，不再出现零散数值。
@@ -73,6 +87,15 @@ html.dark {
   --color-status-done: #6fbf8f;
   --color-priority-high: #d9a05b;
   --color-priority-normal: #9a9a9a;
+  --color-priority-high-fg: #e0a95f;
+  --color-priority-high-bg: #33261a;
+  --color-priority-high-border: #4b3722;
+  --color-priority-medium-fg: #b3b3b3;
+  --color-priority-medium-bg: #242424;
+  --color-priority-medium-border: #333333;
+  --color-priority-low-fg: #9a9a9a;
+  --color-priority-low-bg: transparent;
+  --color-priority-low-border: #333333;
   --color-mask: rgba(0, 0, 0, 0.6);
   --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
@@ -435,6 +458,55 @@ img {
 /* 图标按钮里跟在图标后面的文字：全站只此一处定义 */
 .btn-text {
   margin-left: 6px;
+}
+
+/*
+ * 优先级胶囊（任务行 / 回收站列表共用，2026-10-15 改版）：
+ * 颜色三档各一套 + 形状前缀点（高实心、中空心、低无点），一眼扫过去先看见「高」。
+ * 需要可点的场合在外层按钮上加交互反馈，这里只负责长相。
+ */
+.prio {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.prio__dot {
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background-color: currentColor;
+}
+
+.prio__dot--hollow {
+  background-color: transparent;
+  border: 1px solid currentColor;
+}
+
+.prio--high {
+  border-color: var(--color-priority-high-border);
+  background-color: var(--color-priority-high-bg);
+  color: var(--color-priority-high-fg);
+}
+
+.prio--medium {
+  border-color: var(--color-priority-medium-border);
+  background-color: var(--color-priority-medium-bg);
+  color: var(--color-priority-medium-fg);
+}
+
+.prio--low {
+  border-color: var(--color-priority-low-border);
+  background-color: var(--color-priority-low-bg);
+  color: var(--color-priority-low-fg);
 }
 
 /* ⑤ 减少动效：命中系统偏好时动画退化为瞬时 */

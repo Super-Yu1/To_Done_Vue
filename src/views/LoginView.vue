@@ -1,10 +1,13 @@
 <script setup lang="ts">
-/** 登录（UC-02 / 6.5 ④）：邮箱 + 密码 + 图形验证码；用户名不再用于登录 */
+/**
+ * 登录（UC-02 / 6.5 ④）：邮箱 + 密码；图形码在点「登录」时弹窗输入（2026-10-15，原先常驻表单）。
+ * 登录接口要 captchaId + captchaCode（Swagger 必填），所以弹窗确认后才带着它提交。
+ */
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import AuthShell from '@/components/AuthShell.vue'
-import CaptchaField from '@/components/CaptchaField.vue'
+import CaptchaDialog from '@/components/CaptchaDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -27,13 +30,11 @@ onMounted(() => {
 })
 
 const formRef = ref<FormInstance>()
-const captchaRef = ref<InstanceType<typeof CaptchaField>>()
+const captchaVisible = ref(false)
 
 const form = reactive({
   email: '',
   password: '',
-  captchaId: '',
-  captchaCode: '',
 })
 
 const rules: FormRules = {
@@ -42,21 +43,27 @@ const rules: FormRules = {
     { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
   ],
   password: [{ required: true, message: '请填写密码', trigger: 'blur' }],
-  captchaCode: [{ required: true, message: '请填写图形验证码', trigger: 'blur' }],
 }
 
+/** 校验通过先弹图形码，不在这里发请求 */
 async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
+  captchaVisible.value = true
+}
+
+async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: string }) {
   try {
-    await auth.login({ ...form })
+    await auth.login({ ...form, ...payload })
+    captchaVisible.value = false
     ElMessage.success('登录成功')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tasks'
     await router.push(redirect)
   } catch {
-    // 失败原因由 http 层提示（1003 / 1006 / 1007 共用同一弹窗通道）；
-    // 图形验证码只有一次机会，失败后必须换一张并清空输入
-    await captchaRef.value?.refresh()
+    // 失败原因由 http 层提示（4001 图形码错 / 1003 邮箱或密码错 / 1006 冻结 / 1007 注销）。
+    // 一律关掉弹窗：密码也可能填错，留住弹窗会逼用户为一次输错连填两次图形码；
+    // 弹窗是 destroy-on-close 的，下次点「登录」自然是一张新图。
+    captchaVisible.value = false
   }
 }
 </script>
@@ -72,18 +79,18 @@ async function handleSubmit() {
       <el-form-item label="密码" prop="password">
         <el-input v-model="form.password" type="password" autocomplete="current-password" show-password />
       </el-form-item>
-      <el-form-item label="图形验证码" prop="captchaCode">
-        <CaptchaField
-          ref="captchaRef"
-          v-model="form.captchaCode"
-          v-model:captcha-id="form.captchaId"
-        />
-      </el-form-item>
 
       <el-button class="submit" type="primary" :loading="auth.loading" @click="handleSubmit">
         登录
       </el-button>
     </el-form>
+
+    <CaptchaDialog
+      v-model:visible="captchaVisible"
+      tip="登录前过一次图形码（防刷），输入后即可登录。"
+      :loading="auth.loading"
+      @confirm="handleCaptchaConfirm"
+    />
 
     <div class="links">
       <RouterLink class="links__item" to="/forgot-password">忘记密码</RouterLink>
