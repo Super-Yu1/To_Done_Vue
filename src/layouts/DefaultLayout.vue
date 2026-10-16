@@ -1,14 +1,27 @@
 <script setup lang="ts">
-/** 前台布局：极简顶栏 + 内容区（内容宽度由各页 .page 控制，见 8.7） */
+/**
+ * 前台布局（2026-10-16 改版）：**左侧边栏 + 主内容区**（原「极简顶栏 + 通栏内容」）。
+ * 侧栏 = 品牌（logo + To_Done）、主导航（任务 / 回收站 / 个人中心）、底部设置区；
+ * 主内容区上限 1280px 居中 —— 超宽屏上列表不再被拉成超长横条（原 A② 待办，本次一并落地）。
+ * 原来顶栏的账号下拉收进侧栏底部：身份一行（点进个人中心）+ 主题开关 + 退出登录。
+ */
 import { computed, onMounted } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
+import AppSidebar from '@/components/AppSidebar.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import type { IconName } from '@/components/icons'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+const navItems: { to: string; label: string; icon: IconName }[] = [
+  { to: '/tasks', label: '任务', icon: 'inbox' },
+  { to: '/trash', label: '回收站', icon: 'trash' },
+  { to: '/profile', label: '个人中心', icon: 'user' },
+]
 
 const displayName = computed(() => auth.user?.name ?? '我的账号')
 const avatarText = computed(() => (auth.user?.name ?? '我').slice(0, 1))
@@ -37,156 +50,122 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="layout">
-    <header class="topbar">
-      <div class="topbar__inner">
-        <RouterLink class="brand" to="/tasks">To_Done</RouterLink>
-        <nav class="nav" aria-label="主导航">
-          <RouterLink class="nav__link" to="/tasks">任务</RouterLink>
-          <RouterLink class="nav__link" to="/trash">回收站</RouterLink>
-        </nav>
-        <div class="topbar__actions">
+  <div class="app-layout">
+    <AppSidebar :items="navItems" brand-to="/tasks">
+      <template #settings>
+        <RouterLink class="side-user" to="/profile">
+          <img
+            v-if="auth.user?.avatarUrl"
+            class="side-user__avatar"
+            :src="auth.user.avatarUrl"
+            alt=""
+          />
+          <span v-else class="side-user__avatar side-user__avatar--text">{{ avatarText }}</span>
+          <span class="side-user__name">{{ displayName }}</span>
+        </RouterLink>
+
+        <div class="side-tools">
           <ThemeToggle />
-          <el-dropdown trigger="click">
-            <button class="account" type="button">
-              <img v-if="auth.user?.avatarUrl" class="avatar" :src="auth.user.avatarUrl" alt="头像" />
-              <span v-else class="avatar avatar--text">{{ avatarText }}</span>
-              <span class="account__name">{{ displayName }}</span>
-            </button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="router.push('/profile')">
-                  <AppIcon name="user" />
-                  <span class="menu-text">个人中心</span>
-                </el-dropdown-item>
-                <el-dropdown-item divided @click="handleLogout">
-                  <AppIcon name="logout" />
-                  <span class="menu-text">退出登录</span>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <button
+            class="side-tool"
+            type="button"
+            title="退出登录"
+            aria-label="退出登录"
+            @click="handleLogout"
+          >
+            <AppIcon name="logout" :size="16" />
+          </button>
         </div>
-      </div>
-    </header>
-    <main class="layout__main">
+      </template>
+    </AppSidebar>
+
+    <main class="app-layout__main">
       <RouterView />
     </main>
   </div>
 </template>
 
 <style scoped>
-.layout {
-  min-height: 100vh;
-  background-color: var(--color-bg);
-}
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background-color: var(--color-bg);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.topbar__inner {
+/* 底部设置区：身份一行（点头像/名字进个人中心）+ 主题与退出 */
+.side-user {
   display: flex;
   align-items: center;
-  gap: 24px;
-  width: 100%;
-  max-width: var(--content-width);
-  height: 56px;
-  margin: 0 auto;
-  /* 与 .page 的左右内边距一致，顶栏文字才和内容左边缘对齐 */
-  padding: 0 clamp(16px, 2.5vw, 40px);
-}
-
-.brand {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-}
-
-.nav {
-  display: flex;
-  gap: 16px;
-  flex: 1;
-}
-
-.nav__link {
-  font-size: 14px;
-  color: var(--color-text-2);
-  transition: color var(--dur-fast) var(--ease);
-}
-
-.nav__link:hover {
-  color: var(--color-text);
-}
-
-.nav__link.router-link-active {
-  color: var(--color-text);
-  font-weight: 500;
-}
-
-.topbar__actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.account {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border: none;
+  gap: 9px;
+  padding: 6px 8px;
   border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text);
-  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
 }
 
-.account:hover {
+.side-user:hover {
   background-color: var(--color-hover);
 }
 
-.avatar {
-  width: 32px;
-  height: 32px;
+.side-user__avatar {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--color-border);
   border-radius: 50%;
   object-fit: cover;
-  border: 1px solid var(--color-border);
 }
 
-.avatar--text {
+.side-user__avatar--text {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-text-2);
   background-color: var(--color-hover);
 }
 
-.account__name {
-  max-width: 120px;
+.side-user__name {
+  max-width: 118px;
   overflow: hidden;
-  font-size: 14px;
+  font-size: 13px;
+  color: var(--color-text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.menu-text {
-  margin-left: 8px;
+.side-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
 }
 
-@media (max-width: 640px) {
-  .topbar__inner {
-    gap: 12px;
-    padding: 0 16px;
+.side-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text-2);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+.side-tool:hover {
+  color: var(--color-danger);
+  background-color: var(--color-hover);
+}
+
+/* 窄屏：设置区横排，身份与两个图标按钮挤在一行 */
+@media (max-width: 1024px) {
+  .side-user {
+    padding: 4px 6px;
   }
 
-  .account__name {
+  .side-user__name {
     display: none;
+  }
+
+  .side-tools {
+    gap: 4px;
+    padding: 0;
   }
 }
 </style>

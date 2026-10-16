@@ -22,6 +22,7 @@ export type IconName =
   | 'inbox'
   | 'copy'
   | 'up'
+  | 'sparkle'
 
 export const ICON_PATHS: Record<IconName, string[]> = {
   monitor: ['M3 4h18v12H3z', 'M8 20h8', 'M12 16v4'],
@@ -53,4 +54,6 @@ export const ICON_PATHS: Record<IconName, string[]> = {
   inbox: ['M4 13h5l1 2h4l1-2h5', 'M4 13 6.5 5h11L20 13v6H4z'],
   copy: ['M9 9h11v11H9z', 'M15 9V4H4v11h5'],
   up: ['M5 15l7-7 7 7'],
+  /* 四角星：彩蛋庆祝文案前面那个小标记（比 emoji 更贴全站的线性图标语言） */
+  sparkle: ['M12 4l1.7 6.3L20 12l-6.3 1.7L12 20l-1.7-6.3L4 12l6.3-1.7z'],
 }

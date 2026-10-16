@@ -2,10 +2,15 @@
 /**
  * 登录（UC-02 / 6.5 ④）：邮箱 + 密码；图形码在点「登录」时弹窗输入（2026-10-15，原先常驻表单）。
  * 登录接口要 captchaId + captchaCode（Swagger 必填），所以弹窗确认后才带着它提交。
+ *
+ * 排版（2026-10-16）与注册页**共用同一套**：左栏 `AuthAside`（同一份产品预览、同样可点）、
+ * 右侧表单卡片（外壳的分栏分支给的），差别只有主张文案与场景标签那一行 ——
+ * 两页放一起看应该像同一套东西，而不是"注册页好看、登录页是另一张白表"。
  */
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import AuthAside from '@/components/AuthAside.vue'
 import AuthShell from '@/components/AuthShell.vue'
 import CaptchaDialog from '@/components/CaptchaDialog.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -69,21 +74,45 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
 </script>
 
 <template>
-  <AuthShell title="登录" subtitle="用邮箱登录，管理员请走后台入口">
+  <AuthShell title="登录" subtitle="用邮箱登录">
+    <!--
+      标题右侧的次要入口：与注册页同一个位置、同一个文案（「先逛逛演示」）。
+      管理员入口这里**不留任何入口** —— 后台只能靠直接访问 `/admin/login` 进（路由仍在，
+      只是不在用户界面暴露）。原先那句「管理员请走后台入口」的副标题也一并去掉了。
+    -->
+    <template #header-extra>
+      <RouterLink to="/demo">先逛逛演示</RouterLink>
+    </template>
+
+    <template #aside>
+      <!-- 价值词 / 互动引导 / 庆祝语都用组件里的默认值，这里只给主张 -->
+      <AuthAside lead="回到你的清单，保持专注。" />
+    </template>
+
     <p v-if="expiredNotice" class="expired-notice">登录状态已失效，请重新登录</p>
 
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
       <el-form-item label="邮箱" prop="email">
-        <el-input v-model="form.email" type="email" autocomplete="username" placeholder="you@example.com" />
+        <el-input v-model="form.email" type="email" autocomplete="username" placeholder="todone@example.com" />
       </el-form-item>
+
       <el-form-item label="密码" prop="password">
+        <!-- 眼睛图标由 show-password 提供：输入值后出现，点一下切明文 -->
         <el-input v-model="form.password" type="password" autocomplete="current-password" show-password />
+        <!-- 忘记密码贴在密码框正下方靠右，小一档；不再和「注册新账号」一左一右分散 -->
+        <div class="field-aside">
+          <RouterLink class="field-aside__link" to="/forgot-password">忘记密码？</RouterLink>
+        </div>
       </el-form-item>
 
       <el-button class="submit" type="primary" :loading="auth.loading" @click="handleSubmit">
         登录
       </el-button>
     </el-form>
+
+    <div class="links">
+      <RouterLink class="links__item" to="/register">还没有账号？注册新账号</RouterLink>
+    </div>
 
     <CaptchaDialog
       v-model:visible="captchaVisible"
@@ -92,14 +121,11 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
       @confirm="handleCaptchaConfirm"
     />
 
-    <div class="links">
-      <RouterLink class="links__item" to="/forgot-password">忘记密码</RouterLink>
-      <RouterLink class="links__item" to="/register">注册新账号</RouterLink>
-    </div>
-
-    <div class="demo-entry">
-      <el-button text @click="router.push('/demo')">先逛逛演示</el-button>
-    </div>
+    <template #footer>
+      <span>© 2026 To_Done</span>
+      <span aria-hidden="true">·</span>
+      <span>登录，数据只属于你</span>
+    </template>
   </AuthShell>
 </template>
 
@@ -116,15 +142,35 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
   color: var(--color-text-2);
 }
 
+/* 与注册页同一套尺度：主按钮 44px、15px 字 */
 .submit {
   width: 100%;
+  height: 44px;
+  font-size: 15px;
+}
+
+/* 忘记密码：密码框正下方靠右，比正文小一档 */
+.field-aside {
+  width: 100%;
+  margin-top: 6px;
+  text-align: right;
+}
+
+.field-aside__link {
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+
+.field-aside__link:hover {
+  color: var(--color-text);
 }
 
 .links {
   display: flex;
-  justify-content: space-between;
-  margin-top: 16px;
-  font-size: 12px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+  font-size: 14px;
 }
 
 .links__item {
@@ -133,12 +179,5 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
 
 .links__item:hover {
   color: var(--color-text);
-}
-
-.demo-entry {
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-border);
-  text-align: center;
 }
 </style>

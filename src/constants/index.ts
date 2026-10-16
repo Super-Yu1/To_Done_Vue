@@ -59,13 +59,6 @@ export const TASK_PRIORITY_LABEL: Record<TaskPriority, string> = {
   HIGH: '高',
 }
 
-/** 低与中都用次要色，只有「高」需要抢注意力（8.7 不用色块的落地方式） */
-export const TASK_PRIORITY_COLOR: Record<TaskPriority, string> = {
-  LOW: 'var(--color-priority-normal)',
-  MEDIUM: 'var(--color-priority-normal)',
-  HIGH: 'var(--color-priority-high)',
-}
-
 /**
  * 优先级胶囊的样式类（2026-10-15 改版）：样式在 main.css 的 .prio / .prio--* 里定义，
  * 这里只给出「三档 → 类名」的映射，组件用 :class 挂上去即可，避免各处再写一遍色值。

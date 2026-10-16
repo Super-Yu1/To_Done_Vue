@@ -2,7 +2,13 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
+    <!--
+      标签页图标（2026-10-16）：主图用品牌 logo 的矢量版（`sizes="any"` 是 SVG 图标的规范写法，
+      随系统缩放到任意尺寸都不糊）；`alternate icon` 指向同一枚标的位图版（200×200 RGBA），
+      只有不认 SVG 图标的浏览器才会用到它。两份都是同一张图，不做第二套形状。
+    -->
+    <link rel="icon" type="image/svg+xml" sizes="any" href="/logo.svg">
+    <link rel="alternate icon" type="image/png" href="/logo.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>To_Done · 待办事项管理</title>
     <script>

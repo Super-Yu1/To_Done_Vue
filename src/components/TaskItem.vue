@@ -206,8 +206,9 @@ function handleRowClick() {
   /* 前置位 34px：勾选圈的命中区（圆环本身仍是 26px），与回收站的标记列同宽，两页文字左边缘对齐 */
   grid-template-columns: 34px minmax(0, 1fr) 32px;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: 14px;
+  /* 2026-10-16 收紧：13×18（原 16×20），一屏能多看一条 */
+  padding: 13px 18px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
@@ -291,10 +292,11 @@ function handleRowClick() {
   min-width: 0;
 }
 
+/* 标题是这一行唯一的「重音」：15px / 600（2026-10-16 从 500 提到 600） */
 .task-row__title {
   font-size: 15px;
-  font-weight: 500;
-  line-height: 1.45;
+  font-weight: 600;
+  line-height: 1.4;
   word-break: break-word;
   /*
    * 勾选完成时的横线：平时宽度为 0，加上 --done 后自左向右划出来。
@@ -307,7 +309,7 @@ function handleRowClick() {
   transition: color var(--dur-strike) var(--ease), background-size var(--dur-strike) var(--ease);
 }
 
-/* 描述只留一行，超出部分省略号收尾 */
+/* 描述只留一行，超出部分省略号收尾；比标题小一档（13px）做弱化，仍是次要色 */
 .task-row__description {
   display: -webkit-box;
   -webkit-line-clamp: 1;
@@ -315,7 +317,7 @@ function handleRowClick() {
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin-top: 2px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--color-text-2);
   word-break: break-word;
@@ -329,7 +331,7 @@ function handleRowClick() {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 6px;
+  margin-top: 5px;
 }
 
 .task-row__prio {
@@ -390,9 +392,25 @@ function handleRowClick() {
   font-size: 12px;
 }
 
+/*
+ * 操作平时收起（透明度 0），整行悬停或键盘焦点进入才显形 —— 行本身才是主角。
+ * 只在真有 hover 的设备上收：触屏没有 hover，收起来就等于点不到（`hv` 媒体查询是关键）。
+ */
 .task-row__actions {
   display: flex;
   justify-content: flex-end;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+@media (hover: hover) {
+  .task-row__actions {
+    opacity: 0;
+  }
+
+  .task-row:hover .task-row__actions,
+  .task-row:focus-within .task-row__actions {
+    opacity: 1;
+  }
 }
 
 .task-row__action {

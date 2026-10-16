@@ -126,13 +126,13 @@ onUnmounted(() => observer?.disconnect())
   gap: 8px;
 }
 
-/* 骨架行的列宽与内边距跟真实行保持一致，避免加载完成后跳变 */
+/* 骨架行的列宽与内边距跟真实行保持一致，避免加载完成后跳变（跟 .task-row 同步改） */
 .task-list__skeleton {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 32px;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: 14px;
+  padding: 13px 18px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }

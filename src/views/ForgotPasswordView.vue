@@ -25,7 +25,7 @@ const rules: FormRules = {
     { required: true, message: '请填写邮箱', trigger: 'blur' },
     { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
   ],
-  emailCode: [{ required: true, message: '请填写邮箱验证码', trigger: 'blur' }],
+  emailCode: [{ required: true, message: '请填写验证码', trigger: 'blur' }],
   newPassword: [
     { required: true, message: '请填写新密码', trigger: 'blur' },
     {
@@ -60,9 +60,9 @@ async function handleSubmit() {
   <AuthShell title="找回密码" :subtitle="`新密码要求：${PASSWORD_HINT}`">
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
       <el-form-item label="邮箱" prop="email">
-        <el-input v-model="form.email" type="email" autocomplete="username" placeholder="you@example.com" />
+        <el-input v-model="form.email" type="email" autocomplete="username" placeholder="todone@example.com" />
       </el-form-item>
-      <el-form-item label="邮箱验证码" prop="emailCode">
+      <el-form-item label="验证码" prop="emailCode">
         <EmailCodeField v-model="form.emailCode" :email="form.email" scene="RESET_PASSWORD" />
       </el-form-item>
       <el-form-item label="新密码" prop="newPassword">

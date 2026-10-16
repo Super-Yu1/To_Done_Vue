@@ -33,7 +33,7 @@ const rules: FormRules = {
     { required: true, message: '请填写新邮箱', trigger: 'blur' },
     { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
   ],
-  emailCode: [{ required: true, message: '请填写邮箱验证码', trigger: 'blur' }],
+  emailCode: [{ required: true, message: '请填写验证码', trigger: 'blur' }],
 }
 
 watch(
@@ -65,7 +65,7 @@ async function handleSubmit() {
       <el-form-item label="新邮箱" prop="email">
         <el-input v-model="form.email" type="email" placeholder="new@example.com" />
       </el-form-item>
-      <el-form-item label="邮箱验证码" prop="emailCode">
+      <el-form-item label="验证码" prop="emailCode">
         <!-- 发信的图形码由字段自己的弹窗处理（点「获取验证码」时弹一次） -->
         <EmailCodeField
           v-model="form.emailCode"

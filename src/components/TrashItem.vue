@@ -74,8 +74,9 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
   /* 前置位与主页同为 34px（那边是命中区、这边是标记位），操作列 72px 放两个 32px 图标 */
   grid-template-columns: 34px minmax(0, 1fr) 72px;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: 14px;
+  /* 与主页成对：13×18（原 16×20） */
+  padding: 13px 18px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
@@ -113,10 +114,11 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
   min-width: 0;
 }
 
+/* 与主页成对：标题 15px/600、描述 13px */
 .trash-row__title {
   font-size: 15px;
-  font-weight: 500;
-  line-height: 1.45;
+  font-weight: 600;
+  line-height: 1.4;
   word-break: break-word;
 }
 
@@ -128,7 +130,7 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin-top: 2px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--color-text-2);
   word-break: break-word;
@@ -139,7 +141,7 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 6px;
+  margin-top: 5px;
 }
 
 /* 胶囊尺寸与主页优先级胶囊一致（20px 高 / 8px 内边距） */
@@ -169,10 +171,23 @@ const deletedText = computed(() => `删除于 ${formatDateTime(props.task.delete
   color: var(--color-text-2);
 }
 
+/* 操作平时收起、悬停或焦点进入才显形（与主页同一处理；触屏设备常显） */
 .trash-row__actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+@media (hover: hover) {
+  .trash-row__actions {
+    opacity: 0;
+  }
+
+  .trash-row:hover .trash-row__actions,
+  .trash-row:focus-within .trash-row__actions {
+    opacity: 1;
+  }
 }
 
 .trash-row__action {
