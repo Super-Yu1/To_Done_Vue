@@ -89,7 +89,7 @@ export const useAdminStore = defineStore('admin', () => {
   }
 
   /**
-   * 建号（8.9 新增）：只填邮箱 + 名字，密码由服务端生成。
+   * 建号（8.9 新增）：只填邮箱 + 用户名，密码由服务端生成。
    * 结果原样返回、不缓存——initialPassword 只该出现在调用方手里那一次；
    * 列表刷新由调用方在「初始密码」弹窗关闭后触发。
    */
@@ -97,7 +97,7 @@ export const useAdminStore = defineStore('admin', () => {
     return adminApi.createAdminUser(payload)
   }
 
-  /** 改资料（名字 / 邮箱）；改了邮箱该用户会被强制重新登录（6.5 ⑫） */
+  /** 改资料（用户名 / 邮箱）；改了邮箱该用户会被强制重新登录（6.5 ⑫） */
   async function updateUser(id: string, payload: AdminUserUpdatePayload) {
     await adminApi.updateAdminUser(id, payload)
     await fetchUsers(query.page)

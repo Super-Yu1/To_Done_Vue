@@ -10,6 +10,7 @@ export type IconName =
   | 'search'
   | 'refresh'
   | 'edit'
+  | 'clock'
   | 'trash'
   | 'check'
   | 'restore'
@@ -42,6 +43,8 @@ export const ICON_PATHS: Record<IconName, string[]> = {
   search: ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'M20.5 20.5 16 16'],
   refresh: ['M20 12a8 8 0 1 1-2.6-5.9', 'M20 4v4.5h-4.5'],
   edit: ['M4 20h4L18.5 9.5l-4-4L4 16z', 'M13.5 6.5l4 4'],
+  /** 截止时间用的线性时钟：圆 + 指针，比空心小圆点更能表达「时间」 */
+  clock: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 7.5v5l3.2 1.9'],
   trash: ['M4 7h16', 'M9.5 7V4.5h5V7', 'M6 7l1 13h10l1-13', 'M10 11v6', 'M14 11v6'],
   check: ['M5 13l4.5 4.5L19 7'],
   restore: ['M4 12a8 8 0 1 0 2.6-5.9', 'M4 4v4.5h4.5', 'M12 8.5v4l3 1.8'],

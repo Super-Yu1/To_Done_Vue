@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 用户管理工具条（8.9）：搜索（邮箱 / 名字 / 手机号，防抖 300ms）、状态筛选、刷新 */
+/** 用户管理工具条（8.9）：搜索（邮箱 / 用户名 / 手机号，防抖 300ms）、状态筛选、刷新 */
 import { onUnmounted, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import { SEARCH_DEBOUNCE_MS } from '@/constants'
@@ -47,7 +47,7 @@ defineExpose({ clearFilters })
 
 <template>
   <div class="toolbar">
-    <el-input v-model="query.keyword" class="toolbar__search" placeholder="搜索邮箱 / 名字 / 手机号" clearable>
+    <el-input v-model="query.keyword" class="toolbar__search" placeholder="搜索邮箱 / 用户名 / 手机号" clearable>
       <template #prefix>
         <AppIcon name="search" />
       </template>

@@ -20,6 +20,8 @@ withDefaults(
     loadingMore?: boolean
     /** 批量选择模式：前置位换方形多选框、行内快捷入口禁用 */
     selectMode?: boolean
+    /** 当前只看「未完成」：勾选完成后该行会离开列表，由 TaskItem 先播退场动画 */
+    leavingOnToggle?: boolean
     /** 已选中的任务 id（选择模式下使用） */
     selectedIds?: string[]
     emptyTitle?: string
@@ -30,6 +32,7 @@ withDefaults(
     loading: false,
     loadingMore: false,
     selectMode: false,
+    leavingOnToggle: false,
     selectedIds: () => [],
     emptyTitle: '还没有任务',
     emptyDescription: '记录第一件事，之后按优先级与截止时间跟踪它。',
@@ -38,8 +41,10 @@ withDefaults(
 )
 
 const emit = defineEmits<{
-  /** 点击任务行：打开只读详情（编辑在详情弹窗里发起） */
+  /** 点击任务行：打开只读详情 */
   open: [Task]
+  /** 点行尾铅笔：直接打开可编辑的弹窗 */
+  edit: [Task]
   remove: [Task]
   'toggle-status': [Task]
   'change-priority': [Task, TaskPriority]
@@ -99,8 +104,10 @@ onUnmounted(() => observer?.disconnect())
         :key="task.id"
         :task="task"
         :select-mode="selectMode"
+        :leave-on-toggle="leavingOnToggle"
         :selected="selectedIds.includes(task.id)"
         @open="emit('open', $event)"
+        @edit="emit('edit', $event)"
         @remove="emit('remove', $event)"
         @toggle-status="emit('toggle-status', $event)"
         @change-priority="(task, priority) => emit('change-priority', task, priority)"
@@ -121,27 +128,31 @@ onUnmounted(() => observer?.disconnect())
 }
 
 .task-list__rows {
+  /* 给 leave 的绝对定位元素当参照：离开的行脱离文档流后，下方行立即补位 */
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 /* 骨架行的列宽与内边距跟真实行保持一致，避免加载完成后跳变（跟 .task-row 同步改） */
 .task-list__skeleton {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 32px;
+  grid-template-columns: 40px minmax(0, 1fr) 236px;
   align-items: center;
-  gap: 14px;
-  padding: 13px 18px;
+  gap: 16px;
+  padding: 16px 20px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 .task-list__skeleton-check {
   width: 26px;
   height: 26px;
-  margin: 0 4px;
-  border-radius: var(--radius-pill);
+  margin: 0 7px;
+  border-radius: 8px;
   background-color: var(--color-hover);
 }
 
@@ -185,6 +196,12 @@ onUnmounted(() => observer?.disconnect())
 }
 
 .row-leave-active {
+  /*
+   * 离开的行脱离文档流（位置仍取它原来的 static position）：
+   * 勾选完成的退场动画播完后行已透明，这里不让它继续占位，下方行马上平滑补上。
+   */
+  position: absolute;
+  width: 100%;
   transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 
@@ -194,7 +211,25 @@ onUnmounted(() => observer?.disconnect())
   transform: scale(0.98);
 }
 
+/*
+ * 勾选完成：元素离开前已带 task-row--leaving（完成态），
+ * leave 过渡放慢到与补位同一个 420ms，并缩小到 0.84 —— 下方同一时刻开始上滑。
+ */
+.row-leave-active.task-row--leaving {
+  transition-duration: var(--dur-reorder), var(--dur-reorder);
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1), cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.row-leave-to.task-row--leaving {
+  transform: scale(0.84);
+}
+
+/*
+ * 行让位：慢一点、从下往上滑到新位置，不再「跳一下」就到位。
+ * 曲线选 ease-in-out 而不是强 ease-out：起步不抢帧，整段位移都看得见。
+ */
 .row-move {
-  transition: transform var(--dur-base) var(--ease);
+  transition: transform var(--dur-reorder) cubic-bezier(0.45, 0.03, 0.2, 1);
+  will-change: transform;
 }
 </style>

@@ -56,7 +56,10 @@ http.interceptors.response.use(
     const body = response.data as ApiResult<unknown>
     if (body.code !== 200) {
       ElMessage.error(body.message || '操作失败')
-      return Promise.reject(new Error(body.message || '操作失败'))
+      // 把业务码带出去：调用方要能区分「图形码错（4001）」这类可以原地重试的失败
+      const failure = new Error(body.message || '操作失败') as Error & { businessCode?: number }
+      failure.businessCode = body.code
+      return Promise.reject(failure)
     }
     return response
   },
@@ -94,6 +97,14 @@ http.interceptors.response.use(
     return Promise.reject(error)
   },
 )
+
+/**
+ * 图形验证码错误（4001）：那张码的机会用完了，可以原地再要一张，不必让用户从头填整张表单。
+ * 请求层把业务码挂在 `Error.businessCode` 上，这里做一次窄化，调用方就不用到处写 any。
+ */
+export function isCaptchaError(error: unknown): boolean {
+  return (error as { businessCode?: number } | null)?.businessCode === 4001
+}
 
 /** 业务侧拿到的直接是 data（8.4） */
 export async function request<T>(config: AxiosRequestConfig): Promise<T> {

@@ -21,7 +21,6 @@ const emit = defineEmits<{
   remove: []
   'change-priority': [TaskPriority]
   'toggle-all': []
-  exit: []
 }>()
 </script>
 
@@ -49,26 +48,22 @@ const emit = defineEmits<{
       删除
     </el-button>
 
-    <span class="batch-bar__spacer"></span>
-
     <el-button size="small" text @click="emit('toggle-all')">
       {{ allSelected ? '取消全选' : '全选' }}（{{ totalCount }}）
     </el-button>
-    <el-button size="small" text @click="emit('exit')">退出选择</el-button>
-  </div>
+    </div>
 </template>
 
 <style scoped>
+/*
+ * 2026-10-17：从「独占一行的操作条」改成 Tabs 行内的紧凑组 ——
+ * 不再自带边框与底色，位置由筛选条的右侧插槽决定。
+ */
 .batch-bar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background-color: var(--color-hover);
 }
 
 .batch-bar__count {
@@ -81,7 +76,4 @@ const emit = defineEmits<{
   color: var(--color-text);
 }
 
-.batch-bar__spacer {
-  flex: 1;
-}
 </style>

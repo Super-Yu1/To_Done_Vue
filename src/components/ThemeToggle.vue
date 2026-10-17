@@ -46,6 +46,7 @@ const tip = computed(() => (isFollowingSystem.value ? `${label.value}（跟随�
 
 .theme-toggle:hover {
   color: var(--color-text);
-  background-color: var(--color-hover);
+  /* 用正文色的低透明度：白底、浅灰底上都能看出这一层，不依赖单一底色 */
+  background-color: color-mix(in srgb, var(--color-text) 6%, transparent);
 }
 </style>

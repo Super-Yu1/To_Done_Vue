@@ -35,6 +35,23 @@ export function formatDate(value?: string | null): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+/**
+ * 人类可读的截止时间（2026-10-18）：今天 / 明天带时刻（`今天 14:57`），
+ * 其余只到日（`10-18`），跨年补年份。列表里一行放得下，扫读时先看「是不是今天」。
+ */
+export function formatDueLabel(value?: string | null): string {
+  const date = parseDate(value)
+  if (!date) return ''
+  const now = new Date()
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  if (isSameDay(date, now)) return `今天 ${time}`
+  const tomorrow = new Date(now)
+  tomorrow.setDate(now.getDate() + 1)
+  if (isSameDay(date, tomorrow)) return `明天 ${time}`
+  const monthDay = `${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  return date.getFullYear() === now.getFullYear() ? monthDay : `${date.getFullYear()}-${monthDay}`
+}
+
 /** 是否同一天（本地时区） */
 function isSameDay(a: Date, b: Date): boolean {
   return (

@@ -51,7 +51,11 @@ export const useTodoStore = defineStore('todo', () => {
     page: 1,
     size: PAGE_SIZE,
     keyword: '',
-    status: undefined,
+    // 默认停在「未完成」（2026-10-18）：日常最常看的是还没做完的
+    status: 'TODO',
+    // 默认按截止时间近→远（2026-10-18 需求）：最急的排最上面
+    sortBy: 'dueDate',
+    sortDirection: 'asc',
     priority: undefined,
   })
 
@@ -75,8 +79,12 @@ export const useTodoStore = defineStore('todo', () => {
     query.page = page
     try {
       const result = await taskApi.fetchTasks(buildParams())
-      // 顺序统一由 groupTasksByState 决定：未完成在前、已完成在后（见 utils/task）
-      tasks.value = groupTasksByState(append ? [...tasks.value, ...result.records] : result.records)
+      /*
+       * 2026-10-18 定稿：顺序**完全以服务端为准**，本地不再分组/重排。
+       * 「全部」页签下也不再按状态分组 —— 已完成与未完成按当前排序字段混排。
+       * （此前无条件调 groupTasksByState 会把 sortBy 当场盖掉，已移除。）
+       */
+      tasks.value = append ? [...tasks.value, ...result.records] : result.records
       total.value = result.total
       totalPages.value = result.totalPages
     } finally {
@@ -150,22 +158,64 @@ export const useTodoStore = defineStore('todo', () => {
       failed = true
     })
 
-    // ② 等划线播完再落位
-    await sleep(readStrikeMs())
-    tasks.value = groupTasksByState(tasks.value)
+    /*
+     * ② 当前只看单一状态、而这一行已经不属于它（未完成里打钩 / 已完成里取消）：
+     *    TaskItem 已在本地播完「缩小消失」动画，这里直接从本地列表移除，失败时按原位置插回。
+     *    其余场景（如「全部」）任务不离开列表：顺序以服务端为准，不再本地重排，
+     *    等划线播完即可，下一次重取时它才按新状态落位。
+     */
+    const leavingCurrentFilter = Boolean(query.status && query.status !== status)
+    const removedIndex = leavingCurrentFilter
+      ? tasks.value.findIndex((item) => item.id === id)
+      : -1
+
+    if (leavingCurrentFilter) {
+      tasks.value = tasks.value.filter((item) => item.id !== id)
+    } else {
+      await sleep(readStrikeMs())
+    }
+
     await request
 
     if (failed) {
-      // 失败时立刻回滚：划线收起，位置归位
-      tasks.value = groupTasksByState(tasks.value.map((item) => (item.id === id ? previous : item)))
+      if (removedIndex >= 0) {
+        // 行已经移出列表：插回原来的位置（划线收起）
+        const restored = [...tasks.value]
+        restored.splice(Math.min(removedIndex, restored.length), 0, previous)
+        tasks.value = restored
+      } else {
+        tasks.value = tasks.value.map((item) => (item.id === id ? previous : item))
+      }
+      return
     }
+
+    // 状态变了，统计卡（未完成 / 已完成 / 完成率）要跟着走；失败提示由 http 层给
+    void fetchStats().catch(() => {})
   }
 
-  /** 删除任务后刷新列表；删除末页最后一条时自动回退页码（8.3） */
+  /**
+   * 删除任务（2026-10-18 修「删一条整页消失」）：
+   * 成功后只在本地把这一条移出列表，不再用 `fetchPage(query.page, false)` 重取当前页 ——
+   * 无限滚动已加载多页时，那样会把前几页整体替换掉；若删除让当前页变空（例如末页只剩一条），
+   * 直接拿到空数组，整页任务看起来就全没了。
+   * 只有「删除前列表只剩这一条、且页码 > 1」时才回退一页重取。
+   */
   async function removeTask(id: string) {
     await taskApi.removeTask(id)
-    const isLastOfPage = tasks.value.length === 1 && query.page > 1
-    await Promise.all([fetchPage(isLastOfPage ? query.page - 1 : query.page, false), fetchStats()])
+
+    const page = query.page
+    const wasOnlyLoadedRow = tasks.value.length === 1
+    tasks.value = tasks.value.filter((item) => item.id !== id)
+    total.value = Math.max(0, total.value - 1)
+    totalPages.value = Math.max(1, Math.ceil(total.value / query.size))
+    query.page = Math.min(page, totalPages.value)
+
+    if (wasOnlyLoadedRow && page > 1) {
+      await fetchPage(query.page, false)
+    }
+
+    // 删除已经成功，统计刷新失败不该把这次删除报成失败
+    void fetchStats().catch(() => {})
   }
 
   /**

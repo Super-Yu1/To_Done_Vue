@@ -6,7 +6,7 @@ import { PAGE_SIZE } from '@/constants'
 import type { TrashQuery, TrashTask } from '@/types'
 
 export const useTrashStore = defineStore('trash', () => {
-  const query = reactive<TrashQuery>({ page: 1, size: PAGE_SIZE })
+  const query = reactive<TrashQuery>({ page: 1, size: PAGE_SIZE, keyword: '' })
   const tasks = ref<TrashTask[]>([])
   const total = ref(0)
   const totalPages = ref(0)
@@ -16,7 +16,12 @@ export const useTrashStore = defineStore('trash', () => {
     loading.value = true
     query.page = page
     try {
-      const result = await trashApi.fetchTrashTasks({ ...query })
+      // keyword 为空时不发这个参数：避免后端把空串当成「必须匹配空串」的有效过滤
+      const { keyword, ...rest } = query
+      const result = await trashApi.fetchTrashTasks({
+        ...rest,
+        ...(keyword?.trim() ? { keyword: keyword.trim() } : {}),
+      })
       tasks.value = result.records
       total.value = result.total
       totalPages.value = result.totalPages

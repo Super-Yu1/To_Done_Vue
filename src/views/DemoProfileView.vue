@@ -86,7 +86,7 @@ async function handleRemoveAvatar() {
 
     <h2 class="settings-group-title">账号</h2>
     <div class="settings-group">
-      <SettingRow label="名字" :value="DEMO_USER.name" action-text="编辑" @action="basicVisible = true" />
+      <SettingRow label="用户名" :value="DEMO_USER.name" action-text="编辑" @action="basicVisible = true" />
       <SettingRow
         label="手机号"
         :value="DEMO_USER.phone || '未绑定'"

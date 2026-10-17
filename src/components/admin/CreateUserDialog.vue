@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 创建用户弹窗（8.9 新增）：只填邮箱 + 名字，密码由服务端随机生成。
+ * 创建用户弹窗（8.9 新增）：只填邮箱 + 用户名，密码由服务端随机生成。
  * 成功后本弹窗关闭、外层接着弹「初始密码」一次性展示；1002 邮箱被活跃账号占用时保持打开、就地提示。
  */
 import { reactive, ref, watch } from 'vue'
@@ -21,8 +21,8 @@ const rules: FormRules = {
     { max: 128, message: '邮箱最多 128 个字符', trigger: 'blur' },
   ],
   name: [
-    { required: true, message: '请填写名字', trigger: 'blur' },
-    { max: 64, message: '名字最多 64 个字符', trigger: 'blur' },
+    { required: true, message: '请填写用户名', trigger: 'blur' },
+    { max: 64, message: '用户名最多 64 个字符', trigger: 'blur' },
   ],
 }
 
@@ -49,7 +49,7 @@ async function handleSubmit() {
       <el-form-item label="邮箱" prop="email">
         <el-input v-model="form.email" type="email" maxlength="128" placeholder="登录邮箱" />
       </el-form-item>
-      <el-form-item label="名字" prop="name">
+      <el-form-item label="用户名" prop="name">
         <el-input v-model="form.name" maxlength="64" placeholder="显示名，不唯一" />
       </el-form-item>
       <p v-if="serverError" class="dialog-error">{{ serverError }}</p>

@@ -3,38 +3,54 @@
 /* ① 项目语义变量：组件只引用这一层，切主题 = 换一组取值 */
 :root {
   --color-bg: #ffffff;
+  /* 浅灰底（2026-10-18）：侧边栏、搜索框、分段控件共用同一档，白卡压上去才有层次 */
+  --color-bg-soft: #f3f5f4;
   --color-surface: #ffffff;
-  --color-text: #1a1a1a;
-  --color-text-2: #8c8c8c;
-  --color-text-3: #bfbfbf;
-  --color-border: #efefef;
-  --color-border-strong: #dcdcdc;
-  --color-hover: #fafafa;
-  --color-primary-bg: #1a1a1a;
-  --color-primary-bg-hover: #333333;
+  --color-text: #141715;
+  /*
+   * 次要文字（2026-10-17：整体加深一档）。原 #8c8c8c / #bfbfbf 在列表里要「刻意去看」才看得清，
+   * 扫读效率太低；现在描述、日期、排序说明这些都落在 #6b6f6d / #9aa09d。
+   */
+  --color-text-2: #6b6f6d;
+  --color-text-3: #9aa09d;
+  /* 2026-10-18：卡片描边按设计稿收到「极淡」一档，靠留白与柔和阴影分层，不靠重线 */
+  --color-border: #eceeed;
+  --color-border-strong: #dfe3e1;
+  --color-hover: #f4f6f5;
+  --color-primary-bg: #141715;
+  --color-primary-bg-hover: #2b302d;
   --color-primary-bg-active: #000000;
   --color-primary-fg: #ffffff;
-  --color-danger: #d9534f;
-  --color-danger-hover: #c9302c;
-  --color-danger-border: #f0c8c6;
-  --color-danger-bg: #fdf5f5;
-  --color-status-done: #4c9a6a;
-  --color-priority-high: #d08a3e;
-  --color-priority-normal: #8c8c8c;
+  --color-danger: #c0453c;
+  --color-danger-hover: #a83a32;
+  --color-danger-border: #f3d4d1;
+  --color-danger-bg: #fdf1f0;
+  /* 红底上的前景色：两端主题都是白 —— 不能复用主按钮的 -fg（深色主题里它是深色） */
+  --color-danger-fg: #ffffff;
+  --color-status-done: #2f9e6e;
+  /* 薄荷绿（点缀）：进度条、完成态、成功徽章；浅蓝只用于中性提示徽章 */
+  --color-mint: #62c99b;
+  --color-mint-fg: #2f9e6e;
+  --color-mint-bg: #e9f7f0;
+  --color-sky-fg: #4a7db5;
+  --color-sky-bg: #eaf2fb;
   /*
-   * 优先级三档（2026-10-15 改版）：低 / 中 / 高各一套「浅底 + 描边 + 文字」。
-   * 文字色比原先的 --color-priority-high 更深，是为了在有色底上仍能读到 4.5:1 以上；
+   * 优先级三档（2026-10-18 按设计稿改回浅底同色字）：
+   * 高 = 浅红底红字、中 = 浅橙底橙字、低 = 浅灰底灰字；文字色仍压在 4.5:1 以上。
    * 形状（实心 / 空心 / 无点）是第二重编码，色觉差异下也分得开。
    */
-  --color-priority-high-fg: #9a5f1c;
-  --color-priority-high-bg: #fbf1e4;
-  --color-priority-high-border: #eeddc4;
-  --color-priority-medium-fg: #6f6f6f;
-  --color-priority-medium-bg: #f3f3f3;
-  --color-priority-medium-border: #e6e6e6;
-  --color-priority-low-fg: #8c8c8c;
-  --color-priority-low-bg: transparent;
-  --color-priority-low-border: #e2e2e2;
+  --color-priority-high-fg: #bf4438;
+  --color-priority-high-bg: #fdecea;
+  --color-priority-high-border: #f6d3cf;
+  --color-priority-medium-fg: #b0762b;
+  --color-priority-medium-bg: #fdf2e4;
+  --color-priority-medium-border: #f3e0c7;
+  --color-priority-low-fg: #8a8f8c;
+  --color-priority-low-bg: #f6f7f7;
+  --color-priority-low-border: #e9ecea;
+  /* 卡片阴影：默认几乎看不见，只在悬停时轻轻浮起 */
+  --shadow-card: 0 1px 2px rgba(16, 24, 20, 0.03);
+  --shadow-card-hover: 0 6px 18px rgba(16, 24, 20, 0.05);
   --color-mask: rgba(0, 0, 0, 0.28);
   /*
    * 圆角阶梯：全站（含 Element Plus）只从这四档取值，不再出现零散数值。
@@ -49,6 +65,8 @@
   --radius-pill: 999px;
   --dur-fast: 150ms;
   --dur-base: 200ms;
+  /* 列表重排（行让位 / 上滑）：比常规动效慢，要让「滑上来」看得清（2026-10-18） */
+  --dur-reorder: 420ms;
   /* 主题切换的缓慢过渡（约 0.8 秒）：唯一来源，useTheme 也读它来决定何时摘掉过渡类 */
   --dur-theme: 800ms;
   /* 弹窗开合：比常规动效慢一点，让"从卡片点开浮窗"这件事看得清 */
@@ -64,40 +82,47 @@
    * 下限 880px 只是兜底——窄屏时容器仍受视口约束（width: 100%），不会横向溢出。
    */
   --content-width: clamp(880px, 94vw, 1920px);
-  /* 左侧边栏宽度（前台骨架用的就是它，见下方 .app-layout） */
-  --sidebar-width: 224px;
+  /* 左侧边栏宽度（前台骨架用的就是它，见下方 .app-layout）；2026-10-17 按反馈从 224 加宽到 272 */
+  --sidebar-width: 272px;
   color-scheme: light;
 }
 
 html.dark {
-  --color-bg: #121212;
-  --color-surface: #1a1a1a;
-  --color-text: #e8e8e8;
-  --color-text-2: #9a9a9a;
-  --color-text-3: #6b6b6b;
-  --color-border: #2a2a2a;
-  --color-border-strong: #3a3a3a;
-  --color-hover: #1f1f1f;
-  --color-primary-bg: #e8e8e8;
-  --color-primary-bg-hover: #cfcfcf;
+  --color-bg: #0f1110;
+  --color-bg-soft: #161917;
+  --color-surface: #191d1b;
+  --color-text: #eceeec;
+  --color-text-2: #a8aeaa;
+  --color-text-3: #7c837f;
+  --color-border: #2a2e2c;
+  --color-border-strong: #363b38;
+  --color-hover: #212523;
+  --color-primary-bg: #eceeec;
+  --color-primary-bg-hover: #cfd3d0;
   --color-primary-bg-active: #ffffff;
-  --color-primary-fg: #121212;
-  --color-danger: #e06c68;
-  --color-danger-hover: #ef8884;
+  --color-primary-fg: #121513;
+  --color-danger: #e8867f;
+  --color-danger-hover: #ef9a94;
   --color-danger-border: #4a2b2a;
   --color-danger-bg: #241818;
-  --color-status-done: #6fbf8f;
-  --color-priority-high: #d9a05b;
-  --color-priority-normal: #9a9a9a;
-  --color-priority-high-fg: #e0a95f;
-  --color-priority-high-bg: #33261a;
-  --color-priority-high-border: #4b3722;
-  --color-priority-medium-fg: #b3b3b3;
-  --color-priority-medium-bg: #242424;
-  --color-priority-medium-border: #333333;
-  --color-priority-low-fg: #9a9a9a;
-  --color-priority-low-bg: transparent;
-  --color-priority-low-border: #333333;
+  --color-danger-fg: #ffffff;
+  --color-status-done: #63c99a;
+  --color-mint: #63c99a;
+  --color-mint-fg: #7ad6ab;
+  --color-mint-bg: #16281f;
+  --color-sky-fg: #83b3e0;
+  --color-sky-bg: #16232e;
+  --color-priority-high-fg: #f0958d;
+  --color-priority-high-bg: #2c1a18;
+  --color-priority-high-border: #3f2522;
+  --color-priority-medium-fg: #e0ae6f;
+  --color-priority-medium-bg: #2a2217;
+  --color-priority-medium-border: #3d3122;
+  --color-priority-low-fg: #9aa09d;
+  --color-priority-low-bg: #1d211f;
+  --color-priority-low-border: #2c302e;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-card-hover: 0 6px 18px rgba(0, 0, 0, 0.35);
   --color-mask: rgba(0, 0, 0, 0.6);
   --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
@@ -126,7 +151,7 @@ html.dark {
   --el-color-danger-light-9: var(--color-danger-bg);
   --el-color-danger-dark-2: var(--color-danger-hover);
   --el-color-success: var(--color-status-done);
-  --el-color-warning: var(--color-priority-high);
+  --el-color-warning: var(--color-priority-medium-fg);
   --el-color-info: var(--color-text-2);
   --el-text-color-primary: var(--color-text);
   --el-text-color-regular: var(--color-text);
@@ -296,6 +321,16 @@ html.theme-transition *::after {
 }
 
 /*
+ * 主按钮的文字色固定取 --color-primary-fg（2026-10-18）：
+ * EP 默认写死 --el-color-white，深色主题里主色反转成浅底之后就成了白底白字。
+ */
+.el-button--primary {
+  --el-button-text-color: var(--color-primary-fg);
+  --el-button-hover-text-color: var(--color-primary-fg);
+  --el-button-active-text-color: var(--color-primary-fg);
+}
+
+/*
  * 以下圆角 EP 声明在**组件元素自身**而非 :root：元素上的直接声明会压过 :root 的继承值，
  * 所以必须写在同一个选择器上，否则弹窗、确认框、分页、标签这些会漏在阶梯之外。
  * 分档：模态浮层（弹窗 / 确认框 / 卡片）走容器档 lg；
@@ -377,7 +412,9 @@ img {
 /*
  * 前台骨架（2026-10-16 起：左侧边栏 + 主内容区）。
  * 侧栏宽度走 --sidebar-width：AppSidebar 用它定宽、这里用它让位，改宽度只改一处。
- * 主内容区上限 1280px 并居中（原先 `--content-width` 的 clamp 让超宽屏把列表拉成超长横条）。
+ * 主内容区上限 1720px 并居中（2026-10-17 按反馈从 1280 放宽 —— 超宽屏上 1280 会让两侧空出
+ * 一大片，任务列表看着像漂在中间的一张窄条）。真正防「单行太长」的是行内布局本身（标题列 + 固定末列），
+ * 不靠这一层硬卡宽度。
  * 后台 AdminLayout 有自己的骨架，不共用这一套。
  */
 .app-layout {
@@ -388,7 +425,7 @@ img {
 
 .app-layout__main {
   width: 100%;
-  max-width: 1280px;
+  max-width: 1720px;
   margin: 0 auto;
 }
 
@@ -496,8 +533,10 @@ img {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 20px;
-  padding: 0 8px;
+  /* 2026-10-17：高 22px 保留（一眼扫得到），横向内边距收到 7px 让它更紧凑 */
+  height: 22px;
+  padding: 0 7px;
+  font-size: 13px;
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   font-size: 12px;
@@ -521,6 +560,10 @@ img {
   box-shadow: inset 0 0 0 1px currentColor;
 }
 
+/*
+ * 「高」回到浅底红字（2026-10-18 按设计稿）：底色 #fdecea、文字 #bf4438，对比约 4.8:1。
+ * 不再用深色实底——三档胶囊同属「标记」这一层，深浅要一致，警示靠颜色而不是靠体量。
+ */
 .prio--high {
   border-color: var(--color-priority-high-border);
   background-color: var(--color-priority-high-bg);
@@ -544,6 +587,7 @@ img {
   :root {
     --dur-fast: 0ms;
     --dur-base: 0ms;
+    --dur-reorder: 0ms;
     /* 上面那条 html.theme-transition 的选择器权重高于 *，光靠下面的 * 规则压不住它，
        所以这里显式把时长归零：既让偏好生效，也让 useTheme 立刻摘掉过渡类 */
     --dur-theme: 0ms;

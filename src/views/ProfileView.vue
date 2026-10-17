@@ -18,12 +18,16 @@ import EmailChangeDialog from '@/components/profile/EmailChangeDialog.vue'
 import IdentityRow from '@/components/profile/IdentityRow.vue'
 import PasswordChangeDialog from '@/components/profile/PasswordChangeDialog.vue'
 import SettingRow from '@/components/profile/SettingRow.vue'
+import { usePreferences } from '@/composables/usePreferences'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/date'
 import type { ChangeEmailPayload, ChangePasswordPayload, UpdateProfilePayload } from '@/types'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+/** 本地偏好：删除前是否弹二次确认（默认开） */
+const { confirmDelete, setConfirmDelete } = usePreferences()
 
 const loading = ref(false)
 const loadFailed = ref(false)
@@ -37,6 +41,28 @@ const savingBasic = ref(false)
 const savingEmail = ref(false)
 const savingPassword = ref(false)
 const savingAvatar = ref(false)
+
+/* ---------- 注销账号（2026-10-18）---------- */
+const deleteVisible = ref(false)
+const deletePassword = ref('')
+const deleting = ref(false)
+
+async function handleDeleteAccount() {
+  if (!deletePassword.value) return
+  deleting.value = true
+  try {
+    const result = await auth.deleteAccount(deletePassword.value)
+    deleteVisible.value = false
+    ElMessage.success(
+      `账号已注销：清除 ${result.purgedTasks} 条任务、${result.purgedImages} 张配图`,
+    )
+    await router.replace('/login')
+  } catch {
+    // 1005 密码错 / 1007 已注销等提示由 http 层给出；留在弹窗里让用户重试
+  } finally {
+    deleting.value = false
+  }
+}
 
 /** 选中的原图：交给裁剪弹窗，确认后才有 File 上传 */
 const pickedFile = ref<File | null>(null)
@@ -194,7 +220,7 @@ async function handleLogout() {
 
       <h2 class="settings-group-title">账号</h2>
       <div class="settings-group">
-        <SettingRow label="名字" :value="user.name" action-text="编辑" @action="basicVisible = true" />
+        <SettingRow label="用户名" :value="user.name" action-text="编辑" @action="basicVisible = true" />
         <SettingRow
           label="手机号"
           :value="user.phone || '未绑定'"
@@ -214,11 +240,62 @@ async function handleLogout() {
           action-text="修改"
           @action="passwordVisible = true"
         />
-      </div>
+        <!-- 2026-10-18：注销账号（不可恢复），入口放账号组末尾、动作标红 -->
+        <SettingRow
+          label="注销账号"
+          value="任务与回收站会被立即清空"
+          action-text="注销"
+          danger
+          @action="deleteVisible = true"
+        />
+        </div>
+
+        <!-- 注销确认：写明后果 + 要求输入当前密码（后端只做这一道校验，前端必须拦住误触） -->
+        <el-dialog
+        v-model="deleteVisible"
+        title="注销账号"
+        width="460px"
+        append-to-body
+        align-center
+        >
+        <p class="danger-note">
+          任务与回收站里的内容会<strong>立即清空且无法恢复</strong>；账号信息保留，但之后
+          <strong>无法再登录</strong>（该邮箱可以重新注册）。
+        </p>
+        <el-form label-position="top" @submit.prevent>
+          <el-form-item label="当前密码">
+            <el-input
+              v-model="deletePassword"
+              type="password"
+              show-password
+              autocomplete="current-password"
+              placeholder="输入当前密码以确认"
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button :disabled="deleting" @click="deleteVisible = false">取消</el-button>
+          <el-button
+            type="danger"
+            :loading="deleting"
+            :disabled="!deletePassword"
+            @click="handleDeleteAccount"
+          >
+            永久注销
+          </el-button>
+        </template>
+        </el-dialog>
 
       <h2 class="settings-group-title">偏好</h2>
       <div class="settings-group">
         <AppearanceSettings />
+        <!-- 2026-10-18：删除前二次确认（本地偏好，默认开） -->
+        <SettingRow label="删除前二次确认">
+          <el-switch
+            :model-value="confirmDelete"
+            @update:model-value="setConfirmDelete($event === true)"
+          />
+        </SettingRow>
       </div>
 
       <h2 class="settings-group-title">会话</h2>
@@ -254,6 +331,17 @@ async function handleLogout() {
 </template>
 
 <style scoped>
+  /* 注销弹窗里的后果说明：红调小字，读起来是警告而不是正文 */
+  .danger-note {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-danger-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-danger-bg);
+    color: var(--color-danger);
+    font-size: 13px;
+    line-height: 1.7;
+  }
 .profile-block {
   margin-top: 20px;
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 用户表格（8.9）：头像 · 邮箱 · 手机号 · 名字 · 任务数 · 图片数 · 状态 · 注册时间 · 操作 */
+/** 用户表格（8.9）：头像 · 邮箱 · 手机号 · 用户名 · 任务数 · 图片数 · 状态 · 注册时间 · 操作 */
 import { computed } from 'vue'
 import { formatDateTime } from '@/utils/date'
 import type { AdminUser, UserStatus } from '@/types'
@@ -51,7 +51,7 @@ const isEmpty = computed(() => !props.loading && props.users.length === 0)
       <el-table-column label="手机号" width="140">
         <template #default="{ row }">{{ row.phone || '—' }}</template>
       </el-table-column>
-      <el-table-column label="名字" width="140" prop="name" show-overflow-tooltip />
+      <el-table-column label="用户名" width="140" prop="name" show-overflow-tooltip />
 
       <el-table-column label="任务数" width="110">
         <template #default="{ row }">{{ row.taskCount }} + {{ row.taskCountInTrash }}</template>

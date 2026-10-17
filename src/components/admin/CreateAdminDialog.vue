@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * 新增管理员弹窗（8.9）：名字、密码、确认密码；
- * 名字撞车后端返回 5002，就地提示；创建后密码不可修改，成功后要提醒妥善保存。
+ * 新增管理员弹窗（8.9）：用户名、密码、确认密码；
+ * 用户名撞车后端返回 5002，就地提示；创建后密码不可修改，成功后要提醒妥善保存。
  */
 import { reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'

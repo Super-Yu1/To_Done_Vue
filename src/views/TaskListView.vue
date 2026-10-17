@@ -66,6 +66,13 @@ function openCreate() {
   dialogVisible.value = true
 }
 
+/** 行尾铅笔：跳过只读详情，直接进可编辑（2026-10-17） */
+function openEdit(task: Task) {
+  editingTask.value = task
+  readonly.value = false
+  dialogVisible.value = true
+}
+
 /** 点任务行：打开弹窗的只读模式（先看详情，不直接进编辑） */
 function openDetail(task: Task) {
   editingTask.value = task
@@ -171,6 +178,12 @@ function exitSelect() {
   selectedIds.value = []
 }
 
+/** 工具栏上的「批量选择 / 退出选择」是同一枚按钮，按当前模式决定方向 */
+function toggleSelectMode() {
+  if (selectMode.value) exitSelect()
+  else enterSelect()
+}
+
 function toggleSelect(task: Task) {
   selectedIds.value = selectedIds.value.includes(task.id)
     ? selectedIds.value.filter((id) => id !== task.id)
@@ -262,44 +275,51 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <div class="page">
-    <header class="task-header">
-      <h1 class="page-title">任务</h1>
-      <div class="task-header__actions">
-        <el-button v-if="!selectMode" @click="enterSelect">批量选择</el-button>
+    <StatBar :stats="todo.stats" />
+
+    <FilterBar
+      :query="todo.query"
+      :select-mode="selectMode"
+      @change="guard(() => todo.fetchTasks())"
+      @toggle-select="toggleSelectMode"
+    >
+      <!-- 第一行右侧只留主操作：新建任务 -->
+      <template #actions>
         <el-button type="primary" @click="openCreate">
           <AppIcon name="plus" />
           <span class="btn-text">新建任务</span>
         </el-button>
-      </div>
-    </header>
+      </template>
 
-    <StatBar :stats="todo.stats" />
-    <FilterBar :query="todo.query" @change="guard(() => todo.fetchTasks())" />
-
-    <BatchActionBar
-      v-if="selectMode"
-      :selected-count="selectedIds.length"
-      :total-count="todo.tasks.length"
-      :all-selected="allSelected"
-      :busy="batchBusy"
-      @complete="handleBatchStatus('DONE')"
-      @uncomplete="handleBatchStatus('TODO')"
-      @remove="handleBatchRemove"
-      @change-priority="handleBatchPriority"
-      @toggle-all="toggleAll"
-      @exit="exitSelect"
-    />
+      <!-- 批量操作条并到第二行右侧（选择模式才出现） -->
+      <template #tabs-actions>
+        <BatchActionBar
+          v-if="selectMode"
+          :selected-count="selectedIds.length"
+          :total-count="todo.tasks.length"
+          :all-selected="allSelected"
+          :busy="batchBusy"
+          @complete="handleBatchStatus('DONE')"
+          @uncomplete="handleBatchStatus('TODO')"
+          @remove="handleBatchRemove"
+          @change-priority="handleBatchPriority"
+          @toggle-all="toggleAll"
+        />
+      </template>
+    </FilterBar>
 
     <TaskList
       :tasks="todo.tasks"
       :loading="todo.loading && todo.tasks.length === 0"
       :select-mode="selectMode"
+      :leaving-on-toggle="todo.query.status === 'TODO'"
       :selected-ids="selectedIds"
       empty-title="还没有任务"
       empty-description="记录第一件事，之后按优先级与截止时间跟踪它。"
       empty-action-text="新建任务"
       @load-more="guard(() => todo.loadMore())"
       @open="openDetail"
+      @edit="openEdit"
       @remove="handleRemove"
       @toggle-status="handleToggleStatus"
       @change-priority="handleQuickPriority"
@@ -327,16 +347,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
-.task-header {
+/*
+ * 页面内的纵向节奏（2026-10-18）：20px。
+ * 页头「任务」大标题已移除 —— 顶部第一屏就是四张统计卡（侧边栏已标明当前页），
+ * 统计卡 → 工具栏 → 列表之间留出统一的呼吸位。
+ */
+.page {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.task-header__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 20px;
 }
 </style>

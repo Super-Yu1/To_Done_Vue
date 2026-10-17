@@ -72,9 +72,8 @@ export interface TaskStats {
 
 /**
  * 任务列表查询条件（6.5 ⑥ + 6.6）。
- * 不含 onlyUnfinished 与 sortBy / sortDirection：状态筛选已由两态状态取代，排序由后端按固定规则处理。
- * 曾经留过这两个字段，但后端 PageQuery 的 sortDirection 有 @Pattern("asc|desc")，
- * 前端传大写 DESC 会被判 400「请求参数不合法」——干脆不传。
+ * 不含 onlyUnfinished：状态筛选已由两态状态取代。
+ * 排序参数直接透传后端，前端不做本地重排 —— 顺序完全以服务端为准。
  */
 export interface TaskQuery {
   page: number
@@ -82,6 +81,14 @@ export interface TaskQuery {
   keyword?: string
   status?: TaskStatus
   priority?: TaskPriority
+  /**
+   * 排序（2026-10-18 接入）：两者都不传 = 沿用后端固定规则（未完成在前、按创建时间）。
+   * 后端允许 `recordedAt / dueDate / priority / completedAt`，方向 pattern 是 **小写** `asc|desc`
+   * （历史上发大写 `DESC` 被判过 400，别再用大写）。
+   * 稳定规则由后端保证：无截止时间的恒排最后、优先级排序内按截止时间升序、同分按 id 倒序。
+   */
+  sortBy?: 'recordedAt' | 'dueDate' | 'priority' | 'completedAt'
+  sortDirection?: 'asc' | 'desc'
 }
 
 
@@ -90,6 +97,8 @@ export interface TaskQuery {
 export interface TrashQuery {
   page: number
   size: number
+  /** 标题或描述模糊匹配（忽略大小写）；空串不发送（2026-10-18 后端新增该参数） */
+  keyword?: string
 }
 
 /** 用户（6.5 ⑤） */
@@ -225,7 +234,7 @@ export interface AdminUserUpdatePayload {
   email?: string
 }
 
-/** 后台创建用户（8.9 新增）：只填邮箱 + 名字，密码由服务端随机生成 */
+/** 后台创建用户（8.9 新增）：只填邮箱 + 用户名，密码由服务端随机生成 */
 export interface AdminUserCreatePayload {
   email: string
   name: string

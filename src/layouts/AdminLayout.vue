@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** 后台布局：左侧固定侧边栏 200px + 顶栏（管理员名字、上次登录时间、退出）；后台不提供主题切换（见 8.9） */
+/** 后台布局：左侧固定侧边栏 200px + 顶栏（管理员用户名、上次登录时间、退出）；后台不提供主题切换（见 8.9） */
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import AppIcon from '@/components/AppIcon.vue'

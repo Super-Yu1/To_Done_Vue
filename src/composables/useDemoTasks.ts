@@ -7,7 +7,6 @@ import { computed, reactive, ref } from 'vue'
 import { demoTrash, demoTasks, nextDemoId } from '@/mock/demoState'
 import { DEMO_TRASH_RETENTION_DAYS } from '@/mock/demoTrash'
 import { PAGE_SIZE, TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from '@/constants'
-import { groupTasksByState } from '@/utils/task'
 import { readStrikeMs, sleep } from '@/utils/timing'
 import { isDueToday, isOverdue, toIsoLocal } from '@/utils/date'
 import type { Task, TaskPayload, TaskPriority, TaskQuery, TaskStats, TaskStatus } from '@/types'
@@ -17,7 +16,10 @@ export function useDemoTasks() {
     page: 1,
     size: PAGE_SIZE,
     keyword: '',
-    status: undefined,
+    // 默认停在「未完成」+ 按截止时间近→远（2026-10-18）：与真实页一致
+    status: 'TODO',
+    sortBy: 'dueDate',
+    sortDirection: 'asc',
     priority: undefined,
   })
 
@@ -45,7 +47,8 @@ export function useDemoTasks() {
 
   /** 重算可见列表：初始化、筛选变化、以及每次写操作之后各调一次 */
   function rebuild() {
-    ordered.value = groupTasksByState(applyFilters())
+    // 2026-10-18：不再按状态分组（「全部」里已完成与未完成混排），顺序交给排序字段
+    ordered.value = applyFilters()
   }
 
   rebuild()
@@ -103,7 +106,13 @@ export function useDemoTasks() {
     target.statusLabel = TASK_STATUS_LABEL[status]
     target.completedAt = status === 'DONE' ? toIsoLocal(new Date()) : null
 
-    // ② 等划线播完再重排落位
+    // ② 当前只看单一状态、而这一行已不属于它：TaskItem 已在本地播完退场动画，
+    //    这里立即重算可见列表（行移除）；其余场景等划线播完再重排落位。
+    if (query.status && query.status !== status) {
+      rebuild()
+      return
+    }
+
     await sleep(readStrikeMs())
     rebuild()
   }

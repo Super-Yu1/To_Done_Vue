@@ -13,6 +13,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import AuthAside from '@/components/AuthAside.vue'
 import AuthShell from '@/components/AuthShell.vue'
 import CaptchaDialog from '@/components/CaptchaDialog.vue'
+import { isCaptchaError } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -36,6 +37,8 @@ onMounted(() => {
 
 const formRef = ref<FormInstance>()
 const captchaVisible = ref(false)
+/** 弹窗句柄：图形码输错时要让它「留住弹窗 + 红字 + 换一张新图」 */
+const captchaDialogRef = ref<InstanceType<typeof CaptchaDialog>>()
 
 const form = reactive({
   email: '',
@@ -64,10 +67,14 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
     ElMessage.success('登录成功')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tasks'
     await router.push(redirect)
-  } catch {
-    // 失败原因由 http 层提示（4001 图形码错 / 1003 邮箱或密码错 / 1006 冻结 / 1007 注销）。
-    // 一律关掉弹窗：密码也可能填错，留住弹窗会逼用户为一次输错连填两次图形码；
-    // 弹窗是 destroy-on-close 的，下次点「登录」自然是一张新图。
+  } catch (error) {
+    // 图形码错（4001）：留住弹窗，输入框下方给红字并换一张新图 —— 输错的那 4 位不值得让用户从头再来
+    if (isCaptchaError(error)) {
+      captchaDialogRef.value?.markError()
+      return
+    }
+    // 其它失败（1003 邮箱或密码错 / 1006 冻结 / 1007 注销）由 http 层提示；关掉弹窗，
+    // 免得密码填错时逼用户为一次提交连填两次图形码。下次点「登录」自然是一张新图。
     captchaVisible.value = false
   }
 }
@@ -115,8 +122,8 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
     </div>
 
     <CaptchaDialog
+      ref="captchaDialogRef"
       v-model:visible="captchaVisible"
-      tip="登录前过一次图形码（防刷），输入后即可登录。"
       :loading="auth.loading"
       @confirm="handleCaptchaConfirm"
     />

@@ -8,6 +8,7 @@
 import { computed, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import CaptchaDialog from '@/components/CaptchaDialog.vue'
+import { isCaptchaError } from '@/api/http'
 import { sendEmailCode } from '@/api/verify'
 import { EMAIL_CODE_LENGTH, EMAIL_CODE_RESEND_SECONDS } from '@/constants'
 import type { EmailCodeScene } from '@/types'
@@ -79,9 +80,14 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
     startCountdown(result.resendAfterSeconds || EMAIL_CODE_RESEND_SECONDS)
     ElMessage.success('验证码已发送，请查收邮件')
     emit('sent', result.expiresInSeconds)
-  } catch {
-    // 失败原因已由 http 层提示；图形码一次机会，换一张并让弹窗留着
-    captchaDialogRef.value?.refresh()
+  } catch (error) {
+    // 图形码错：红字提示 + 换一张（弹窗留着，4 位不用从头再来）；
+    // 其它失败（60 秒冷却 / 每日上限）交给 http 层提示，并关掉弹窗，免得让人对着一张没用的码继续填
+    if (isCaptchaError(error)) {
+      captchaDialogRef.value?.markError()
+    } else {
+      captchaVisible.value = false
+    }
   } finally {
     sending.value = false
   }
@@ -103,7 +109,6 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
     <CaptchaDialog
       ref="captchaDialogRef"
       v-model:visible="captchaVisible"
-      tip="邮箱验证码需要先过一次图形码（防刷），输入后它会自动发出。"
       :loading="sending"
       :demo="demo"
       @confirm="handleCaptchaConfirm"

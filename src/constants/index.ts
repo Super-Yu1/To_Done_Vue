@@ -5,11 +5,16 @@ import type { TaskPriority, TaskStatus, UserStatus } from '@/types'
 export const TOKEN_KEY = 'todone_token'
 export const ADMIN_TOKEN_KEY = 'todone_admin_token'
 /**
- * 管理员展示信息（名字 / 上次登录时间）的持久化键：后端没有「当前管理员」接口，
+ * 管理员展示信息（用户名 / 上次登录时间）的持久化键：后端没有「当前管理员」接口，
  * 刷新后要还原 8.9 顶栏就只能存这一份非凭证信息（不含密码、不含密钥）。
  */
 export const ADMIN_INFO_KEY = 'todone_admin_info'
 export const THEME_KEY = 'app-theme'
+/**
+ * 「删除前二次确认」偏好（2026-10-18）：本地开关，默认开启。
+ * 只影响单条删除类操作（回收站的彻底删除）；清空回收站仍强制输入「清空」二字。
+ */
+export const CONFIRM_DELETE_KEY = 'todone_confirm_delete'
 
 /** 分页与查询（6.6） */
 export const PAGE_SIZE = 20

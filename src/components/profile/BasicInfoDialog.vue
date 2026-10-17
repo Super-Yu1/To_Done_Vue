@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 编辑资料（UC-09 / 6.5 ⑤）：名字与手机号共用这一个弹窗。
+ * 编辑资料（UC-09 / 6.5 ⑤）：用户名与手机号共用这一个弹窗。
  * 只提交**改动过**的字段——接口契约是两个字段都可选、只改传了的；没有改动时保存按钮直接禁用，
  * 避免一次什么都没改的请求。
  */
@@ -28,7 +28,7 @@ const formRef = ref<FormInstance>()
 const form = reactive({ name: '', phone: '' })
 
 const rules: FormRules = {
-  name: [{ required: true, message: '请填写名字', trigger: 'blur' }],
+  name: [{ required: true, message: '请填写用户名', trigger: 'blur' }],
   phone: [
     {
       validator: (_rule, value: string, callback) =>
@@ -74,7 +74,7 @@ async function handleSubmit() {
       label-position="top"
       @submit.prevent="handleSubmit"
     >
-      <el-form-item label="名字" prop="name">
+      <el-form-item label="用户名" prop="name">
         <el-input v-model="form.name" maxlength="32" placeholder="显示用的称呼，可以重复" />
       </el-form-item>
       <el-form-item label="手机号" prop="phone">

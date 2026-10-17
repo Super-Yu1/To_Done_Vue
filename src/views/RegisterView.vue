@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /**
- * 注册（UC-01 / 6.5 ③）：邮箱 + 验证码 + 密码 + 昵称；name 不查重。
+ * 注册（UC-01 / 6.5 ③）：邮箱 + 验证码 + 密码 + 用户名；name 不查重。
  *
  * 排版（2026-10-14 起左右分栏，2026-10-16 改 4:6 全高）：左栏是「产品本体」，见 `AuthAside` ——
  * 登录页共用同一个组件、同一套版式，两页的差别只有主张文案与场景标签那一行。
- * 右侧表单字段顺序按「邮箱 → 它的验证码 → 密码 → 昵称」排：邮箱与验证码是一件事的两半，挨着更顺。
+ * 右侧表单字段顺序按「邮箱 → 它的验证码 → 密码 → 用户名」排：邮箱与验证码是一件事的两半，挨着更顺。
  * 图形码不在这一页，只在点「获取验证码」时由 EmailCodeField 弹窗索取。
  */
 import { reactive, ref } from 'vue'
@@ -42,7 +42,7 @@ const rules: FormRules = {
       trigger: 'blur',
     },
   ],
-  name: [{ required: true, message: '请填写昵称', trigger: 'blur' }],
+  name: [{ required: true, message: '请填写用户名', trigger: 'blur' }],
 }
 
 /**
@@ -94,7 +94,7 @@ async function handleSubmit() {
         />
       </el-form-item>
 
-      <el-form-item label="昵称" prop="name">
+      <el-form-item label="用户名" prop="name">
         <el-input v-model="form.name" maxlength="32" />
       </el-form-item>
 

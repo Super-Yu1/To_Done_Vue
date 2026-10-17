@@ -53,21 +53,22 @@ async function handleLogout() {
   <div class="app-layout">
     <AppSidebar :items="navItems" brand-to="/tasks">
       <template #settings>
-        <RouterLink class="side-user" to="/profile">
-          <img
-            v-if="auth.user?.avatarUrl"
-            class="side-user__avatar"
-            :src="auth.user.avatarUrl"
-            alt=""
-          />
-          <span v-else class="side-user__avatar side-user__avatar--text">{{ avatarText }}</span>
-          <span class="side-user__name">{{ displayName }}</span>
-        </RouterLink>
+        <!-- 2026-10-17：用户 / 主题 / 退出并成一行 —— 用户占 50%，主题与退出各 25% -->
+        <div class="side-row">
+          <RouterLink class="side-user" to="/profile">
+            <img
+              v-if="auth.user?.avatarUrl"
+              class="side-user__avatar"
+              :src="auth.user.avatarUrl"
+              alt=""
+            />
+            <span v-else class="side-user__avatar side-user__avatar--text">{{ avatarText }}</span>
+            <span class="side-user__name">{{ displayName }}</span>
+          </RouterLink>
 
-        <div class="side-tools">
-          <ThemeToggle />
+          <ThemeToggle class="side-row__tool" />
           <button
-            class="side-tool"
+            class="side-tool side-row__tool"
             type="button"
             title="退出登录"
             aria-label="退出登录"
@@ -86,7 +87,7 @@ async function handleLogout() {
 </template>
 
 <style scoped>
-/* 底部设置区：身份一行（点头像/名字进个人中心）+ 主题与退出 */
+/* 底部设置区：身份一行（点头像/用户名进个人中心）+ 主题与退出 */
 .side-user {
   display: flex;
   align-items: center;
@@ -97,10 +98,11 @@ async function handleLogout() {
 }
 
 .side-user:hover {
-  background-color: var(--color-hover);
+  background-color: var(--color-surface);
 }
 
 .side-user__avatar {
+  flex: none;
   width: 26px;
   height: 26px;
   border: 1px solid var(--color-border);
@@ -118,7 +120,9 @@ async function handleLogout() {
 }
 
 .side-user__name {
-  max-width: 118px;
+  /* 占满 60% 那一格剩下的宽度，超长时省略号收尾（原来写死 118px，反而用不满） */
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   font-size: 13px;
   color: var(--color-text);
@@ -126,11 +130,15 @@ async function handleLogout() {
   white-space: nowrap;
 }
 
-.side-tools {
-  display: flex;
+/* 一行三格：用户 70%、主题 15%、退出 15%（2026-10-18 按反馈逐步调整，给用户名留更多宽度） */
+.side-row {
+  display: grid;
+  grid-template-columns: 70% 15% 15%;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 4px;
+}
+
+.side-row__tool {
+  justify-self: center;
 }
 
 .side-tool {
@@ -150,7 +158,7 @@ async function handleLogout() {
 
 .side-tool:hover {
   color: var(--color-danger);
-  background-color: var(--color-hover);
+  background-color: var(--color-surface);
 }
 
 /* 窄屏：设置区横排，身份与两个图标按钮挤在一行 */

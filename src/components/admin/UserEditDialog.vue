@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 改资料弹窗（8.9）：名字、邮箱两项均可改；
+ * 改资料弹窗（8.9）：用户名、邮箱两项均可改；
  * 改邮箱会刷新 password_updated_at，必须在二次确认里写明「该用户需用新邮箱重新登录」。
  */
 import { reactive, ref, watch } from 'vue'
@@ -21,7 +21,7 @@ const formRef = ref<FormInstance>()
 const form = reactive({ name: '', email: '' })
 
 const rules: FormRules = {
-  name: [{ required: true, message: '请填写名字', trigger: 'blur' }],
+  name: [{ required: true, message: '请填写用户名', trigger: 'blur' }],
   email: [
     { required: true, message: '请填写邮箱', trigger: 'blur' },
     { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
@@ -59,7 +59,7 @@ async function handleSubmit() {
 <template>
   <el-dialog v-model="visible" title="编辑用户资料" width="480px" append-to-body>
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
-      <el-form-item label="名字" prop="name">
+      <el-form-item label="用户名" prop="name">
         <el-input v-model="form.name" maxlength="32" />
       </el-form-item>
       <el-form-item label="邮箱" prop="email">

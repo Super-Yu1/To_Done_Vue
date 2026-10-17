@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import AuthShell from '@/components/AuthShell.vue'
 import CaptchaDialog from '@/components/CaptchaDialog.vue'
+import { isCaptchaError } from '@/api/http'
 import { useAdminStore } from '@/stores/admin'
 
 const adminStore = useAdminStore()
@@ -27,6 +28,8 @@ onMounted(() => {
 
 const formRef = ref<FormInstance>()
 const captchaVisible = ref(false)
+/** 弹窗句柄：图形码输错时要让它「留住弹窗 + 红字 + 换一张新图」 */
+const captchaDialogRef = ref<InstanceType<typeof CaptchaDialog>>()
 const submitting = ref(false)
 
 const form = reactive({
@@ -54,9 +57,13 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
     ElMessage.success('登录成功')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/admin/users'
     await router.push(redirect)
-  } catch {
-    // 5001（账号或密码错）/ 4001（图形码错）提示由 http 层给出，一律关掉弹窗；
-    // 与前台登录同一理由：密码也可能是错的，下次点「登录」自然拿到一张新图
+  } catch (error) {
+    // 图形码错（4001）：留住弹窗、红字提示并换新图（与前台登录同一处理）
+    if (isCaptchaError(error)) {
+      captchaDialogRef.value?.markError()
+      return
+    }
+    // 5001（账号或密码错）等其它失败由 http 层给出；关掉弹窗，下次点「登录」自然是新图
     captchaVisible.value = false
   } finally {
     submitting.value = false
@@ -82,8 +89,8 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
     </el-form>
 
     <CaptchaDialog
+      ref="captchaDialogRef"
       v-model:visible="captchaVisible"
-      tip="后台登录同样要过一次图形码（防刷），输入后即可登录。"
       :loading="submitting"
       @confirm="handleCaptchaConfirm"
     />

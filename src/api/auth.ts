@@ -61,3 +61,19 @@ export function uploadAvatar(file: File): Promise<AvatarVO> {
 export function removeAvatar(): Promise<void> {
   return request<void>({ url: '/users/me/avatar', method: 'DELETE' })
 }
+
+/**
+ * 注销账号（不可恢复，2026-10-18 后端新增）：
+ * 后端只校验密码这一道闸；成功后任务与回收站被物理清空（含配图），账号行保留但无法再登录
+ * （唯一键是 `deleted_at IS NULL` 的部分索引，同一邮箱可当场重新注册）。
+ * 返回清掉的任务数 / 配图数，可直接用在提示里。
+ */
+export function deleteAccount(
+  password: string,
+): Promise<{ purgedTasks: number; purgedImages: number }> {
+  return request<{ purgedTasks: number; purgedImages: number }>({
+    url: '/users/me',
+    method: 'DELETE',
+    data: { password },
+  })
+}

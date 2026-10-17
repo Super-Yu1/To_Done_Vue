@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 身份行（个人中心第一行）：头像 + 名字 + 登录邮箱，右侧是头像动作。
+ * 身份行（个人中心第一行）：头像 + 用户名 + 登录邮箱，右侧是头像动作。
  * 整页只有这一处把「你是谁」放大——它比设置行高，其余行一律安静。
  * 选图在这里做类型与 10MB 拦截（8.8 要求在选择时即拦），1:1 裁剪交给 AvatarCropDialog。
  */
@@ -10,7 +10,7 @@ import AppIcon from '@/components/AppIcon.vue'
 
 const props = defineProps<{
   name: string
-  /** 名字下面那行事实（调用方决定写什么，如「注册于 2026-08-28」） */
+  /** 用户名下面那行事实（调用方决定写什么，如「注册于 2026-08-28」） */
   meta: string
   avatarUrl: string | null
   uploading?: boolean

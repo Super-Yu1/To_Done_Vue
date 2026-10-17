@@ -42,6 +42,49 @@ const dialogVisible = ref(false)
 const readonly = ref(false)
 const editingTask = ref<Task | null>(null)
 
+/**
+ * 演示态的排序（2026-10-18）：没有后端，就按同一套 sortBy / sortDirection 在内存里排。
+ * 未选排序时原样返回，保持组件自己的默认顺序；优先级按业务权重（低 < 中 < 高）而不是字典序。
+ */
+const sortedTasks = computed(() => {
+  const { sortBy, sortDirection } = query
+  if (!sortBy) return tasks.value
+  const dir = sortDirection === 'asc' ? 1 : -1
+  const WEIGHT = { LOW: 1, MEDIUM: 2, HIGH: 3 } as const
+
+  /**
+   * 截止时间比较：**没有截止时间的永远排最后**（正序倒序都一样）。
+   * direction 单独传：优先级排序的次键要固定升序，不能跟着表方向翻转（见下）。
+   */
+  function byDue(left: Task, right: Task, direction = dir): number {
+    const lv = left.dueDate ? Date.parse(left.dueDate) : null
+    const rv = right.dueDate ? Date.parse(right.dueDate) : null
+    if (lv === null && rv === null) return 0
+    if (lv === null) return 1
+    if (rv === null) return -1
+    return (lv - rv) * direction
+  }
+
+  return [...tasks.value].sort((a, b) => {
+    if (sortBy === 'priority') {
+      /*
+       * 同优先级内固定按截止时间近 → 远（方向恒为 1）：
+       * 后端修复后的规则是 `ORDER BY priority {dir}, due_date ASC`，次键不跟随表方向；
+       * 之前这里用 byDue(a, b) 会把组内也翻成远 → 近，与真实页不一致（2026-10-18 对齐）。
+       */
+      const diff = (WEIGHT[a.priority] - WEIGHT[b.priority]) * dir
+      return diff !== 0 ? diff : byDue(a, b, 1)
+    }
+    if (sortBy === 'dueDate') return byDue(a, b)
+    if (sortBy === 'completedAt') {
+      const av = a.completedAt ? Date.parse(a.completedAt) : Number.MAX_SAFE_INTEGER
+      const bv = b.completedAt ? Date.parse(b.completedAt) : Number.MAX_SAFE_INTEGER
+      return (av - bv) * dir
+    }
+    return (Date.parse(a.recordedAt) - Date.parse(b.recordedAt)) * dir
+  })
+})
+
 /** 批量选择（F）：与真实页同一套交互，只是数据落在内存态 */
 const selectMode = ref(false)
 const selectedIds = ref<string[]>([])
@@ -90,6 +133,13 @@ watch(allDone, (done, was) => {
 
 function openCreate() {
   editingTask.value = null
+  readonly.value = false
+  dialogVisible.value = true
+}
+
+/** 行尾铅笔：跳过只读详情，直接进可编辑（2026-10-17） */
+function openEdit(task: Task) {
+  editingTask.value = task
   readonly.value = false
   dialogVisible.value = true
 }
@@ -180,6 +230,12 @@ function exitSelect() {
   selectedIds.value = []
 }
 
+/** 工具栏上的「批量选择 / 退出选择」是同一枚按钮，按当前模式决定方向 */
+function toggleSelectMode() {
+  if (selectMode.value) exitSelect()
+  else enterSelect()
+}
+
 function toggleSelect(task: Task) {
   selectedIds.value = selectedIds.value.includes(task.id)
     ? selectedIds.value.filter((id) => id !== task.id)
@@ -245,55 +301,63 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     <header class="demo-header">
       <div>
         <h1 class="page-title">演示模式</h1>
-        <p class="demo-header__hint">
-          这是内置的 {{ tasks.length }} / {{ stats?.total ?? 0 }} 条示范数据，免登录体验完整界面；
-          新建、编辑、删除、切换状态都会真的生效（含回收站），但只存在内存里，刷新即还原。
-        </p>
+        <!-- 「刷新会还原」现在由布局层的通栏提示承担，这里只说数据规模，不重复 -->
+        <p class="demo-header__hint">内置 {{ stats?.total ?? 0 }} 条示范数据，免登录体验完整界面。</p>
       </div>
-      <div class="demo-header__actions">
-        <el-button v-if="!selectMode" @click="enterSelect">批量选择</el-button>
+      </header>
+
+    <StatBar :stats="stats" />
+    <FilterBar
+      :query="query"
+      :select-mode="selectMode"
+      @change="applyQuery"
+      @toggle-select="toggleSelectMode"
+    >
+      <!-- 第一行右侧只留主操作：新建任务 -->
+      <template #actions>
         <el-button type="primary" @click="openCreate">
           <AppIcon name="plus" />
           <span class="btn-text">新建任务</span>
         </el-button>
-      </div>
-    </header>
+      </template>
 
-    <StatBar :stats="stats" />
-    <FilterBar :query="query" @change="applyQuery" />
-
-    <BatchActionBar
-      v-if="selectMode"
-      :selected-count="selectedIds.length"
-      :total-count="tasks.length"
-      :all-selected="allSelected"
-      :busy="batchBusy"
-      @complete="handleBatchStatus('DONE')"
-      @uncomplete="handleBatchStatus('TODO')"
-      @remove="handleBatchRemove"
-      @change-priority="handleBatchPriority"
-      @toggle-all="toggleAll"
-      @exit="exitSelect"
-    />
+      <!-- 批量操作条并到第二行右侧（选择模式才出现） -->
+      <template #tabs-actions>
+        <BatchActionBar
+          v-if="selectMode"
+          :selected-count="selectedIds.length"
+          :total-count="tasks.length"
+          :all-selected="allSelected"
+          :busy="batchBusy"
+          @complete="handleBatchStatus('DONE')"
+          @uncomplete="handleBatchStatus('TODO')"
+          @remove="handleBatchRemove"
+          @change-priority="handleBatchPriority"
+          @toggle-all="toggleAll"
+        />
+      </template>
+    </FilterBar>
 
     <!-- 列表外面这层只管两件事：给气泡引导当定位参照、给彩蛋粒子当活动范围 -->
     <div class="demo-list">
       <!-- 气泡引导：首次进演示模式时指向第一行的勾选圈，点 × 或动手勾选即记成看过 -->
       <p v-if="guideVisible" class="guide" role="note">
-        <span>点这个圆圈，任务就完成了</span>
+        <span>点这个方框，任务就完成了</span>
         <button class="guide__close" type="button" aria-label="知道了" @click="dismissGuide">✕</button>
       </p>
 
       <TaskList
-        :tasks="tasks"
+        :tasks="sortedTasks"
         :loading="loading"
         :select-mode="selectMode"
+        :leaving-on-toggle="query.status === 'TODO'"
         :selected-ids="selectedIds"
         empty-title="没有匹配的任务"
         empty-description="换个关键词，或放宽筛选条件。"
         empty-action-text="清空筛选"
         @load-more="loadMore"
         @open="openDetail"
+        @edit="openEdit"
         @remove="handleRemove"
         @toggle-status="handleToggleStatus"
         @change-priority="handleQuickPriority"
@@ -323,9 +387,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
-/* 粒子层与气泡都挂在这一层上（`inset: 0` / 绝对定位都要一个定位祖先） */
+/* 页面内的纵向节奏（2026-10-18）：与真实任务页一致，统一 20px */
 .page {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .demo-list {
@@ -401,11 +468,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   gap: 16px;
 }
 
-.demo-header__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
 .demo-header__hint {
   margin-top: 6px;

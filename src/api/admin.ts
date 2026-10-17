@@ -19,7 +19,7 @@ export function adminLogin(payload: AdminLoginPayload): Promise<AdminAuthResult>
   return request<AdminAuthResult>({ url: '/admin/auth/login', method: 'POST', data: payload })
 }
 
-/** 用户列表（分页 + 按邮箱/名字/手机号搜索 + 状态筛选；不传 status = 正常 + 已冻结） */
+/** 用户列表（分页 + 按邮箱/用户名/手机号搜索 + 状态筛选；不传 status = 正常 + 已冻结） */
 export function fetchAdminUsers(params: AdminUserQuery): Promise<PageResult<AdminUser>> {
   return request<PageResult<AdminUser>>({ url: '/admin/users', method: 'GET', params })
 }
@@ -38,7 +38,7 @@ export function fetchAdminUser(id: string): Promise<AdminUser> {
   return request<AdminUser>({ url: `/admin/users/${id}`, method: 'GET' })
 }
 
-/** 修改用户资料（名字 / 邮箱；手机号不在此接口内） */
+/** 修改用户资料（用户名 / 邮箱；手机号不在此接口内） */
 export function updateAdminUser(id: string, payload: AdminUserUpdatePayload): Promise<void> {
   return request<void>({ url: `/admin/users/${id}`, method: 'PUT', data: payload })
 }

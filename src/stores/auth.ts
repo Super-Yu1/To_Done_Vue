@@ -97,6 +97,16 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(TOKEN_KEY)
   }
 
+  /**
+   * 注销账号（2026-10-18）：不可恢复，成功即清本地登录态（由调用方跳登录页）。
+   * 密码错（1005）时后端什么都没删，本地状态也不动，让用户重试。
+   */
+  async function deleteAccount(password: string) {
+    const result = await authApi.deleteAccount(password)
+    logout()
+    return result
+  }
+
   return {
     token,
     user,
@@ -111,6 +121,7 @@ export const useAuthStore = defineStore('auth', () => {
     changePassword,
     uploadAvatar,
     removeAvatar,
+    deleteAccount,
     logout,
   }
 })

@@ -32,7 +32,7 @@ export function placeholderImage(variant: number): string {
   )
 }
 
-/** 头像占位：中性底 + 名字首字，用来演示「已有头像」的样子 */
+/** 头像占位：中性底 + 用户名首字，用来演示「已有头像」的样子 */
 export function placeholderAvatar(label: string): string {
   return toDataUri(
     `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144">` +
