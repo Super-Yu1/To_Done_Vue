@@ -24,6 +24,12 @@ export type IconName =
   | 'copy'
   | 'up'
   | 'sparkle'
+  /* 统计筛选栏（2026-10-18）：逾期 / 今日到期 / 高优先级 */
+  | 'alert'
+  | 'calendar'
+  | 'flag'
+  /* 头像预览（2026-10-18）：放大镜 + */
+  | 'zoom'
 
 export const ICON_PATHS: Record<IconName, string[]> = {
   monitor: ['M3 4h18v12H3z', 'M8 20h8', 'M12 16v4'],
@@ -59,4 +65,12 @@ export const ICON_PATHS: Record<IconName, string[]> = {
   up: ['M5 15l7-7 7 7'],
   /* 四角星：彩蛋庆祝文案前面那个小标记（比 emoji 更贴全站的线性图标语言） */
   sparkle: ['M12 4l1.7 6.3L20 12l-6.3 1.7L12 20l-1.7-6.3L4 12l6.3-1.7z'],
+  /* 三角感叹号：逾期 / 需要注意 */
+  alert: ['M12 3.2 2.6 20h18.8L12 3.2z', 'M12 9v5', 'M12 17.2h.01'],
+  /* 日历：今日到期 */
+  calendar: ['M4 6h16v14H4z', 'M4 10h16', 'M8 3v4', 'M16 3v4'],
+  /* 旗标：高优先级 */
+  flag: ['M5 21V4', 'M5 4h11l-1.6 4L16 12H5'],
+  /* 放大镜 +：头像「点击看大图」的悬停提示 */
+  zoom: ['M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12z', 'M15.6 15.6 20 20', 'M11 8.5v5', 'M8.5 11h5'],
 }

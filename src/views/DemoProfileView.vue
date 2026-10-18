@@ -5,7 +5,7 @@
  * ②头像的 1:1 取景框（本地裁剪，不涉及后端），只是确认后不上传。
  */
 import { ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import AppearanceSettings from '@/components/profile/AppearanceSettings.vue'
 import AvatarCropDialog from '@/components/profile/AvatarCropDialog.vue'
 import BasicInfoDialog from '@/components/profile/BasicInfoDialog.vue'
@@ -54,17 +54,6 @@ function handleAvatarConfirm() {
   notifyNotSaved()
 }
 
-async function handleRemoveAvatar() {
-  try {
-    await ElMessageBox.confirm('移除后头像会变回默认样式。', '移除头像', {
-      confirmButtonText: '移除',
-      cancelButtonText: '取消',
-    })
-  } catch {
-    return
-  }
-  notifyNotSaved()
-}
 </script>
 
 <template>
@@ -80,7 +69,6 @@ async function handleRemoveAvatar() {
         :meta="`注册于 ${formatDate(DEMO_USER.createdAt)}`"
         :avatar-url="DEMO_USER.avatarUrl"
         @pick="handlePickAvatar"
-        @remove="handleRemoveAvatar"
       />
     </div>
 
@@ -114,7 +102,12 @@ async function handleRemoveAvatar() {
     </div>
 
     <BasicInfoDialog v-model:visible="basicVisible" :user="DEMO_USER" @submit="handleBasicSubmit" />
-    <EmailChangeDialog v-model:visible="emailVisible" demo @submit="handleEmailSubmit" />
+    <EmailChangeDialog
+      v-model:visible="emailVisible"
+      :current-email="DEMO_USER.email"
+      demo
+      @submit="handleEmailSubmit"
+    />
     <PasswordChangeDialog
       v-model:visible="passwordVisible"
       @submit="handlePasswordSubmit"

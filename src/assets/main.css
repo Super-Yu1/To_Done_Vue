@@ -3,54 +3,71 @@
 /* ① 项目语义变量：组件只引用这一层，切主题 = 换一组取值 */
 :root {
   --color-bg: #ffffff;
-  /* 浅灰底（2026-10-18）：侧边栏、搜索框、分段控件共用同一档，白卡压上去才有层次 */
-  --color-bg-soft: #f3f5f4;
+  /* 画布（2026-10-18）：前台主内容区的极浅灰，白卡压在上面才有悬浮感 */
+  --color-canvas: #fafbfc;
+  /* 浅灰底：侧边栏、搜索框、分段控件共用同一档 */
+  --color-bg-soft: #f4f6f8;
   --color-surface: #ffffff;
-  --color-text: #141715;
+  --color-text: #1f2430;
   /*
-   * 次要文字（2026-10-17：整体加深一档）。原 #8c8c8c / #bfbfbf 在列表里要「刻意去看」才看得清，
-   * 扫读效率太低；现在描述、日期、排序说明这些都落在 #6b6f6d / #9aa09d。
+   * 次要文字（2026-10-18 按「轻量 C 端」口径调冷）：描述、日期、排序说明落在 #6b7280 / #9ca3af。
    */
-  --color-text-2: #6b6f6d;
-  --color-text-3: #9aa09d;
-  /* 2026-10-18：卡片描边按设计稿收到「极淡」一档，靠留白与柔和阴影分层，不靠重线 */
-  --color-border: #eceeed;
-  --color-border-strong: #dfe3e1;
-  --color-hover: #f4f6f5;
-  --color-primary-bg: #141715;
-  --color-primary-bg-hover: #2b302d;
+  --color-text-2: #6b7280;
+  --color-text-3: #9ca3af;
+  /* 画布上的卡片不靠描边分层，边框只留给输入框等确实需要边界的控件 */
+  --color-border: #edf0f4;
+  --color-border-strong: #dfe4ea;
+  /* 设置列表分割线（2026-10-18）：比边框更浅，两端留内边距，不贴卡片边缘 */
+  --color-split: #edf2f7;
+  --color-hover: #f4f6f8;
+  /* 设置行悬停：比 --color-hover 更浅，避免整行像被选中 */
+  --color-row-hover: #f9fafb;
+  /* 品牌色：克莱因蓝的现代变体 —— 主按钮、选中态、进度条、完成勾选 */
+  --color-brand: #2f4bff;
+  --color-brand-hover: #1f3ae6;
+  --color-brand-active: #1630c9;
+  --color-brand-soft: #edf0ff;
+  --color-brand-fg: #ffffff;
+  --color-primary-bg: #1f2430;
+  --color-primary-bg-hover: #363d4c;
   --color-primary-bg-active: #000000;
   --color-primary-fg: #ffffff;
   --color-danger: #c0453c;
   --color-danger-hover: #a83a32;
+  /* 文字型危险操作（注销 / 退出）：比实底红更亮一档（2026-10-18） */
+  --color-danger-text: #e53e3e;
   --color-danger-border: #f3d4d1;
   --color-danger-bg: #fdf1f0;
+  /* 危险图标按钮的悬停底：比 --color-danger-bg 更实一档（回收站左侧垃圾桶） */
+  --color-danger-soft: #fee2e2;
   /* 红底上的前景色：两端主题都是白 —— 不能复用主按钮的 -fg（深色主题里它是深色） */
   --color-danger-fg: #ffffff;
   --color-status-done: #2f9e6e;
-  /* 薄荷绿（点缀）：进度条、完成态、成功徽章；浅蓝只用于中性提示徽章 */
+  /* 薄荷绿（点缀）：成功徽章；进度条与完成态已交给品牌色 */
   --color-mint: #62c99b;
   --color-mint-fg: #2f9e6e;
   --color-mint-bg: #e9f7f0;
   --color-sky-fg: #4a7db5;
   --color-sky-bg: #eaf2fb;
   /*
-   * 优先级三档（2026-10-18 按设计稿改回浅底同色字）：
-   * 高 = 浅红底红字、中 = 浅橙底橙字、低 = 浅灰底灰字；文字色仍压在 4.5:1 以上。
-   * 形状（实心 / 空心 / 无点）是第二重编码，色觉差异下也分得开。
+   * 优先级三档（2026-10-18）：任务卡里是**无边框纯文字**（高淡红 / 中橙 / 低灰）；
+   * 弹窗里的选择器仍是浅底胶囊，两者共用同一组颜色。
    */
-  --color-priority-high-fg: #bf4438;
+  --color-priority-high-fg: #d6453d;
   --color-priority-high-bg: #fdecea;
   --color-priority-high-border: #f6d3cf;
-  --color-priority-medium-fg: #b0762b;
+  --color-priority-medium-fg: #b8792c;
   --color-priority-medium-bg: #fdf2e4;
   --color-priority-medium-border: #f3e0c7;
-  --color-priority-low-fg: #8a8f8c;
-  --color-priority-low-bg: #f6f7f7;
-  --color-priority-low-border: #e9ecea;
-  /* 卡片阴影：默认几乎看不见，只在悬停时轻轻浮起 */
-  --shadow-card: 0 1px 2px rgba(16, 24, 20, 0.03);
-  --shadow-card-hover: 0 6px 18px rgba(16, 24, 20, 0.05);
+  --color-priority-low-fg: #8b929e;
+  --color-priority-low-bg: #f6f7f9;
+  --color-priority-low-border: #e9edf2;
+  /* 「高优先级」快捷筛选：浅紫，和逾期的红、今日到期的橙分开 */
+  --color-high-bg: #f1edff;
+  --color-high-fg: #6b4fd8;
+  /* 卡片阴影：大圆角 + 柔和扩散，靠光而不是线把卡片托起来 */
+  --shadow-card: 0 6px 24px rgba(17, 24, 39, 0.06);
+  --shadow-card-hover: 0 14px 36px rgba(17, 24, 39, 0.1);
   --color-mask: rgba(0, 0, 0, 0.28);
   /*
    * 圆角阶梯：全站（含 Element Plus）只从这四档取值，不再出现零散数值。
@@ -62,6 +79,8 @@
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 20px;
+  /* 卡片圆角（2026-10-18 设计稿）：统计卡 / 任务卡统一 16px */
+  --radius-card: 16px;
   --radius-pill: 999px;
   --dur-fast: 150ms;
   --dur-base: 200ms;
@@ -88,23 +107,33 @@
 }
 
 html.dark {
-  --color-bg: #0f1110;
-  --color-bg-soft: #161917;
-  --color-surface: #191d1b;
-  --color-text: #eceeec;
-  --color-text-2: #a8aeaa;
-  --color-text-3: #7c837f;
-  --color-border: #2a2e2c;
-  --color-border-strong: #363b38;
-  --color-hover: #212523;
+  --color-bg: #0d0f12;
+  --color-canvas: #0d0f12;
+  --color-bg-soft: #15181e;
+  --color-surface: #191d24;
+  --color-text: #eef1f5;
+  --color-text-2: #a3abb8;
+  --color-text-3: #7b8492;
+  --color-border: #262b34;
+  --color-border-strong: #333a45;
+  --color-split: #262b34;
+  --color-hover: #20252d;
+  --color-row-hover: #1d222a;
+  --color-brand: #7c8dff;
+  --color-brand-hover: #94a2ff;
+  --color-brand-active: #6679ff;
+  --color-brand-soft: #1c2246;
+  --color-brand-fg: #0f1220;
   --color-primary-bg: #eceeec;
   --color-primary-bg-hover: #cfd3d0;
   --color-primary-bg-active: #ffffff;
   --color-primary-fg: #121513;
   --color-danger: #e8867f;
   --color-danger-hover: #ef9a94;
+  --color-danger-text: #f28b84;
   --color-danger-border: #4a2b2a;
   --color-danger-bg: #241818;
+  --color-danger-soft: #3a1f1e;
   --color-danger-fg: #ffffff;
   --color-status-done: #63c99a;
   --color-mint: #63c99a;
@@ -121,8 +150,10 @@ html.dark {
   --color-priority-low-fg: #9aa09d;
   --color-priority-low-bg: #1d211f;
   --color-priority-low-border: #2c302e;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25);
-  --shadow-card-hover: 0 6px 18px rgba(0, 0, 0, 0.35);
+  --color-high-bg: #211b38;
+  --color-high-fg: #b6a4ff;
+  --shadow-card: 0 6px 24px rgba(0, 0, 0, 0.38);
+  --shadow-card-hover: 0 14px 36px rgba(0, 0, 0, 0.52);
   --color-mask: rgba(0, 0, 0, 0.6);
   --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
@@ -420,7 +451,8 @@ img {
 .app-layout {
   min-height: 100vh;
   padding-left: var(--sidebar-width);
-  background-color: var(--color-bg);
+  /* 极浅灰画布：白卡 + 柔和阴影才有悬浮感（2026-10-18 设计稿） */
+  background-color: var(--color-canvas);
 }
 
 .app-layout__main {
@@ -477,8 +509,22 @@ img {
   background-color: var(--color-surface);
 }
 
-.settings-group > * + * {
-  border-top: 1px solid var(--color-border);
+.settings-group > * {
+  position: relative;
+}
+
+/*
+ * 行间分割线：用伪元素画在行内，左右各留 20px（与行内边距对齐），
+ * 不再让 1px 线横穿整张卡、贴着圆角边缘。
+ */
+.settings-group > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background-color: var(--color-split);
 }
 
 /* 分组标题独立在卡片外，避免与行内项名抢同一层级 */
@@ -510,8 +556,13 @@ img {
   background-color: var(--color-bg);
 }
 
+/* 文字型危险操作常驻红字：注销 / 退出登录一眼可辨，悬停再深一档 */
+.row-action--danger {
+  color: var(--color-danger-text);
+}
+
 .row-action--danger:hover {
-  color: var(--color-danger);
+  color: var(--color-danger-hover);
 }
 
 .row-action:disabled {

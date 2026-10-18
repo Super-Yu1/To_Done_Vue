@@ -17,12 +17,14 @@ import StatBar from '@/components/StatBar.vue'
 import TaskFormDialog from '@/components/TaskFormDialog.vue'
 import TaskList from '@/components/TaskList.vue'
 import { useDemoTasks } from '@/composables/useDemoTasks'
-import type { Task, TaskPayload, TaskPriority } from '@/types'
+import { PAGE_SIZE } from '@/constants'
+import type { Task, TaskPayload, TaskPriority, TaskQuickFilter } from '@/types'
 
 const {
   query,
   tasks,
   stats,
+  highPriorityCount,
   loading,
   applyQuery,
   loadMore,
@@ -85,14 +87,25 @@ const sortedTasks = computed(() => {
   })
 })
 
+/**
+ * 统计栏快捷筛选（2026-10-18）：与真实页同一套口径。
+ * 真实页走后端参数；演示页由 useDemoTasks 的 applyFilters 按同样的
+ * `query.overdue / dueToday / priority` 过滤，这里只剩排序后的可见列表。
+ */
+const activeFilter = ref<TaskQuickFilter | null>(null)
+
+const visibleTasks = computed(() => sortedTasks.value)
+
 /** 批量选择（F）：与真实页同一套交互，只是数据落在内存态 */
 const selectMode = ref(false)
 const selectedIds = ref<string[]>([])
 const batchBusy = ref(false)
 
-const selectedTasks = computed(() => tasks.value.filter((task) => selectedIds.value.includes(task.id)))
+const selectedTasks = computed(() =>
+  visibleTasks.value.filter((task) => selectedIds.value.includes(task.id)),
+)
 const allSelected = computed(
-  () => tasks.value.length > 0 && selectedIds.value.length >= tasks.value.length,
+  () => visibleTasks.value.length > 0 && selectedIds.value.length >= visibleTasks.value.length,
 )
 
 /** 演示模式的写操作提示：改动真的生效，只是不落库 */
@@ -215,6 +228,36 @@ function resetFilters() {
   query.keyword = ''
   query.status = undefined
   query.priority = undefined
+  query.overdue = undefined
+  query.dueToday = undefined
+  query.size = PAGE_SIZE
+  activeFilter.value = null
+  applyQuery()
+}
+
+/** 统计栏胶囊：点同一枚 = 取消；任意一枚都会把列表切回「未完成」 */
+function handleFilter(next: TaskQuickFilter | null) {
+  exitSelect()
+  activeFilter.value = next
+
+  if (next) query.status = 'TODO'
+  query.priority = next === 'high' ? 'HIGH' : undefined
+  query.overdue = next === 'overdue' ? true : undefined
+  query.dueToday = next === 'dueToday' ? true : undefined
+  query.size = PAGE_SIZE
+  query.page = 1
+  applyQuery()
+}
+
+/** 搜索 / 页签 / 排序变化：快捷筛选是一次性的，跟着收起 */
+function handleQueryChange() {
+  if (activeFilter.value) {
+    activeFilter.value = null
+    query.priority = undefined
+    query.overdue = undefined
+    query.dueToday = undefined
+    query.size = PAGE_SIZE
+  }
   applyQuery()
 }
 
@@ -243,7 +286,7 @@ function toggleSelect(task: Task) {
 }
 
 function toggleAll() {
-  selectedIds.value = allSelected.value ? [] : tasks.value.map((task) => task.id)
+  selectedIds.value = allSelected.value ? [] : visibleTasks.value.map((task) => task.id)
 }
 
 function reportBatch(count: number) {
@@ -298,19 +341,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <div class="page">
-    <header class="demo-header">
-      <div>
-        <h1 class="page-title">演示模式</h1>
-        <!-- 「刷新会还原」现在由布局层的通栏提示承担，这里只说数据规模，不重复 -->
-        <p class="demo-header__hint">内置 {{ stats?.total ?? 0 }} 条示范数据，免登录体验完整界面。</p>
-      </div>
-      </header>
-
-    <StatBar :stats="stats" />
+    <StatBar
+      :stats="stats"
+      :high-priority="highPriorityCount"
+      :active-filter="activeFilter"
+      @filter="handleFilter"
+    />
     <FilterBar
       :query="query"
       :select-mode="selectMode"
-      @change="applyQuery"
+      @change="handleQueryChange"
       @toggle-select="toggleSelectMode"
     >
       <!-- 第一行右侧只留主操作：新建任务 -->
@@ -321,14 +361,28 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </el-button>
       </template>
 
+      <!-- 第二行中间：演示环境提示（红色感叹号 + 浅红底，提醒「刷新会重置」） -->
+      <template #tabs-center>
+        <p
+          class="demo-hint"
+          title="当前为演示环境 —— 新建、修改只存在内存里，刷新页面就会重置。"
+        >
+          <AppIcon class="demo-hint__icon" name="alert" :size="13" />
+          <span class="demo-hint__text">
+            当前为演示环境 —— 新建、修改只存在内存里，刷新页面就会重置。
+          </span>
+        </p>
+      </template>
+
       <!-- 批量操作条并到第二行右侧（选择模式才出现） -->
       <template #tabs-actions>
         <BatchActionBar
           v-if="selectMode"
           :selected-count="selectedIds.length"
-          :total-count="tasks.length"
+          :total-count="visibleTasks.length"
           :all-selected="allSelected"
           :busy="batchBusy"
+          :status="query.status"
           @complete="handleBatchStatus('DONE')"
           @uncomplete="handleBatchStatus('TODO')"
           @remove="handleBatchRemove"
@@ -347,10 +401,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       </p>
 
       <TaskList
-        :tasks="sortedTasks"
+        :tasks="visibleTasks"
         :loading="loading"
         :select-mode="selectMode"
-        :leaving-on-toggle="query.status === 'TODO'"
+        :leaving-on-toggle="Boolean(activeFilter) || query.status === 'TODO'"
         :selected-ids="selectedIds"
         empty-title="没有匹配的任务"
         empty-description="换个关键词，或放宽筛选条件。"
@@ -365,8 +419,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         @toggle-select="toggleSelect"
         @empty-action="resetFilters"
       >
+        <!-- 快捷筛选激活时收起快速录入：新任务不满足筛选条件，录了也看不见 -->
         <template #footer>
-          <QuickAddTask @create="handleQuickAdd" />
+          <QuickAddTask v-if="!activeFilter" @create="handleQuickAdd" />
         </template>
       </TaskList>
     </div>
@@ -387,12 +442,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
-/* 页面内的纵向节奏（2026-10-18）：与真实任务页一致，统一 20px */
+/* 页面内的纵向节奏（2026-10-18）：与真实任务页一致，统一 24px */
 .page {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .demo-list {
@@ -461,18 +516,31 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   }
 }
 
-.demo-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+/* 第二行中间的演示环境提示：红色感叹号 + 浅红胶囊底，提醒「刷新会重置」 */
+.demo-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  /* 比原来的 12px 大一档，和正文的 14px 对齐 */
+  font-size: 14px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
+.demo-hint__icon {
+  flex: none;
+}
 
-.demo-header__hint {
-  margin-top: 6px;
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--color-text-2);
+.demo-hint__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

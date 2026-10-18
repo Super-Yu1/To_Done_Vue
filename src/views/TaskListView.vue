@@ -14,8 +14,9 @@ import QuickAddTask from '@/components/QuickAddTask.vue'
 import StatBar from '@/components/StatBar.vue'
 import TaskFormDialog from '@/components/TaskFormDialog.vue'
 import TaskList from '@/components/TaskList.vue'
+import { PAGE_SIZE } from '@/constants'
 import { useTodoStore } from '@/stores/todo'
-import type { Task, TaskPayload, TaskPriority } from '@/types'
+import type { Task, TaskPayload, TaskPriority, TaskQuickFilter } from '@/types'
 
 const todo = useTodoStore()
 
@@ -40,13 +41,40 @@ function onUploadProgress(percent: number) {
   uploadProgress.value = percent
 }
 
+/**
+ * 统计栏快捷筛选（2026-10-18）：三选一，全部走服务端参数 ——
+ * 高优先级 `priority=HIGH`、逾期 `overdue=true`、今日到期 `dueToday=true`。
+ * 不再用本地过滤，也不用把 page size 临时放大到 100。
+ */
+const activeFilter = ref<TaskQuickFilter | null>(null)
+
+/** 服务端筛选后列表就是 store 里那一页；保留别名让模板与批量逻辑少改一处 */
+const visibleTasks = computed(() => todo.tasks)
+
 const hasFilters = computed(() =>
-  Boolean(todo.query.keyword || todo.query.status || todo.query.priority),
+  Boolean(
+    todo.query.keyword ||
+      todo.query.status ||
+      todo.query.priority ||
+      todo.query.overdue ||
+      todo.query.dueToday ||
+      activeFilter.value,
+  ),
 )
 
-const selectedTasks = computed(() => todo.tasks.filter((task) => selectedIds.value.includes(task.id)))
+/** 快捷筛选下空列表的文案：明确是筛掉了，而不是一条任务都没有 */
+const emptyTitle = computed(() => (activeFilter.value ? '没有符合条件的任务' : '还没有任务'))
+const emptyDescription = computed(() =>
+  activeFilter.value
+    ? '换个快捷筛选，或清空筛选后再看。'
+    : '记录第一件事，之后按优先级与截止时间跟踪它。',
+)
+
+const selectedTasks = computed(() =>
+  visibleTasks.value.filter((task) => selectedIds.value.includes(task.id)),
+)
 const allSelected = computed(
-  () => todo.tasks.length > 0 && selectedIds.value.length >= todo.tasks.length,
+  () => visibleTasks.value.length > 0 && selectedIds.value.length >= visibleTasks.value.length,
 )
 
 /** 接口失败的具体提示由 http 层统一给出，页面只保证不把 rejection 漏到控制台 */
@@ -59,6 +87,36 @@ async function guard(action: () => Promise<unknown>) {
 }
 
 onMounted(() => guard(() => todo.refresh()))
+
+/**
+ * 统计栏胶囊：点同一枚 = 取消；任意一枚都会把列表切回「未完成」，
+ * 保证列表口径与统计数字（未完成的逾期 / 今日到期 / 高优）一致。
+ */
+function handleFilter(next: TaskQuickFilter | null) {
+  // 快捷筛选与批量选择互斥：避免选中被筛掉的行
+  exitSelect()
+  activeFilter.value = next
+
+  if (next) todo.query.status = 'TODO'
+  todo.query.priority = next === 'high' ? 'HIGH' : undefined
+  todo.query.overdue = next === 'overdue' ? true : undefined
+  todo.query.dueToday = next === 'dueToday' ? true : undefined
+  todo.query.size = PAGE_SIZE
+
+  void guard(() => todo.fetchTasks())
+}
+
+/** 搜索 / 页签 / 排序变化：快捷筛选是一次性的，跟着收起 */
+function handleQueryChange() {
+  if (activeFilter.value) {
+    activeFilter.value = null
+    todo.query.priority = undefined
+    todo.query.overdue = undefined
+    todo.query.dueToday = undefined
+    todo.query.size = PAGE_SIZE
+  }
+  void guard(() => todo.fetchTasks())
+}
 
 function openCreate() {
   editingTask.value = null
@@ -163,6 +221,10 @@ function handleEmptyAction() {
   todo.query.keyword = ''
   todo.query.status = undefined
   todo.query.priority = undefined
+  todo.query.overdue = undefined
+  todo.query.dueToday = undefined
+  todo.query.size = PAGE_SIZE
+  activeFilter.value = null
   void guard(() => todo.fetchTasks())
 }
 
@@ -191,7 +253,7 @@ function toggleSelect(task: Task) {
 }
 
 function toggleAll() {
-  selectedIds.value = allSelected.value ? [] : todo.tasks.map((task) => task.id)
+  selectedIds.value = allSelected.value ? [] : visibleTasks.value.map((task) => task.id)
 }
 
 /** 批量动作的统一收尾：报「成功 / 失败」，然后退出选择模式（列表已经在 store 里重取过） */
@@ -275,12 +337,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <div class="page">
-    <StatBar :stats="todo.stats" />
+    <StatBar
+      :stats="todo.stats"
+      :high-priority="todo.highPriorityCount"
+      :active-filter="activeFilter"
+      @filter="handleFilter"
+    />
 
     <FilterBar
       :query="todo.query"
       :select-mode="selectMode"
-      @change="guard(() => todo.fetchTasks())"
+      @change="handleQueryChange"
       @toggle-select="toggleSelectMode"
     >
       <!-- 第一行右侧只留主操作：新建任务 -->
@@ -296,9 +363,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         <BatchActionBar
           v-if="selectMode"
           :selected-count="selectedIds.length"
-          :total-count="todo.tasks.length"
+          :total-count="visibleTasks.length"
           :all-selected="allSelected"
           :busy="batchBusy"
+          :status="todo.query.status"
           @complete="handleBatchStatus('DONE')"
           @uncomplete="handleBatchStatus('TODO')"
           @remove="handleBatchRemove"
@@ -309,14 +377,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     </FilterBar>
 
     <TaskList
-      :tasks="todo.tasks"
-      :loading="todo.loading && todo.tasks.length === 0"
+      :tasks="visibleTasks"
+      :loading="todo.loading && visibleTasks.length === 0"
       :select-mode="selectMode"
-      :leaving-on-toggle="todo.query.status === 'TODO'"
+      :leaving-on-toggle="Boolean(activeFilter) || todo.query.status === 'TODO'"
       :selected-ids="selectedIds"
-      empty-title="还没有任务"
-      empty-description="记录第一件事，之后按优先级与截止时间跟踪它。"
-      empty-action-text="新建任务"
+      :empty-title="emptyTitle"
+      :empty-description="emptyDescription"
+      :empty-action-text="activeFilter ? '清空筛选' : '新建任务'"
       @load-more="guard(() => todo.loadMore())"
       @open="openDetail"
       @edit="openEdit"
@@ -327,8 +395,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       @toggle-select="toggleSelect"
       @empty-action="handleEmptyAction"
     >
+      <!-- 快捷筛选激活时收起快速录入：新任务不满足筛选条件，录了也看不见 -->
       <template #footer>
-        <QuickAddTask :submitting="quickAdding" @create="handleQuickAdd" />
+        <QuickAddTask v-if="!activeFilter" :submitting="quickAdding" @create="handleQuickAdd" />
       </template>
     </TaskList>
 
@@ -348,13 +417,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <style scoped>
 /*
- * 页面内的纵向节奏（2026-10-18）：20px。
+ * 页面内的纵向节奏（2026-10-18 设计稿）：24px。
  * 页头「任务」大标题已移除 —— 顶部第一屏就是四张统计卡（侧边栏已标明当前页），
  * 统计卡 → 工具栏 → 列表之间留出统一的呼吸位。
  */
 .page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 </style>

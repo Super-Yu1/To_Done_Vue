@@ -7,7 +7,6 @@ import { computed, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import BackToTop from '@/components/BackToTop.vue'
 import TrashList from '@/components/TrashList.vue'
-  import { confirmDestructive } from '@/composables/usePreferences'
 import { useDemoTrash } from '@/composables/useDemoTrash'
 import type { TrashTask } from '@/types'
 
@@ -68,19 +67,51 @@ function handleBatchRestore() {
   exitSelect()
 }
 
+/** 批量彻底删除（演示态）：逐条从内存清掉，先二次确认 */
+async function handleBatchPurge() {
+  const targets = visibleTasks.value.filter((task) => selectedIds.value.includes(task.id))
+  if (!targets.length) return
+  try {
+    await ElMessageBox.confirm(
+      `将彻底删除选中的 ${targets.length} 条任务及其配图，该操作不可逆，确认继续？`,
+      '批量彻底删除',
+      {
+        confirmButtonText: '彻底删除',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+  } catch {
+    return
+  }
+
+  batchBusy.value = true
+  targets.forEach((task) => purge(task))
+  batchBusy.value = false
+  ElMessage.success(`已彻底删除 ${targets.length} 条${MEMORY_HINT}`)
+  exitSelect()
+}
+
 function handleRestore(task: TrashTask) {
   restore(task)
   ElMessage.success(`已恢复${MEMORY_HINT}`)
 }
 
 async function handlePurge(task: TrashTask) {
-  // 二次确认可在「个人中心 · 偏好」里关掉（默认开）
-  const ok = await confirmDestructive(
-    `「${task.title}」及其配图会被一并删除，此操作不可恢复。`,
-    '彻底删除',
-    '彻底删除',
-  )
-  if (!ok) return
+  // 回收站的彻底删除不可恢复，必须二次确认（不受「删除二次确认」偏好影响）
+  try {
+    await ElMessageBox.confirm(
+      `「${task.title}」及其配图会被一并删除，此操作不可恢复。`,
+      '彻底删除',
+      {
+        confirmButtonText: '彻底删除',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+  } catch {
+    return
+  }
   purge(task)
   ElMessage.success(`已彻底删除${MEMORY_HINT}`)
 }
@@ -90,7 +121,7 @@ async function handleClear() {
   if (total.value === 0) return
   try {
     await ElMessageBox.prompt(
-      `回收站内的 ${total.value} 条任务及其配图会被全部删除，此操作不可恢复。请输入「清空」以确认。`,
+      `该操作不可逆，确认清空全部 ${total.value} 条数据？任务及其配图会被一并删除、无法恢复。请输入「清空」以确认。`,
       '清空回收站',
       {
         confirmButtonText: '清空',
@@ -131,6 +162,7 @@ async function handleClear() {
       @toggle-select="toggleSelect"
       @toggle-all="toggleAll"
       @batch-restore="handleBatchRestore"
+      @batch-purge="handleBatchPurge"
     />
 
     <BackToTop />

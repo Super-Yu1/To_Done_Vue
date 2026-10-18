@@ -46,9 +46,9 @@ function handleSubmit() {
   align-items: center;
   gap: 12px;
   margin-top: 8px;
-  padding: 12px 20px;
+  padding: 14px 20px;
   border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   background-color: var(--color-surface);
   transition: border-color var(--dur-fast) var(--ease);
 }

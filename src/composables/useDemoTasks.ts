@@ -37,6 +37,9 @@ export function useDemoTasks() {
     return demoTasks.value.filter((task) => {
       if (query.status && task.status !== query.status) return false
       if (query.priority && task.priority !== query.priority) return false
+      // 快捷筛选（2026-10-18）：与真实页新加的两个服务端参数同口径
+      if (query.overdue && !isOverdue(task.dueDate, task.status)) return false
+      if (query.dueToday && !isDueToday(task.dueDate, task.status)) return false
       if (keyword) {
         const target = `${task.title} ${task.description ?? ''}`.toLowerCase()
         if (!target.includes(keyword)) return false
@@ -54,7 +57,12 @@ export function useDemoTasks() {
   rebuild()
 
   const total = computed(() => ordered.value.length)
-  const tasks = computed(() => ordered.value.slice(0, query.page * query.size))
+  /*
+   * 演示数据固定 24 条，一次展示全部（2026-10-18）：
+   * 不按 `page * size` 截断，否则「共 24 条」但「全部」页签只显示第一页 20 条，
+   * 会让人误以为演示数据少了 4 条。真实页仍按 20 条/页 + 无限滚动。
+   */
+  const tasks = computed(() => ordered.value)
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / query.size)))
   const hasMore = computed(() => tasks.value.length < total.value)
 
@@ -75,6 +83,11 @@ export function useDemoTasks() {
       trashRetentionDays: DEMO_TRASH_RETENTION_DAYS,
     }
   })
+
+  /** 未完成的高优先级任务数（统计筛选栏第三枚胶囊） */
+  const highPriorityCount = computed(
+    () => demoTasks.value.filter((task) => task.status === 'TODO' && task.priority === 'HIGH').length,
+  )
 
   /** 筛选条件变化：回到第 1 页（8.5），并模拟一次极短的加载态让骨架屏可感知 */
   async function applyQuery() {
@@ -222,6 +235,7 @@ export function useDemoTasks() {
     query,
     tasks,
     stats,
+    highPriorityCount,
     total,
     totalPages,
     loading,

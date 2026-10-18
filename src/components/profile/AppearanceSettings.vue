@@ -14,17 +14,24 @@ const themeChoice = computed<ThemeMode>({
   get: () => mode.value,
   set: (value) => setMode(value),
 })
+
+/** 说明文字跟着选中项走（2026-10-18）：说清「现在用的是哪一档」 */
+const hint = computed(() => {
+  if (mode.value === 'light') return '已应用浅色主题'
+  if (mode.value === 'dark') return '已应用深色主题'
+  return '跟随系统设置自动切换'
+})
 </script>
 
 <template>
   <SettingRow label="外观">
     <div class="appearance">
       <el-radio-group v-model="themeChoice" size="small">
-        <el-radio-button value="auto">跟随系统</el-radio-button>
         <el-radio-button value="light">浅色</el-radio-button>
         <el-radio-button value="dark">深色</el-radio-button>
+        <el-radio-button value="auto">跟随系统</el-radio-button>
       </el-radio-group>
-      <span class="appearance__hint">默认跟随系统；选定浅色或深色后会一直用它。</span>
+      <span class="appearance__hint">{{ hint }}</span>
     </div>
   </SettingRow>
 </template>

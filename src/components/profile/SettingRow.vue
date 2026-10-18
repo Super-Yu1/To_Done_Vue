@@ -60,7 +60,8 @@ function handleRowClick(actionText?: string) {
 <style scoped>
 .setting-row {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1fr) auto;
+  /* 96px 足够放下「删除二次确认」这类 6 字标签，不再折行 */
+  grid-template-columns: 96px minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   min-height: 56px;
@@ -72,14 +73,26 @@ function handleRowClick(actionText?: string) {
   cursor: pointer;
 }
 
-.setting-row--clickable:hover,
-.setting-row--clickable:focus-within {
-  background-color: var(--color-hover);
+/* 整行悬停：极浅灰底（2026-10-18），无动作的行也给，保持列表反馈一致 */
+.setting-row:hover,
+.setting-row:focus-within {
+  background-color: var(--color-row-hover);
 }
 
+/* 左侧项名加深到正文色：浅底上不再发灰，可读性优先 */
 .setting-row__label {
   font-size: 13px;
-  color: var(--color-text-2);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+/* 行悬停时右侧动作同步加深；危险动作悬停更深一档 */
+.setting-row:hover .row-action {
+  color: var(--color-text);
+}
+
+.setting-row:hover .row-action--danger {
+  color: var(--color-danger-hover);
 }
 
 .setting-row__value {

@@ -8,6 +8,7 @@ import type {
   AvatarVO,
   ChangeEmailPayload,
   ChangePasswordPayload,
+  EmailCodeResult,
   LoginPayload,
   RegisterPayload,
   ResetPasswordPayload,
@@ -40,7 +41,15 @@ export function updateProfile(payload: UpdateProfilePayload): Promise<User> {
   return request<User>({ url: '/users/me', method: 'PUT', data: payload })
 }
 
-/** 更换邮箱（须带新邮箱验证码） */
+/**
+ * 给当前登录邮箱发验证码（2026-10-18 后端新增）：
+ * 无请求体、免图形码，收件人由服务端取；换邮箱时「验证当前邮箱」走这个端点。
+ */
+export function sendCurrentEmailCode(): Promise<EmailCodeResult> {
+  return request<EmailCodeResult>({ url: '/users/me/email-code', method: 'POST' })
+}
+
+/** 更换邮箱（旧邮箱码 + 新邮箱码，两个都校验通过才生效） */
 export function changeEmail(payload: ChangeEmailPayload): Promise<void> {
   return request<void>({ url: '/users/me/email', method: 'PUT', data: payload })
 }

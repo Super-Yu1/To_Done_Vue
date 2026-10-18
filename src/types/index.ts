@@ -75,12 +75,22 @@ export interface TaskStats {
  * 不含 onlyUnfinished：状态筛选已由两态状态取代。
  * 排序参数直接透传后端，前端不做本地重排 —— 顺序完全以服务端为准。
  */
+/** 统计栏上的快捷筛选（2026-10-18）：逾期 / 今日到期 / 高优先级，三选一 */
+export type TaskQuickFilter = 'overdue' | 'dueToday' | 'high'
+
 export interface TaskQuery {
   page: number
   size: number
   keyword?: string
   status?: TaskStatus
   priority?: TaskPriority
+  /**
+   * 快捷筛选（2026-10-18 后端新增，口径与 `/tasks/stats` 一致）：
+   * `overdue` = 未完成且截止早于现在；`dueToday` = 未完成且截止落在今天。
+   * 不传 = 不筛；前端只传 true，取消筛选时直接删掉字段。
+   */
+  overdue?: boolean
+  dueToday?: boolean
   /**
    * 排序（2026-10-18 接入）：两者都不传 = 沿用后端固定规则（未完成在前、按创建时间）。
    * 后端允许 `recordedAt / dueDate / priority / completedAt`，方向 pattern 是 **小写** `asc|desc`
@@ -160,8 +170,15 @@ export interface UpdateProfilePayload {
 }
 
 export interface ChangeEmailPayload {
+  /** 新邮箱 */
   email: string
+  /** 新邮箱收到的验证码 */
   emailCode: string
+  /**
+   * 当前（旧）邮箱收到的验证码（2026-10-18）。
+   * 换邮箱必须两个码都校验通过；后端需在 `PUT /users/me/email` 里消费并校验它。
+   */
+  oldEmailCode: string
 }
 
 export interface ChangePasswordPayload {
@@ -188,7 +205,11 @@ export interface CaptchaResult {
   expiresInSeconds: number
 }
 
-export type EmailCodeScene = 'REGISTER' | 'RESET_PASSWORD' | 'CHANGE_EMAIL'
+/**
+ * 验证码场景（2026-10-18 新增 `CHANGE_EMAIL_OLD`）：
+ * 换邮箱要先把码发到当前邮箱，再发到新邮箱；旧邮箱场景由后端校验「收件邮箱 = 当前登录邮箱」。
+ */
+export type EmailCodeScene = 'REGISTER' | 'RESET_PASSWORD' | 'CHANGE_EMAIL' | 'CHANGE_EMAIL_OLD'
 
 export interface EmailCodePayload {
   email: string

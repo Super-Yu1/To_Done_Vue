@@ -33,11 +33,19 @@ const emit = defineEmits<{
   'toggle-select': [TrashTask]
   'toggle-all': []
   'batch-restore': []
+  'batch-purge': []
 }>()
 
 const allSelected = computed(
   () => props.tasks.length > 0 && (props.selectedIds?.length ?? 0) >= props.tasks.length,
 )
+
+/** 「批量选择 / 退出选择」是同一枚按钮，按当前模式决定方向 */
+function toggleSelectMode() {
+  if (props.selectMode) emit('exit-select')
+  else emit('enter-select')
+}
+
 </script>
 
 <template>
@@ -58,22 +66,12 @@ const allSelected = computed(
       </el-input>
 
       <div class="trash__tools">
-        <template v-if="!selectMode">
-          <button class="trash__ghost" type="button" @click="emit('enter-select')">批量选择</button>
+        <button class="trash__ghost" type="button" @click="toggleSelectMode">
+          {{ selectMode ? '退出选择' : '批量选择' }}
+        </button>
 
-          <!-- 清空是破坏性动作：白底描边、悬停才转红，不做主按钮 -->
-          <el-button
-            class="trash__clear"
-            :disabled="clearDisabled"
-            :loading="clearing"
-            @click="emit('clear')"
-          >
-            <AppIcon name="trash" />
-            <span class="btn-text">清空回收站</span>
-          </el-button>
-        </template>
-
-        <template v-else>
+        <!-- 批量模式：已选 / 全选 / 批量恢复 / 批量彻底删除（从右侧淡入） -->
+        <template v-if="selectMode">
           <span class="trash__count">
             已选 <strong>{{ selectedIds?.length ?? 0 }}</strong> 条
           </span>
@@ -89,8 +87,29 @@ const allSelected = computed(
           >
             批量恢复
           </el-button>
-          <button class="trash__ghost" type="button" @click="emit('exit-select')">退出选择</button>
+          <el-button
+            class="trash__batch trash__batch--danger"
+            type="danger"
+            plain
+            :loading="batchBusy"
+            :disabled="!selectedIds?.length"
+            @click="emit('batch-purge')"
+          >
+            批量彻底删除
+          </el-button>
         </template>
+
+        <!-- 非批量模式：清空（红色描边 + 红字，悬停红底白字） -->
+        <el-button
+          v-else
+          class="trash__clear"
+          :disabled="clearDisabled"
+          :loading="clearing"
+          @click="emit('clear')"
+        >
+          <AppIcon name="trash" />
+          <span class="btn-text">清空回收站</span>
+        </el-button>
       </div>
     </div>
 
@@ -116,11 +135,11 @@ const allSelected = computed(
 </template>
 
 <style scoped>
-/* 页面纵向节奏与任务页一致：页头 → 工具栏 → 列表统一 20px */
+/* 页面纵向节奏与任务页一致：页头 → 工具栏 → 列表统一 24px */
 .trash {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
   /* 让 TrashItem 里的 @container 断点以列表宽度为准（与 TaskList 同一做法） */
   container-type: inline-size;
 }
@@ -219,32 +238,66 @@ const allSelected = computed(
   outline-offset: 2px;
 }
 
-/* 清空：与搜索框同高，破坏性动作靠颜色提示而不是体量 */
+/*
+ * 清空：危险操作样式 —— 红色描边 + 红字 + 红色垃圾桶图标，
+ * 悬停整块转红底白字（变量交给 Element Plus，避免和它自带的 hover 打架）。
+ */
 .trash__clear {
+  --el-button-bg-color: transparent;
+  --el-button-border-color: var(--color-danger);
+  --el-button-text-color: var(--color-danger);
+  --el-button-hover-bg-color: var(--color-danger);
+  --el-button-hover-border-color: var(--color-danger);
+  --el-button-hover-text-color: var(--color-danger-fg);
+  --el-button-active-bg-color: var(--color-danger-hover);
+  --el-button-active-border-color: var(--color-danger-hover);
+  --el-button-active-text-color: var(--color-danger-fg);
   height: 42px;
   margin-left: 0;
-  padding: 0 16px;
-  border-color: var(--color-border-strong);
+  padding: 0 18px;
   border-radius: var(--radius-md);
-  background-color: var(--color-surface);
-  color: var(--color-text-2);
   font-size: 14px;
-  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
-    background-color var(--dur-fast) var(--ease);
 }
 
-.trash__clear:hover:not(.is-disabled) {
-  border-color: var(--color-danger);
-  background-color: var(--color-danger-bg);
-  color: var(--color-danger);
-}
-
+/* 批量按钮：选择模式下从右侧淡入；批量恢复用品牌色主按钮 */
 .trash__batch {
+  --el-button-bg-color: var(--color-brand);
+  --el-button-border-color: var(--color-brand);
+  --el-button-text-color: var(--color-brand-fg);
+  --el-button-hover-bg-color: var(--color-brand-hover);
+  --el-button-hover-border-color: var(--color-brand-hover);
+  --el-button-hover-text-color: var(--color-brand-fg);
+  --el-button-active-bg-color: var(--color-brand-active);
+  --el-button-active-border-color: var(--color-brand-active);
   height: 36px;
   margin-left: 0;
   padding: 0 16px;
   border-radius: var(--radius-md);
   font-size: 13px;
+  animation: batch-action-in 220ms var(--ease);
+}
+
+/* 批量彻底删除：与单条「彻底删除」同一支红 */
+.trash__batch--danger {
+  --el-button-bg-color: var(--color-danger-bg);
+  --el-button-border-color: var(--color-danger);
+  --el-button-text-color: var(--color-danger);
+  --el-button-hover-bg-color: var(--color-danger);
+  --el-button-hover-border-color: var(--color-danger);
+  --el-button-hover-text-color: var(--color-danger-fg);
+  --el-button-active-bg-color: var(--color-danger-hover);
+  --el-button-active-border-color: var(--color-danger-hover);
+}
+
+.trash__count {
+  animation: batch-action-in 220ms var(--ease);
+}
+
+@keyframes batch-action-in {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
 }
 
 .trash__count {
@@ -260,7 +313,7 @@ const allSelected = computed(
 .trash__rows {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* 行进退场与让位：与 TaskList.vue 的同名规则一致（两处都用 TransitionGroup name="row"） */

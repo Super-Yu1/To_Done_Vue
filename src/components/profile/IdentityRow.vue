@@ -4,7 +4,7 @@
  * 整页只有这一处把「你是谁」放大——它比设置行高，其余行一律安静。
  * 选图在这里做类型与 10MB 拦截（8.8 要求在选择时即拦），1:1 裁剪交给 AvatarCropDialog。
  */
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
 
@@ -16,18 +16,45 @@ const props = defineProps<{
   uploading?: boolean
 }>()
 
-const emit = defineEmits<{ pick: [File]; remove: [] }>()
+const emit = defineEmits<{ pick: [File] }>()
 
 /** 与后端头像校验对齐：≤ 10MB、必须是图片（服务端另做扩展名与文件头魔数校验） */
 const MAX_BYTES = 10 * 1024 * 1024
 
 const inputRef = ref<HTMLInputElement | null>(null)
 const initial = computed(() => (props.name || '我').slice(0, 1))
+/** 头像大图预览（点击头像打开，不再直接触发上传） */
+const previewOpen = ref(false)
 
 function openPicker() {
   if (props.uploading) return
   inputRef.value?.click()
 }
+
+/** 有头像时点开大图；没有头像时仍直接进选图流程 */
+function handleAvatarClick() {
+  if (props.avatarUrl) {
+    previewOpen.value = true
+    return
+  }
+  openPicker()
+}
+
+function closePreview() {
+  previewOpen.value = false
+}
+
+/** Esc 关闭大图 */
+function handlePreviewKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') closePreview()
+}
+
+watch(previewOpen, (open) => {
+  if (open) window.addEventListener('keydown', handlePreviewKeydown)
+  else window.removeEventListener('keydown', handlePreviewKeydown)
+})
+
+onUnmounted(() => window.removeEventListener('keydown', handlePreviewKeydown))
 
 function handleChange(event: Event) {
   const input = event.target as HTMLInputElement
@@ -53,14 +80,16 @@ function handleChange(event: Event) {
     <div class="identity">
       <button
         class="identity__avatar"
+        :class="{ 'identity__avatar--preview': avatarUrl }"
         type="button"
-        :aria-label="avatarUrl ? '更换头像' : '上传头像'"
-        @click="openPicker"
+        :aria-label="avatarUrl ? '查看头像大图' : '上传头像'"
+        :title="avatarUrl ? '查看头像大图' : '上传头像'"
+        @click="handleAvatarClick"
       >
         <img v-if="avatarUrl" class="identity__image" :src="avatarUrl" alt="" />
         <span v-else class="identity__initial">{{ initial }}</span>
         <span class="identity__overlay" aria-hidden="true">
-          <AppIcon name="camera" :size="18" />
+          <AppIcon :name="avatarUrl ? 'zoom' : 'camera'" :size="18" />
         </span>
       </button>
 
@@ -78,19 +107,32 @@ function handleChange(event: Event) {
         >
           {{ uploading ? '上传中…' : '更换头像' }}
         </button>
-        <button
-          v-if="avatarUrl"
-          class="row-action row-action--danger"
-          type="button"
-          :disabled="uploading"
-          @click="emit('remove')"
-        >
-          移除头像
-        </button>
       </div>
     </div>
 
     <input ref="inputRef" class="identity__input" type="file" accept="image/*" @change="handleChange" />
+
+    <!-- 点击头像看大图：480px 正方形原图（不裁四角），点遮罩 / Esc / 关闭按钮退出 -->
+    <Teleport to="body">
+      <div
+        v-if="previewOpen && avatarUrl"
+        class="avatar-preview"
+        role="dialog"
+        aria-modal="true"
+        aria-label="头像大图"
+        @click="closePreview"
+      >
+        <button
+          class="avatar-preview__close"
+          type="button"
+          aria-label="关闭"
+          @click.stop="closePreview"
+        >
+          ✕
+        </button>
+        <img class="avatar-preview__img" :src="avatarUrl" alt="头像大图" @click.stop />
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -122,6 +164,11 @@ function handleChange(event: Event) {
   background-color: var(--color-hover);
   color: var(--color-text-2);
   cursor: pointer;
+}
+
+/* 有头像时点击 = 看大图，光标给出放大暗示 */
+.identity__avatar--preview {
+  cursor: zoom-in;
 }
 
 .identity__image {
@@ -179,12 +226,89 @@ function handleChange(event: Event) {
 .identity__actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 /* 原生文件框只用来承接选择，不参与排版 */
 .identity__input {
   display: none;
+}
+
+/* ---------- 头像大图预览（Teleport 到 body） ---------- */
+.avatar-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background-color: rgba(10, 12, 16, 0.72);
+  backdrop-filter: blur(4px);
+  cursor: zoom-out;
+  animation: avatar-preview-in 180ms var(--ease);
+}
+
+@keyframes avatar-preview-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* 头像按屏幕边长放大到 480px，保留完整正方形与四个角（不再用 CSS 裁圆） */
+.avatar-preview__img {
+  width: min(64vmin, 480px);
+  height: min(64vmin, 480px);
+  border-radius: 0;
+  object-fit: contain;
+  background-color: var(--color-surface);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  cursor: default;
+}
+
+.avatar-preview__close {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.avatar-preview__close:hover {
+  background-color: rgba(255, 255, 255, 0.26);
+}
+
+/* 图片轻微放大入场，遮罩直接淡入（关闭立即移除，不做 leave 过渡） */
+.avatar-preview__img {
+  animation: avatar-preview-zoom 220ms var(--ease);
+}
+
+@keyframes avatar-preview-zoom {
+  from {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* 窄屏：动作换到第二行、左对齐，头像与文字仍并排 */

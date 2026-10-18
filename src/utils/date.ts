@@ -52,6 +52,25 @@ export function formatDueLabel(value?: string | null): string {
   return date.getFullYear() === now.getFullYear() ? monthDay : `${date.getFullYear()}-${monthDay}`
 }
 
+/**
+ * 只到「日」的截止文案（任务卡右侧用）：今天 / 明天 / 昨天 / `MM-DD`（跨年补年份）。
+ * 具体时刻放在按钮的 title 里，卡片保持轻盈（2026-10-18 设计稿）。
+ */
+export function formatDueDay(value?: string | null): string {
+  const date = parseDate(value)
+  if (!date) return ''
+  const now = new Date()
+  if (isSameDay(date, now)) return '今天'
+  const tomorrow = new Date(now)
+  tomorrow.setDate(now.getDate() + 1)
+  if (isSameDay(date, tomorrow)) return '明天'
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (isSameDay(date, yesterday)) return '昨天'
+  const monthDay = `${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  return date.getFullYear() === now.getFullYear() ? monthDay : `${date.getFullYear()}-${monthDay}`
+}
+
 /** 是否同一天（本地时区） */
 function isSameDay(a: Date, b: Date): boolean {
   return (

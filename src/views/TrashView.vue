@@ -7,7 +7,6 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import BackToTop from '@/components/BackToTop.vue'
 import TrashList from '@/components/TrashList.vue'
-  import { confirmDestructive } from '@/composables/usePreferences'
 import { SEARCH_DEBOUNCE_MS } from '@/constants'
   import { useTrashStore } from '@/stores/trash'
 import type { TrashTask } from '@/types'
@@ -81,6 +80,39 @@ async function handleBatchRestore() {
   exitSelect()
 }
 
+/** 批量彻底删除（2026-10-18）：逐条 purge，跑完汇总 */
+async function handleBatchPurge() {
+  const ids = [...selectedIds.value]
+  if (!ids.length) return
+  try {
+    await ElMessageBox.confirm(
+      `将彻底删除选中的 ${ids.length} 条任务及其配图，该操作不可逆，确认继续？`,
+      '批量彻底删除',
+      {
+        confirmButtonText: '彻底删除',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+  } catch {
+    return
+  }
+
+  batchBusy.value = true
+  let ok = 0
+  for (const id of ids) {
+    try {
+      await trash.purge(id)
+      ok += 1
+    } catch {
+      // 单条失败已由 http 层提示，继续处理其余
+    }
+  }
+  batchBusy.value = false
+  ElMessage.success(`已彻底删除 ${ok} 条`)
+  exitSelect()
+}
+
 async function guard(action: () => Promise<unknown>) {
   try {
     await action()
@@ -97,13 +129,20 @@ async function handleRestore(task: TrashTask) {
 }
 
 async function handlePurge(task: TrashTask) {
-  // 二次确认可在「个人中心 · 偏好」里关掉（默认开）
-  const ok = await confirmDestructive(
-    `「${task.title}」及其配图会被一并删除，此操作不可恢复。`,
-    '彻底删除',
-    '彻底删除',
-  )
-  if (!ok) return
+  // 回收站的彻底删除不可恢复，必须二次确认（不受「删除二次确认」偏好影响）
+  try {
+    await ElMessageBox.confirm(
+      `「${task.title}」及其配图会被一并删除，此操作不可恢复。`,
+      '彻底删除',
+      {
+        confirmButtonText: '彻底删除',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+  } catch {
+    return
+  }
   await guard(() => trash.purge(task.id))
   ElMessage.success('已彻底删除')
 }
@@ -112,7 +151,7 @@ async function handleClear() {
   if (trash.total === 0) return
   try {
     await ElMessageBox.prompt(
-      `回收站内的 ${trash.total} 条任务及其配图会被全部删除，此操作不可恢复。请输入「清空」以确认。`,
+      `该操作不可逆，确认清空全部 ${trash.total} 条数据？任务及其配图会被一并删除、无法恢复。请输入「清空」以确认。`,
       '清空回收站',
       {
         confirmButtonText: '清空',
@@ -155,6 +194,7 @@ async function handleClear() {
       @toggle-select="toggleSelect"
       @toggle-all="toggleAll"
       @batch-restore="handleBatchRestore"
+      @batch-purge="handleBatchPurge"
     />
 
     <BackToTop />

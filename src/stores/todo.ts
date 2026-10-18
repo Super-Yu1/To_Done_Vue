@@ -61,6 +61,8 @@ export const useTodoStore = defineStore('todo', () => {
 
   const tasks = ref<Task[]>([])
   const stats = ref<TaskStats | null>(null)
+  /** 未完成的高优先级任务数（统计栏第三枚胶囊用） */
+  const highPriorityCount = ref(0)
   const total = ref(0)
   const totalPages = ref(0)
   const loading = ref(false)
@@ -71,6 +73,8 @@ export const useTodoStore = defineStore('todo', () => {
     if (!params.keyword) delete params.keyword
     if (!params.status) delete params.status
     if (!params.priority) delete params.priority
+    if (!params.overdue) delete params.overdue
+    if (!params.dueToday) delete params.dueToday
     return params
   }
 
@@ -103,8 +107,20 @@ export const useTodoStore = defineStore('todo', () => {
     await fetchPage(query.page + 1, true)
   }
 
+  /**
+   * 统计 + 高优先级数量（2026-10-18）：
+   * 后端 /stats 没有 highPriority 字段，这里用一次 `size=1` 的查询只取 total，
+   * 语义与快捷筛选一致 —— 未完成的高优先级任务。
+   */
   async function fetchStats() {
-    stats.value = await taskApi.fetchTaskStats()
+    const [next, high] = await Promise.all([
+      taskApi.fetchTaskStats(),
+      taskApi
+        .fetchTasks({ page: 1, size: 1, status: 'TODO', priority: 'HIGH' })
+        .catch(() => null),
+    ])
+    stats.value = next
+    highPriorityCount.value = high?.total ?? 0
   }
 
   async function refresh() {
@@ -270,6 +286,7 @@ export const useTodoStore = defineStore('todo', () => {
     query,
     tasks,
     stats,
+    highPriorityCount,
     total,
     totalPages,
     loading,

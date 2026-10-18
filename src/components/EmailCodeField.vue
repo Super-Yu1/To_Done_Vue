@@ -8,6 +8,7 @@
 import { computed, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import CaptchaDialog from '@/components/CaptchaDialog.vue'
+import { sendCurrentEmailCode } from '@/api/auth'
 import { isCaptchaError } from '@/api/http'
 import { sendEmailCode } from '@/api/verify'
 import { EMAIL_CODE_LENGTH, EMAIL_CODE_RESEND_SECONDS } from '@/constants'
@@ -17,9 +18,14 @@ import type { EmailCodeScene } from '@/types'
 const DEMO_CODE_EXPIRE_SECONDS = 300
 
 const props = defineProps<{
-  email: string
-  scene: EmailCodeScene
+  email?: string
+  scene?: EmailCodeScene
   demo?: boolean
+  /**
+   * direct：直接发到当前登录邮箱（2026-10-18 后端新增 `POST /users/me/email-code`，
+   * 无请求体、免图形码，收件人由服务端取）。换邮箱的旧邮箱码走这个模式。
+   */
+  direct?: boolean
 }>()
 
 const code = defineModel<string>({ required: true })
@@ -50,13 +56,37 @@ function startCountdown(secondsToWait: number) {
 
 onUnmounted(stopTimer)
 
-/** 点按钮只负责打开图形码弹窗；真正发信在弹窗确认后 */
+/** 点按钮：普通模式打开图形码弹窗，direct 模式直接请求当前邮箱发码 */
 function handleSend() {
+  if (props.direct) {
+    void sendDirectCode()
+    return
+  }
   if (!props.email) {
     ElMessage.warning('请先填写邮箱')
     return
   }
   captchaVisible.value = true
+}
+
+/** direct：当前登录邮箱，服务端取收件人；演示模式不请求后端 */
+async function sendDirectCode() {
+  if (props.demo) {
+    startCountdown(EMAIL_CODE_RESEND_SECONDS)
+    ElMessage.success('演示模式不会真的发邮件，填任意 6 位数字即可继续')
+    emit('sent', DEMO_CODE_EXPIRE_SECONDS)
+    return
+  }
+
+  sending.value = true
+  try {
+    const result = await sendCurrentEmailCode()
+    startCountdown(result.resendAfterSeconds || EMAIL_CODE_RESEND_SECONDS)
+    ElMessage.success('验证码已发送到当前邮箱，请查收')
+    emit('sent', result.expiresInSeconds)
+  } finally {
+    sending.value = false
+  }
 }
 
 async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: string }) {
@@ -71,8 +101,8 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
   sending.value = true
   try {
     const result = await sendEmailCode({
-      email: props.email,
-      scene: props.scene,
+      email: props.email ?? '',
+      scene: props.scene ?? 'CHANGE_EMAIL',
       captchaId: payload.captchaId,
       captchaCode: payload.captchaCode,
     })
@@ -102,8 +132,12 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
       :maxlength="EMAIL_CODE_LENGTH"
       autocomplete="off"
     />
-    <el-button class="email-code-field__button" :disabled="isDisabled" @click="handleSend">
-      {{ buttonText }}
+    <el-button
+      class="email-code-field__button"
+      :disabled="isDisabled || sending"
+      @click="handleSend"
+    >
+      {{ sending ? '发送中…' : buttonText }}
     </el-button>
 
     <CaptchaDialog

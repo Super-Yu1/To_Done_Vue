@@ -5,7 +5,7 @@
  * 执行期间 busy 为真，所有按钮禁用，避免叠着点。
  */
 import PriorityPicker from './PriorityPicker.vue'
-import type { TaskPriority } from '@/types'
+import type { TaskPriority, TaskStatus } from '@/types'
 
 defineProps<{
   selectedCount: number
@@ -13,6 +13,11 @@ defineProps<{
   totalCount: number
   allSelected: boolean
   busy?: boolean
+  /**
+   * 当前页签的状态筛选（2026-10-18）：
+   * 未完成里只给「标记完成」、已完成里只给「取消完成」，全部（undefined）两个都给。
+   */
+  status?: TaskStatus
 }>()
 
 const emit = defineEmits<{
@@ -30,10 +35,20 @@ const emit = defineEmits<{
       已选 <strong>{{ selectedCount }}</strong> 条
     </span>
 
-    <el-button size="small" :disabled="!selectedCount || busy" @click="emit('complete')">
+    <el-button
+      v-if="status !== 'DONE'"
+      size="small"
+      :disabled="!selectedCount || busy"
+      @click="emit('complete')"
+    >
       标记完成
     </el-button>
-    <el-button size="small" :disabled="!selectedCount || busy" @click="emit('uncomplete')">
+    <el-button
+      v-if="status !== 'TODO'"
+      size="small"
+      :disabled="!selectedCount || busy"
+      @click="emit('uncomplete')"
+    >
       取消完成
     </el-button>
 

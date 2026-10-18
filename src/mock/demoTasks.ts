@@ -34,7 +34,8 @@ const SEEDS: DemoSeed[] = [
     priority: 'HIGH',
     dueInDays: 0,
     dueHour: 20,
-    recordedDaysAgo: 0,
+    // 记录时间放昨天：否则深夜打开时「当前小时 - 1」会晚于今天 20:00 的截止时间
+    recordedDaysAgo: 1,
     images: 2,
   },
   {

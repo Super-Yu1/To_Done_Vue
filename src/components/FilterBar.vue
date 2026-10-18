@@ -96,7 +96,10 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
     </div>
 
     <!-- 第二行：左状态切换；右侧排序、批量选择与批量操作条 -->
-    <div class="filter-bar__row filter-bar__row--tabs">
+    <div
+      class="filter-bar__row filter-bar__row--tabs"
+      :class="{ 'filter-bar__row--tabs-center': $slots['tabs-center'] }"
+    >
       <div class="filter-bar__tabs" role="tablist" aria-label="任务状态">
         <button
           v-for="tab in tabs"
@@ -110,6 +113,11 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
         >
           {{ tab.label }}
         </button>
+      </div>
+
+      <!-- 中间插槽：演示页把「演示环境」提示放在状态切换与右侧工具之间 -->
+      <div v-if="$slots['tabs-center']" class="filter-bar__center">
+        <slot name="tabs-center" />
       </div>
 
       <div class="filter-bar__tools">
@@ -192,21 +200,60 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   gap: 10px;
 }
 
+/* 默认（无中间插槽，如真实任务页）：tabs 靠左、工具靠右 */
 .filter-bar__row--tabs {
   justify-content: space-between;
   gap: 12px;
 }
 
-/* 搜索框：浅灰长条、无描边，聚焦才转白底 + 一圈正文色 —— 平时像一块「可输入的灰面」 */
+/*
+ * 带中间插槽（演示页）才切成三列：左 tabs、中提示、右工具。
+ * 左右各 1fr，提示列按内容宽度，整行中心与提示中心重合（2026-10-18）。
+ */
+.filter-bar__row--tabs-center {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.filter-bar__tabs {
+  justify-self: start;
+}
+
+.filter-bar__tools {
+  justify-self: end;
+}
+
+/* 中间提示：在整行正中，窄屏回退到「剩余空间居中 + 省略」 */
+.filter-bar__center {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 1200px) {
+  .filter-bar__row--tabs-center {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .filter-bar__center {
+    flex: 1;
+  }
+}
+
+/* 搜索框：胶囊形浅灰长条，聚焦转白底 + 品牌色细环 */
 .filter-bar__search {
   flex: 1;
   min-width: 240px;
 }
 
 .filter-bar__search :deep(.el-input__wrapper) {
-  height: 42px;
-  padding: 1px 14px;
-  border-radius: var(--radius-md);
+  height: 44px;
+  padding: 1px 18px;
+  border-radius: var(--radius-pill);
   background-color: var(--color-bg-soft);
   box-shadow: inset 0 0 0 1px transparent;
   transition: background-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
@@ -219,7 +266,7 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 
 .filter-bar__search :deep(.el-input__wrapper.is-focus) {
   background-color: var(--color-surface);
-  box-shadow: inset 0 0 0 1px var(--color-text);
+  box-shadow: inset 0 0 0 1.5px var(--color-brand);
 }
 
 .filter-bar__search :deep(.el-input__prefix) {
@@ -230,7 +277,7 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   font-size: 14px;
 }
 
-/* 主操作（新建任务）：黑色实心、与搜索框同高 */
+/* 主操作（新建任务）：品牌色实心、大圆角、带一圈同色柔光 */
 .filter-bar__actions {
   display: flex;
   flex: none;
@@ -239,12 +286,24 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 }
 
 .filter-bar__actions :deep(.el-button) {
-  height: 42px;
+  height: 44px;
   margin-left: 0;
-  padding: 0 20px;
-  border-radius: var(--radius-md);
+  padding: 0 22px;
+  border-radius: 14px;
   font-size: 14px;
   font-weight: 500;
+}
+
+.filter-bar__actions :deep(.el-button--primary) {
+  --el-button-bg-color: var(--color-brand);
+  --el-button-border-color: var(--color-brand);
+  --el-button-text-color: var(--color-brand-fg);
+  --el-button-hover-bg-color: var(--color-brand-hover);
+  --el-button-hover-border-color: var(--color-brand-hover);
+  --el-button-hover-text-color: var(--color-brand-fg);
+  --el-button-active-bg-color: var(--color-brand-active);
+  --el-button-active-border-color: var(--color-brand-active);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--color-brand) 26%, transparent);
 }
 
 /* 分段控件：浅灰容器 + 选中项白底微阴影 */
@@ -253,14 +312,14 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   flex: none;
   align-items: center;
   gap: 2px;
-  padding: 3px;
+  padding: 4px;
   border-radius: var(--radius-pill);
   background-color: var(--color-bg-soft);
 }
 
 .filter-bar__tab {
-  height: 30px;
-  padding: 0 16px;
+  height: 32px;
+  padding: 0 18px;
   border: none;
   border-radius: var(--radius-pill);
   background-color: transparent;
@@ -276,11 +335,12 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   color: var(--color-text);
 }
 
+/* 选中项：白底轻阴影 + 品牌色文字，轻盈但一眼可辨 */
 .filter-bar__tab--active {
   background-color: var(--color-surface);
-  color: var(--color-text);
+  color: var(--color-brand);
   font-weight: 600;
-  box-shadow: 0 1px 2px rgba(16, 24, 20, 0.08);
+  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.06);
 }
 
 .filter-bar__tab:focus-visible {
@@ -376,7 +436,7 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 }
 
 .sort-panel__item--active {
-  color: var(--color-text);
+  color: var(--color-brand);
   font-weight: 500;
 }
 
@@ -410,9 +470,9 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 }
 
 .sort-panel__dir-btn--active {
-  border-color: var(--color-border-strong);
-  background-color: var(--color-bg-soft);
-  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-brand) 28%, transparent);
+  background-color: var(--color-brand-soft);
+  color: var(--color-brand);
   font-weight: 500;
 }
 </style>

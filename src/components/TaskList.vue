@@ -132,7 +132,7 @@ onUnmounted(() => observer?.disconnect())
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* 骨架行的列宽与内边距跟真实行保持一致，避免加载完成后跳变（跟 .task-row 同步改） */
@@ -141,18 +141,18 @@ onUnmounted(() => observer?.disconnect())
   grid-template-columns: 40px minmax(0, 1fr) 236px;
   align-items: center;
   gap: 16px;
-  padding: 16px 20px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  border: none;
+  border-radius: var(--radius-card);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
 .task-list__skeleton-check {
-  width: 26px;
-  height: 26px;
-  margin: 0 7px;
-  border-radius: 8px;
+  width: 24px;
+  height: 24px;
+  margin: 0 8px;
+  border-radius: 50%;
   background-color: var(--color-hover);
 }
 

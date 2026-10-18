@@ -47,7 +47,17 @@ const emit = defineEmits<{ action: [] }>()
   color: var(--color-text-2);
 }
 
+/* 空状态的主操作跟品牌色一致（默认是一个白底描边按钮） */
 .empty-state__action {
+  --el-button-bg-color: var(--color-brand);
+  --el-button-border-color: var(--color-brand);
+  --el-button-text-color: var(--color-brand-fg);
+  --el-button-hover-bg-color: var(--color-brand-hover);
+  --el-button-hover-border-color: var(--color-brand-hover);
+  --el-button-hover-text-color: var(--color-brand-fg);
+  --el-button-active-bg-color: var(--color-brand-active);
+  --el-button-active-border-color: var(--color-brand-active);
   margin-top: 8px;
+  border-radius: var(--radius-md);
 }
 </style>

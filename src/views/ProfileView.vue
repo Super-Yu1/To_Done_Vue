@@ -152,26 +152,6 @@ async function handleAvatarConfirm(file: File) {
   }
 }
 
-async function handleRemoveAvatar() {
-  try {
-    await ElMessageBox.confirm('移除后头像会变回默认样式。', '移除头像', {
-      confirmButtonText: '移除',
-      cancelButtonText: '取消',
-    })
-  } catch {
-    return
-  }
-  savingAvatar.value = true
-  try {
-    await auth.removeAvatar()
-    ElMessage.success('头像已移除')
-  } catch {
-    // 提示已由 http 层给出
-  } finally {
-    savingAvatar.value = false
-  }
-}
-
 async function handleLogout() {
   try {
     await ElMessageBox.confirm('退出后需要重新登录。', '退出登录', {
@@ -214,7 +194,6 @@ async function handleLogout() {
           :avatar-url="user.avatarUrl"
           :uploading="savingAvatar"
           @pick="handlePickAvatar"
-          @remove="handleRemoveAvatar"
         />
       </div>
 
@@ -289,8 +268,8 @@ async function handleLogout() {
       <h2 class="settings-group-title">偏好</h2>
       <div class="settings-group">
         <AppearanceSettings />
-        <!-- 2026-10-18：删除前二次确认（本地偏好，默认开） -->
-        <SettingRow label="删除前二次确认">
+        <!-- 2026-10-18：删除二次确认（本地偏好，默认开；文案收短避免折行） -->
+        <SettingRow label="删除二次确认">
           <el-switch
             :model-value="confirmDelete"
             @update:model-value="setConfirmDelete($event === true)"
@@ -319,6 +298,7 @@ async function handleLogout() {
     <EmailChangeDialog
       v-model:visible="emailVisible"
       :saving="savingEmail"
+      :current-email="user?.email ?? ''"
       @submit="handleChangeEmail"
     />
     <PasswordChangeDialog

@@ -12,8 +12,8 @@
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
 import PriorityPicker from './PriorityPicker.vue'
-import { TASK_PRIORITY_CLASS, TASK_PRIORITY_LABEL } from '@/constants'
-import { formatDueLabel, isOverdue } from '@/utils/date'
+import { TASK_PRIORITY_LABEL } from '@/constants'
+import { formatDateTime, formatDueDay, isOverdue } from '@/utils/date'
 import type { Task, TaskPriority } from '@/types'
 
 const props = defineProps<{
@@ -52,7 +52,11 @@ interface PickerHandle {
 const isDone = computed(() => props.task.status === 'DONE')
 const overdue = computed(() => isOverdue(props.task.dueDate, props.task.status))
 const dueText = computed(() =>
-  props.task.dueDate ? formatDueLabel(props.task.dueDate) : '未设截止时间',
+  props.task.dueDate ? formatDueDay(props.task.dueDate) : '未设截止时间',
+)
+/** 卡片上只显示「今天 / 10-18」，完整时刻放到 title 里 */
+const dueTitle = computed(() =>
+  props.task.dueDate ? formatDateTime(props.task.dueDate) : '',
 )
 
 /**
@@ -189,19 +193,14 @@ function handleRowClick() {
         >
           <template #reference>
             <button
-              class="task-row__prio prio"
-              :class="TASK_PRIORITY_CLASS[task.priority]"
+              class="task-row__prio"
+              :class="`task-row__prio--${task.priority.toLowerCase()}`"
               type="button"
               :disabled="selectMode"
               :aria-label="`优先级 ${TASK_PRIORITY_LABEL[task.priority]}，点击修改`"
               :title="selectMode ? '' : '修改优先级'"
               @click.stop
             >
-              <span
-                class="prio__dot"
-                :class="{ 'prio__dot--hollow': task.priority !== 'HIGH' }"
-                aria-hidden="true"
-              />
               {{ TASK_PRIORITY_LABEL[task.priority] }}
             </button>
           </template>
@@ -228,7 +227,7 @@ function handleRowClick() {
           :class="{ 'task-row__due--overdue': overdue, 'task-row__due--empty': !task.dueDate }"
           type="button"
           :disabled="selectMode"
-          :title="selectMode ? '' : task.dueDate ? '修改截止时间' : '设置截止时间'"
+          :title="selectMode ? '' : task.dueDate ? `${dueTitle}，点击修改` : '设置截止时间'"
           @click.stop="openDue"
         >
           <AppIcon name="clock" :size="12" />
@@ -261,31 +260,31 @@ function handleRowClick() {
 </template>
 
 <style scoped>
+/* 悬浮卡：无描边、16px 大圆角、柔和扩散阴影；悬停时轻轻上浮 */
 .task-row {
   display: grid;
-  /* 前置位 40px（命中区）放 24px 方形框；正文一列；右侧元信息 + 固定宽度的操作列 */
+  /* 前置位 40px（命中区）放 24px 圆形框；正文一列；右侧元信息 + 固定宽度的操作列 */
   grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
-  padding: 16px 20px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  border: none;
+  border-radius: var(--radius-card);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
   cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  transition: transform var(--dur-base) var(--ease), box-shadow var(--dur-base) var(--ease);
 }
 
 .task-row:hover,
 .task-row:focus-within {
-  border-color: var(--color-border-strong);
   box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
 }
 
-/* 批量选择：选中行留一个持久的高亮 */
+/* 批量选择：选中行留一层品牌浅蓝，和悬停的浮起区分开 */
 .task-row--selected {
-  border-color: var(--color-border-strong);
-  background-color: var(--color-hover);
+  background-color: var(--color-brand-soft);
 }
 
 /* ---------- 勾选 / 多选 ---------- */
@@ -307,48 +306,48 @@ function handleRowClick() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  /* 比卡片描边深两档：设计稿里这是每张卡的第一个落点，必须一眼看清 */
-  border: 1.5px solid color-mix(in srgb, var(--color-text) 26%, transparent);
-  border-radius: 8px;
-  background-color: var(--color-surface);
+  width: 24px;
+  height: 24px;
+  /* 圆形复选框：细一圈浅灰描边，悬停才染上品牌色 */
+  border: 1.5px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border-radius: 50%;
+  background-color: transparent;
   color: transparent;
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
 
-/* 悬停时给出「点一下就会完成」的预览：薄荷绿描边 + 淡绿底 + 半透明勾号 */
+/* 悬停时给出「点一下就会完成」的预览：品牌色描边 + 淡蓝底 */
 .task-row__check:hover .task-row__check-box {
-  border-color: var(--color-mint);
-  background-color: var(--color-mint-bg);
-  color: var(--color-mint-fg);
+  border-color: var(--color-brand);
+  background-color: var(--color-brand-soft);
+  color: var(--color-brand);
 }
 
 .task-row__check:active .task-row__check-box {
-  background-color: color-mix(in srgb, var(--color-mint) 28%, transparent);
+  background-color: color-mix(in srgb, var(--color-brand) 24%, transparent);
 }
 
-/* 批量选择：同尺寸方形框，选中态用正文色实底 */
+/* 批量选择：同尺寸圆形框，选中态用品牌色实底 */
 .task-row__box {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  margin: 0 7px;
-  border: 1.5px solid color-mix(in srgb, var(--color-text) 26%, transparent);
-  border-radius: 8px;
-  background-color: var(--color-surface);
+  width: 24px;
+  height: 24px;
+  margin: 0 8px;
+  border: 1.5px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border-radius: 50%;
+  background-color: transparent;
   color: transparent;
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
 
 .task-row__box--on {
-  border-color: var(--color-primary-bg);
-  background-color: var(--color-primary-bg);
-  color: var(--color-primary-fg);
+  border-color: var(--color-brand);
+  background-color: var(--color-brand);
+  color: var(--color-brand-fg);
 }
 
 /* ---------- 正文 ---------- */
@@ -411,13 +410,36 @@ function handleRowClick() {
   transition: transform var(--dur-base) var(--ease);
 }
 
+/* 优先级：无边框、无底色，只靠颜色和字重（高 = 淡红、中 = 橙、低 = 灰） */
 .task-row__prio {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 2px;
+  border: none;
+  background-color: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease);
+  transition: opacity var(--dur-fast) var(--ease);
 }
 
 .task-row__prio:hover:not(:disabled) {
-  border-color: currentColor;
+  opacity: 0.7;
+}
+
+.task-row__prio--high {
+  color: var(--color-priority-high-fg);
+}
+
+.task-row__prio--medium {
+  color: var(--color-priority-medium-fg);
+}
+
+.task-row__prio--low {
+  color: var(--color-text-3);
 }
 
 .task-row__due {
@@ -430,8 +452,8 @@ function handleRowClick() {
   padding: 0;
   border: none;
   background-color: transparent;
-  /* 时间是次要信息：纯文本、不套胶囊，只靠时钟图标和字号压住重量 */
-  color: var(--color-text-2);
+  /* 日期比描述更轻：纯文本、浅灰，只靠时钟图标和字号压住重量 */
+  color: var(--color-text-3);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   line-height: 1.6;
@@ -441,7 +463,7 @@ function handleRowClick() {
 }
 
 .task-row__due:hover:not(:disabled) {
-  color: var(--color-text);
+  color: var(--color-text-2);
 }
 
 .task-row__due--empty {
@@ -548,9 +570,9 @@ function handleRowClick() {
 }
 
 .task-row--done .task-row__check-box {
-  border-color: var(--color-status-done);
-  background-color: var(--color-status-done);
-  color: var(--color-surface);
+  border-color: var(--color-brand);
+  background-color: var(--color-brand);
+  color: var(--color-brand-fg);
 }
 
 .task-row--done .task-row__description,
@@ -579,9 +601,9 @@ function handleRowClick() {
 }
 
 .task-row--leaving .task-row__check-box {
-  border-color: var(--color-status-done);
-  background-color: var(--color-status-done);
-  color: var(--color-surface);
+  border-color: var(--color-brand);
+  background-color: var(--color-brand);
+  color: var(--color-brand-fg);
 }
 
 /* 窄容器：右侧元信息换到正文下方，左元信息、右操作 */

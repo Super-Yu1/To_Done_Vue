@@ -161,8 +161,8 @@ onUnmounted(() => {
   flex-direction: column;
   width: var(--sidebar-width);
   padding: 20px 14px 14px;
-  border-right: 1px solid var(--color-border);
-  /* 2026-10-18：侧栏退到浅灰底，主内容保持纯白 —— 白卡压在灰面上才有边界感 */
+  border-right: none;
+  /* 2026-10-18：侧栏是浅灰面，主区是更浅的画布，两者靠色差分层、不用描边 */
   background-color: var(--color-bg-soft);
 }
 
@@ -217,8 +217,7 @@ onUnmounted(() => {
   left: 0;
   z-index: 0;
   border-radius: var(--radius-md);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-card);
+  background-color: var(--color-brand-soft);
   pointer-events: none;
 }
 
@@ -243,19 +242,19 @@ onUnmounted(() => {
   transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
 }
 
-/* 未选中项的悬停底要半透明白：实心白会和浮块抢「谁被选中」的视觉 */
+/* 未选中项的悬停底：品牌色的极淡一层，不抢浮块的「已选中」视觉 */
 .sidebar__link:hover {
   color: var(--color-text);
-  background-color: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  background-color: color-mix(in srgb, var(--color-brand) 6%, transparent);
 }
 
 /*
- * 高亮当前页：底色交给浮块，这里只负责文字层级。
+ * 高亮当前页：底色交给浮块（品牌浅蓝），文字转品牌色。
  * 演示模式的「任务」用 exact（/demo 是另外两个入口的前缀）。
  */
 .sidebar__link.router-link-active:not(.sidebar__link--exact),
 .sidebar__link--exact.router-link-exact-active {
-  color: var(--color-text);
+  color: var(--color-brand);
   font-weight: 600;
   background-color: transparent;
 }
@@ -308,8 +307,7 @@ onUnmounted(() => {
 
   .sidebar__link.router-link-active:not(.sidebar__link--exact),
   .sidebar__link--exact.router-link-exact-active {
-    background-color: var(--color-surface);
-    box-shadow: var(--shadow-card);
+    background-color: var(--color-brand-soft);
   }
 
   .sidebar__settings {
