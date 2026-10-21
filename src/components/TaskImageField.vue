@@ -37,10 +37,6 @@ const slots = ref<Slot[]>([])
 const inputRef = ref<HTMLInputElement | null>(null)
 const dragKey = ref('')
 
-const hint = computed(
-  () => `最多 ${TASK_MAX_IMAGES} 张，单张不超过 ${UPLOAD_MAX_BYTES / 1024 / 1024}MB；` +
-    '超过 1920px 或 1MB 的图会在本地压一次（GIF 不压）',
-)
 
 /** 只读时点图放大的预览列表：只含已有图（新选的图还没上传，没有可预览的直链） */
 const previewList = computed(() =>
@@ -85,6 +81,18 @@ async function handleChange(event: Event) {
   const input = event.target as HTMLInputElement
   const picked = Array.from(input.files ?? [])
   input.value = ''
+  await addFiles(picked)
+}
+
+/** 拖拽上传（2026-10-21）：虚线区可直接把图片拖进来，与选择文件走同一套校验 */
+function handleDrop(event: DragEvent) {
+  const dropped = Array.from(event.dataTransfer?.files ?? [])
+  if (!dropped.length) return
+  void addFiles(dropped)
+}
+
+/** 文件入口：限张数、校验体积、压缩、生成预览（选择与拖拽共用） */
+async function addFiles(picked: File[]) {
   if (!picked.length) return
 
   const room = TASK_MAX_IMAGES - slots.value.length
@@ -175,16 +183,20 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
       </li>
     </ul>
 
-    <div v-if="!readonly" class="images__footer">
+    <!-- 2026-10-21：上传入口改成虚线框 + 大号「＋」，下方只留一行极简提示 -->
+    <div v-if="!readonly" class="images__add-wrap">
       <button
-        class="row-action"
+        class="images__add"
         type="button"
         :disabled="submitting || slots.length >= TASK_MAX_IMAGES"
+        :aria-label="slots.length ? '继续添加配图' : '添加配图'"
         @click="inputRef?.click()"
-      >
-        {{ slots.length ? '继续添加' : '选择图片' }}
+        @dragover.prevent
+        @drop.prevent="handleDrop"
+        >
+        <span class="images__add-plus" aria-hidden="true">＋</span>
       </button>
-      <span class="images__hint">{{ hint }}</span>
+      <p class="images__add-hint">支持 JPG/PNG/GIF，最多 {{ TASK_MAX_IMAGES }} 张</p>
     </div>
 
     <input
@@ -211,6 +223,53 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
   margin: 0 0 8px;
   padding: 0;
   list-style: none;
+}
+
+/* 虚线添加区（2026-10-21）：84×84 与缩略图同尺寸，虚线 + 居中大号加号 */
+.images__add-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.images__add {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  border: 1.5px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--color-text-3);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
+}
+
+.images__add:hover:not(:disabled) {
+  border-color: var(--color-text-3);
+  background-color: var(--color-surface);
+  color: var(--color-text-2);
+}
+
+.images__add:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.images__add-plus {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.images__add-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-3);
 }
 
 .images__item {
@@ -281,11 +340,6 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
   gap: 10px;
 }
 
-.images__hint {
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--color-text-3);
-}
 
 .images__input {
   display: none;

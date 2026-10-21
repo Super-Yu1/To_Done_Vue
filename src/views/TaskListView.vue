@@ -97,7 +97,14 @@ function handleFilter(next: TaskQuickFilter | null) {
   exitSelect()
   activeFilter.value = next
 
-  if (next) todo.query.status = 'TODO'
+  /*
+   * 2026-10-21 修 Bug：三枚胶囊都只算「未完成」，而未完成 = TODO + IN_PROGRESS。
+   * 原来这里塞的是 `status = 'TODO'`，把 IN_PROGRESS 的任务排除了 ——
+   * 统计写「今日到期 1 / 逾期 12」，点开却少一条（少的正是 IN_PROGRESS 那条）。
+   * 现在改用后端本就有的 `onlyUnfinished`，并清掉页签的 status，避免两者叠加再筛一次。
+   */
+  todo.query.status = undefined
+  todo.query.onlyUnfinished = next ? true : undefined
   todo.query.priority = next === 'high' ? 'HIGH' : undefined
   todo.query.overdue = next === 'overdue' ? true : undefined
   todo.query.dueToday = next === 'dueToday' ? true : undefined

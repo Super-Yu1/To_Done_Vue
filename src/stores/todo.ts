@@ -116,7 +116,7 @@ export const useTodoStore = defineStore('todo', () => {
     const [next, high] = await Promise.all([
       taskApi.fetchTaskStats(),
       taskApi
-        .fetchTasks({ page: 1, size: 1, status: 'TODO', priority: 'HIGH' })
+        .fetchTasks({ page: 1, size: 1, onlyUnfinished: true, priority: 'HIGH' })
         .catch(() => null),
     ])
     stats.value = next

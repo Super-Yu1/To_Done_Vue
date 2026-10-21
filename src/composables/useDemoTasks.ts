@@ -36,6 +36,8 @@ export function useDemoTasks() {
     const keyword = query.keyword?.trim().toLowerCase() ?? ''
     return demoTasks.value.filter((task) => {
       if (query.status && task.status !== query.status) return false
+      // 「未完成」= 非 DONE（TODO + IN_PROGRESS），与后端 onlyUnfinished 同口径（2026-10-21）
+      if (query.onlyUnfinished && task.status === 'DONE') return false
       if (query.priority && task.priority !== query.priority) return false
       // 快捷筛选（2026-10-18）：与真实页新加的两个服务端参数同口径
       if (query.overdue && !isOverdue(task.dueDate, task.status)) return false

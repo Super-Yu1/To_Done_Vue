@@ -56,6 +56,9 @@ const rules: FormRules = {
 
 const isEdit = computed(() => !!props.task)
 const isReadonly = computed(() => props.readonly === true)
+
+/** 平铺的优先级胶囊：按「高 → 中 → 低」展示（2026-10-21 弹窗改版，下拉换成胶囊） */
+const PRIORITY_PILLS = [...TASK_PRIORITY_OPTIONS].reverse()
 const dialogTitle = computed(() => {
   if (isReadonly.value) return '任务详情'
   return isEdit.value ? '编辑任务' : '新建任务'
@@ -108,12 +111,18 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" width="520px" append-to-body>
-    <!-- 头部：只读时左边是「任务详情」、右上角是「编辑」；编辑 / 新建时只显示标题 -->
+  <el-dialog
+    v-model="visible"
+    width="512px"
+    append-to-body
+    align-center
+    class="task-form-dialog"
+  >
+    <!-- 头部：大标题；只读时右侧多一个「编辑」（与关闭按钮并排） -->
     <template #header>
       <div class="task-form__header">
         <span class="task-form__title">{{ dialogTitle }}</span>
-        <el-button v-if="isReadonly" size="small" @click="emit('edit')">
+        <el-button v-if="isReadonly" size="small" class="task-form__edit" @click="emit('edit')">
           <AppIcon name="edit" :size="14" />
           <span class="btn-text">编辑</span>
         </el-button>
@@ -129,67 +138,103 @@ async function handleSubmit() {
       label-position="top"
       @submit.prevent
     >
-      <el-form-item label="标题" prop="title">
-        <el-input
-          v-model="form.title"
-          maxlength="100"
-          :show-word-limit="!isReadonly"
-          :disabled="isReadonly"
-          placeholder="要做什么"
-        />
+      <!-- ① 标题：无边框输入，聚焦才显一条下划线；字数统计靠上限才出现 -->
+      <el-form-item prop="title" class="task-form__item task-form__item--title">
+        <div class="task-form__title-row">
+          <el-input
+            v-model="form.title"
+            class="task-form__title-input"
+            maxlength="100"
+            :disabled="isReadonly"
+            placeholder="标题"
+          />
+          <span v-if="!isReadonly && form.title.length > 80" class="task-form__counter">
+            {{ form.title.length }}/100
+          </span>
+        </div>
       </el-form-item>
 
-      <el-form-item label="描述">
+      <!-- ② 描述：浅灰底、无边框文本域 -->
+      <el-form-item class="task-form__item">
         <el-input
           v-model="form.description"
+          class="task-form__desc"
           type="textarea"
-          :rows="3"
+          :rows="6"
           maxlength="500"
-          :show-word-limit="!isReadonly"
+          resize="none"
           :disabled="isReadonly"
+          placeholder="补充说明（可选）"
         />
+        <span
+          v-if="!isReadonly && form.description.length > 400"
+          class="task-form__counter task-form__counter--desc"
+        >
+          {{ form.description.length }}/500
+        </span>
       </el-form-item>
 
-      <el-form-item label="优先级">
-        <el-select v-model="form.priority" :disabled="isReadonly">
-          <el-option
-            v-for="item in TASK_PRIORITY_OPTIONS"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
+      <!-- ③ 属性区：整块浅灰面板，与正文分开 -->
+      <div class="task-form__panel">
+        <div class="task-form__row">
+          <span class="task-form__label">优先级</span>
+          <div class="task-form__prios" role="radiogroup" aria-label="优先级">
+            <button
+              v-for="item in PRIORITY_PILLS"
+              :key="item.value"
+              class="task-form__prio"
+              :class="[
+                `task-form__prio--${item.value.toLowerCase()}`,
+                { 'task-form__prio--on': form.priority === item.value },
+              ]"
+              type="button"
+              role="radio"
+              :aria-checked="form.priority === item.value"
+              :disabled="isReadonly"
+              @click="form.priority = item.value"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="task-form__row">
+          <span class="task-form__label">截止时间</span>
+          <el-date-picker
+            v-model="form.dueDate"
+            class="task-form__due"
+            type="datetime"
+            value-format="YYYY-MM-DDTHH:mm:ss"
+            placeholder="选择日期"
+            clearable
+            :disabled="isReadonly"
           />
-        </el-select>
-      </el-form-item>
+        </div>
 
-      <el-form-item label="截止时间">
-        <el-date-picker
-          v-model="form.dueDate"
-          type="datetime"
-          value-format="YYYY-MM-DDTHH:mm:ss"
-          placeholder="不设截止时间"
-          clearable
-          :disabled="isReadonly"
-        />
-      </el-form-item>
+        <div class="task-form__row task-form__row--stack">
+          <span class="task-form__label">配图</span>
+          <!--
+            key 让每次打开都拿到全新的字段实例：弹窗体关闭后仍留在 DOM 里，
+            编辑同一个任务时 props.images 不变，光靠 props 重建清不掉上一次选的新文件。
+          -->
+          <TaskImageField
+            :key="`${task?.id ?? 'new'}-${visible}-${isReadonly}`"
+            v-model="images"
+            :images="task?.images"
+            :submitting="submitting"
+            :readonly="isReadonly"
+          />
+        </div>
 
-      <!-- 「将时间更新为当前时间」是编辑动作，详情里不出现 -->
-      <el-form-item v-if="isEdit && !isReadonly">
-        <el-checkbox v-model="form.refreshRecordedAt">将时间更新为当前时间</el-checkbox>
-      </el-form-item>
-
-      <el-form-item label="配图">
-        <!--
-          key 让每次打开都拿到全新的字段实例：弹窗体关闭后仍留在 DOM 里，
-          编辑同一个任务时 props.images 不变，光靠 props 重建清不掉上一次选的新文件。
-        -->
-        <TaskImageField
-          :key="`${task?.id ?? 'new'}-${visible}-${isReadonly}`"
-          v-model="images"
-          :images="task?.images"
-          :submitting="submitting"
-          :readonly="isReadonly"
-        />
-      </el-form-item>
+        <!-- 「将时间更新为当前时间」是编辑动作，详情里不出现 -->
+        <el-checkbox
+          v-if="isEdit && !isReadonly"
+          v-model="form.refreshRecordedAt"
+          class="task-form__refresh"
+        >
+          将时间更新为当前时间
+        </el-checkbox>
+      </div>
     </el-form>
 
     <!-- 有图在传时才出现：进度由调用方从 onUploadProgress 透传 -->
@@ -202,34 +247,268 @@ async function handleSubmit() {
     />
 
     <template #footer>
-      <el-button v-if="isReadonly" @click="visible = false">关闭</el-button>
-      <template v-else>
-        <el-button :disabled="submitting" @click="visible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
-      </template>
+      <div class="task-form__footer">
+        <el-button v-if="isReadonly" class="task-form__cancel" @click="visible = false">
+          关闭
+        </el-button>
+        <template v-else>
+          <el-button class="task-form__cancel" :disabled="submitting" @click="visible = false">
+            取消
+          </el-button>
+          <el-button
+            class="task-form__save"
+            type="primary"
+            :loading="submitting"
+            @click="handleSubmit"
+          >
+            保存
+          </el-button>
+        </template>
+      </div>
     </template>
   </el-dialog>
 </template>
 
 <style scoped>
-/* 进度条贴在表单下方、页脚上方，不挤动表单本身 */
-.task-form__progress {
-  margin-top: 4px;
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-/* 头部：标题在左、「编辑」在右上角；右侧留 24px 给 el-dialog 自带的关闭按钮 */
+.task-form__item {
+  margin-bottom: 0;
+}
+
+/* 头部：20px 大标题；右侧留 40px 给关闭按钮，避免标题与 X 撞在一起 */
 .task-form__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-right: 24px;
+  padding-right: 40px;
 }
 
 .task-form__title {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 600;
+  line-height: 32px;
   color: var(--color-text);
+}
+
+/* ① 标题：无边框、无底色，聚焦才显一条下划线 —— 像「正在写的一行字」而不是表单框 */
+.task-form__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.task-form__title-input {
+  flex: 1;
+}
+
+.task-form__title-input :deep(.el-input__wrapper) {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background-color: var(--color-hover);
+  box-shadow: none;
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+
+.task-form__title-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: inset 0 0 0 1px var(--color-text);
+}
+
+.task-form__title-input :deep(.el-input__inner) {
+  height: 24px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* 字数统计默认不出现，接近上限才亮出来 */
+.task-form__counter {
+  flex: none;
+  font-size: 12px;
+  color: var(--color-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.task-form__counter--desc {
+  display: block;
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* ② 描述：浅灰底、无边框的文本域 */
+.task-form__desc :deep(.el-textarea__inner) {
+  /* 2026-10-21：高度显著加高（≈120px），浅灰底无边框，聚焦才加一条极细的主色边 */
+  min-height: 120px;
+  padding: 14px;
+  border-radius: 12px;
+  background-color: var(--color-hover);
+  box-shadow: none;
+  font-size: 14px;
+  line-height: 1.7;
+  transition: box-shadow var(--dur-fast) var(--ease);
+}
+
+.task-form__desc :deep(.el-textarea__inner:focus) {
+  box-shadow: inset 0 0 0 1px var(--color-text);
+}
+
+/* ③ 属性面板：整块浅灰，和正文明确分开 */
+.task-form__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background-color: var(--color-hover);
+}
+
+.task-form__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.task-form__row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.task-form__label {
+  flex: none;
+  width: 64px;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+
+/* 优先级胶囊：高红 / 中橙 / 低蓝灰，选中时是实底 —— 与任务行上的优先级同一套令牌 */
+.task-form__prios {
+  display: flex;
+  gap: 8px;
+}
+
+/* 胶囊：未选中只有「本色文字 + 透明底」，选中才实底白字（2026-10-21 定稿，去掉未选中描边） */
+.task-form__prio {
+  height: 30px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--color-text-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.task-form__prio:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.task-form__prio--high {
+  color: var(--color-priority-high-fg);
+}
+
+.task-form__prio--medium {
+  color: var(--color-priority-medium-fg);
+}
+
+.task-form__prio--low {
+  color: var(--color-priority-low-fg);
+}
+
+.task-form__prio--high:hover:not(:disabled) {
+  background-color: var(--color-priority-high-bg);
+}
+
+.task-form__prio--medium:hover:not(:disabled) {
+  background-color: var(--color-priority-medium-bg);
+}
+
+.task-form__prio--low:hover:not(:disabled) {
+  background-color: var(--color-priority-low-bg);
+}
+
+.task-form__prio--on.task-form__prio--high {
+  background-color: var(--color-priority-high-fg);
+  color: #fff;
+}
+
+.task-form__prio--on.task-form__prio--medium {
+  background-color: var(--color-priority-medium-fg);
+  color: #fff;
+}
+
+.task-form__prio--on.task-form__prio--low {
+  background-color: var(--color-priority-low-fg);
+  color: #fff;
+}
+
+/* 截止时间：做成白底按钮的样子（日历图标由 EP 自带），占满剩余宽度 */
+.task-form__due {
+  flex: 1;
+}
+
+.task-form__due :deep(.el-input__wrapper) {
+  height: 36px;
+  border-radius: 10px;
+  background-color: var(--color-surface);
+  box-shadow: none;
+}
+
+.task-form__due :deep(.el-input__wrapper.is-focus) {
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+}
+
+.task-form__refresh {
+  align-self: flex-start;
+}
+
+/* 底部：取消（白底黑字）+ 保存（品牌主色，圆角），右对齐 */
+.task-form__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.task-form__cancel {
+  height: 36px;
+  padding: 0 18px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.task-form__cancel:hover {
+  background-color: var(--color-hover);
+  color: var(--color-text);
+}
+
+.task-form__save {
+  height: 36px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 10px;
+  background-color: var(--color-primary-bg);
+  color: var(--color-primary-fg);
+}
+
+.task-form__save:hover {
+  background-color: var(--color-primary-bg);
+  color: var(--color-primary-fg);
+  opacity: 0.88;
+}
+
+/* 进度条贴在表单下方、页脚上方，不挤动表单本身 */
+.task-form__progress {
+  margin-top: 12px;
 }
 
 /*

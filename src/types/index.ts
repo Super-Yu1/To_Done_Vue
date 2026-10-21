@@ -89,6 +89,12 @@ export interface TaskQuery {
    * `overdue` = 未完成且截止早于现在；`dueToday` = 未完成且截止落在今天。
    * 不传 = 不筛；前端只传 true，取消筛选时直接删掉字段。
    */
+  /**
+   * 只看未完成（2026-10-21 修复）：= `status != DONE`，即 **TODO + IN_PROGRESS**。
+   * 快捷筛选（逾期 / 今日到期 / 高优先级）都用它，**不要再用 `status=TODO`** ——
+   * 那会把 IN_PROGRESS 的任务排除掉，与 stats 的数字对不上。
+   */
+  onlyUnfinished?: boolean
   overdue?: boolean
   dueToday?: boolean
   /**

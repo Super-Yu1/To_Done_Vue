@@ -653,3 +653,42 @@ img {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * 任务弹窗的外壳（2026-10-21 改版）：16px 大圆角、去掉硬边框、换柔和弥散阴影；
+ * 关闭按钮做成 32×32 的圆角热区，悬停给浅灰底。
+ * 写在全局是因为 el-dialog 会 teleport 到 body，组件里的 scoped 样式够不到它。
+ */
+.task-form-dialog.el-dialog {
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px -16px rgb(0 0 0 / 18%), 0 6px 20px -6px rgb(0 0 0 / 8%);
+}
+
+.task-form-dialog .el-dialog__header {
+  margin-right: 0;
+  padding: 20px 24px 0;
+}
+
+.task-form-dialog .el-dialog__headerbtn {
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.task-form-dialog .el-dialog__headerbtn:hover {
+  background-color: var(--color-hover);
+}
+
+.task-form-dialog .el-dialog__body {
+  padding: 12px 24px 4px;
+}
+
+.task-form-dialog .el-dialog__footer {
+  padding: 12px 24px 20px;
+}

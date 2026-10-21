@@ -240,7 +240,9 @@ function handleFilter(next: TaskQuickFilter | null) {
   exitSelect()
   activeFilter.value = next
 
-  if (next) query.status = 'TODO'
+  // 与真实页同一口径（2026-10-21）：未完成 = 非 DONE，不再用 status='TODO'
+  query.status = undefined
+  query.onlyUnfinished = next ? true : undefined
   query.priority = next === 'high' ? 'HIGH' : undefined
   query.overdue = next === 'overdue' ? true : undefined
   query.dueToday = next === 'dueToday' ? true : undefined
