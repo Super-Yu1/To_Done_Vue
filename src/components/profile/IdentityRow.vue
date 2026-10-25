@@ -140,9 +140,10 @@ function handleChange(event: Event) {
 /* 自成容器：下面的窄屏断点按这张卡片的宽度算，而不是按视口 */
 .identity-card {
   container-type: inline-size;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
 }
 
 .identity {

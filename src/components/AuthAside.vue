@@ -411,9 +411,10 @@ async function togglePreview(task: PreviewTask) {
   gap: 14px;
   /* 纵向 14px：加了品牌块之后收一点，宽屏 900px 上下仍然整页不滚动 */
   padding: 14px 22px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
 }
 
 /* 勾选按钮：34px 命中区包着 28px 圆环 —— 与任务列表里的勾选同一个做法 */

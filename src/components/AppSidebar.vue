@@ -151,19 +151,26 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/*
+ * 悬浮的液态玻璃面板（2026-10-26）：
+ * 不再贴着视口左边与上下沿，而是四周各让 16px 浮起来 ——
+ * 半透明白 + 24px 模糊 + 24px 大圆角 + 一线白边 + 一层几乎看不见的落影。
+ */
 .sidebar {
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  top: var(--sidebar-offset);
+  left: var(--sidebar-offset);
+  bottom: var(--sidebar-offset);
   z-index: 20;
   display: flex;
   flex-direction: column;
   width: var(--sidebar-width);
-  padding: 20px 14px 14px;
-  border-right: none;
-  /* 2026-10-18：侧栏是浅灰面，主区是更浅的画布，两者靠色差分层、不用描边 */
-  background-color: var(--color-bg-soft);
+  padding: 20px 14px 16px;
+  border: 1px solid var(--glass-panel-border);
+  border-radius: 24px;
+  background-color: var(--glass-panel-bg);
+  backdrop-filter: var(--glass-panel-blur);
+  box-shadow: var(--glass-panel-shadow);
 }
 
 .sidebar__top {
@@ -208,7 +215,7 @@ onUnmounted(() => {
 }
 
 /*
- * 浮块：与链接同圆角的白底 + 极轻阴影。
+ * 浮块：选中项的半透明高亮，12px 圆角，与链接同形。
  * 位置、宽高由 inline style 给出；首帧不加过渡（--ready 才打开）。
  */
 .sidebar__indicator {
@@ -216,8 +223,8 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   z-index: 0;
-  border-radius: var(--radius-md);
-  background-color: var(--color-brand-soft);
+  border-radius: 12px;
+  background-color: color-mix(in srgb, var(--color-brand) 14%, transparent);
   pointer-events: none;
 }
 
@@ -275,6 +282,7 @@ onUnmounted(() => {
 
 /* 窄屏：整条收回成顶部横条（品牌左、导航中、设置右） */
 @media (max-width: 1024px) {
+  /* 窄屏：同一条玻璃只横过来，四周留出同样的 16px 悬浮间隙 */
   .sidebar {
     position: static;
     flex-direction: row;
@@ -282,9 +290,9 @@ onUnmounted(() => {
     gap: 14px;
     width: auto;
     height: auto;
+    margin: var(--sidebar-offset);
     padding: 10px clamp(16px, 2.5vw, 40px);
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
+    border-radius: 20px;
   }
 
   .sidebar__top {
@@ -307,7 +315,7 @@ onUnmounted(() => {
 
   .sidebar__link.router-link-active:not(.sidebar__link--exact),
   .sidebar__link--exact.router-link-exact-active {
-    background-color: var(--color-brand-soft);
+    background-color: color-mix(in srgb, var(--color-brand) 14%, transparent);
   }
 
   .sidebar__settings {

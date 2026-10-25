@@ -61,7 +61,8 @@ async function handleLogout() {
 .admin-layout {
   display: flex;
   min-height: 100vh;
-  background-color: var(--color-bg);
+  /* 2026-10-26：与前台共用 html 的弥散底色，后台不再单独铺一层白 */
+  background-color: transparent;
 }
 
 .sidebar {

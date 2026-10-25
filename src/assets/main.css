@@ -22,7 +22,10 @@
   --color-hover: #f4f6f8;
   /* 设置行悬停：比 --color-hover 更浅，避免整行像被选中 */
   --color-row-hover: #f9fafb;
-  /* 品牌色：克莱因蓝的现代变体 —— 主按钮、选中态、进度条、完成勾选 */
+  /*
+   * 品牌色：克莱因蓝的现代变体 —— 选中态、进度条、完成勾选、导航高亮。
+   * 「新建任务」主按钮与搜索聚焦环 2026-10-26 起改用苹果蓝 --color-accent。
+   */
   --color-brand: #2f4bff;
   --color-brand-hover: #1f3ae6;
   --color-brand-active: #1630c9;
@@ -65,10 +68,59 @@
   /* 「高优先级」快捷筛选：浅紫，和逾期的红、今日到期的橙分开 */
   --color-high-bg: #f1edff;
   --color-high-fg: #6b4fd8;
-  /* 卡片阴影：大圆角 + 柔和扩散，靠光而不是线把卡片托起来 */
-  --shadow-card: 0 6px 24px rgba(17, 24, 39, 0.06);
-  --shadow-card-hover: 0 14px 36px rgba(17, 24, 39, 0.1);
+  /* 卡片阴影：大圆角 + 柔和扩散，靠光而不是线把卡片托起来；上沿那线高光是玻璃的边缘 */
+  --shadow-card: 0 10px 30px rgba(39, 52, 120, 0.1), var(--glass-sheen);
+  --shadow-card-hover: 0 18px 40px rgba(39, 52, 120, 0.16), var(--glass-sheen);
   --color-mask: rgba(0, 0, 0, 0.28);
+  /*
+   * 液态玻璃（2026-10-26）：页面底色 + 玻璃三件套。
+   * 底色是三层弥散光斑（蓝 / 紫 / 粉）铺在浅冷灰上，光斑都压在四角，内容区保持够亮；
+   * 玻璃只定义「填色 / 描边 / 模糊」三件事，卡片、侧栏、弹窗共用同一组取值，深色主题整体换一组。
+   */
+  --page-bg: #eaf0ff;
+  --page-bg-image:
+    radial-gradient(1100px 780px at 6% -6%, rgba(110, 158, 255, 0.55), transparent 58%),
+    radial-gradient(900px 700px at 98% 0%, rgba(176, 138, 255, 0.45), transparent 60%),
+    radial-gradient(1000px 800px at 88% 104%, rgba(255, 140, 182, 0.42), transparent 62%),
+    linear-gradient(155deg, #e8efff 0%, #f0e9ff 46%, #ffeaf3 100%);
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  /* 压在内容上的浮层（弹窗 / 下拉）：比卡片更实一档，字才不会被底下的页面干扰 */
+  --glass-bg-strong: rgba(255, 255, 255, 0.8);
+  /* 玻璃行悬停：只把玻璃再擦亮一点，不换色 */
+  --glass-bg-hover: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-blur: blur(20px) saturate(180%);
+  /*
+   * 悬浮面板（左侧栏）：比卡片更强的一档模糊、更细的视线级描边、更大更柔的落影 ——
+   * 它脱离文档流浮在渐变上，得有「离地一点点」的距离感。
+   */
+  --glass-panel-bg: rgba(255, 255, 255, 0.5);
+  --glass-panel-border: rgba(255, 255, 255, 0.5);
+  --glass-panel-blur: blur(24px) saturate(180%);
+  --glass-panel-shadow: 0 24px 60px rgba(31, 45, 90, 0.12), 0 2px 10px rgba(31, 45, 90, 0.05),
+    var(--glass-sheen);
+  /*
+   * 任务列表卡（2026-10-26）：单独一层更薄的玻璃 —— 12px 模糊、0.8 白的反光边，
+   * 外加一条从卡片顶部往下淡出的柔光（inset 阴影模拟线性高光）。
+   */
+  --glass-card-bg: rgba(255, 255, 255, 0.6);
+  --glass-card-bg-hover: rgba(255, 255, 255, 0.8);
+  --glass-card-border: rgba(255, 255, 255, 0.8);
+  --glass-card-blur: blur(12px) saturate(180%);
+  --glass-card-sheen: inset 0 24px 24px -24px rgba(255, 255, 255, 0.85);
+  /*
+   * 苹果蓝（2026-10-26）：只给「搜索聚焦环」和「新建任务」主按钮用，与品牌蓝 --color-brand 并列；
+   * 另有一组「玻璃上的输入井」取色，搜索框这类控件铺半透明白 + 10px 模糊，深色主题换成极淡的白。
+   */
+  --color-accent: #007aff;
+  --color-accent-hover: #2b8dff;
+  --color-accent-active: #0068d9;
+  --color-field-bg: rgba(255, 255, 255, 0.3);
+  --color-field-bg-hover: rgba(255, 255, 255, 0.44);
+  --color-field-bg-focus: rgba(255, 255, 255, 0.52);
+  --color-field-border: rgba(255, 255, 255, 0.45);
+  /* 玻璃上沿的一线高光：并进 --shadow-card 一起用，卡片才有「边缘」而不是一块糊色 */
+  --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.85);
   /*
    * 圆角阶梯：全站（含 Element Plus）只从这四档取值，不再出现零散数值。
    * sm 6px   极小 / 紧凑件：复选框、标签、分页按钮、骨架条
@@ -94,7 +146,8 @@
   --dur-strike: 300ms;
   --ease: cubic-bezier(0.2, 0.8, 0.3, 1);
   --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.08);
-  --font-stack: -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  /* 苹果系统字体栈（2026-10-26）：优先 SF Pro，Windows 上落到系统默认无衬线 */
+  --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
   /*
    * 内容区最大宽：随窗口自适应（2026-10-12 按使用反馈从固定 880px 改为自适应）。
    * 94vw 让左右各留约 3% 呼吸位；上限 1920px 防止超宽屏把列表行拉成超长横条；
@@ -103,6 +156,8 @@
   --content-width: clamp(880px, 94vw, 1920px);
   /* 左侧边栏宽度（前台骨架用的就是它，见下方 .app-layout）；2026-10-17 按反馈从 224 加宽到 272 */
   --sidebar-width: 272px;
+  /* 悬浮侧栏离视口边缘的距离（2026-10-26）：侧栏改成浮起来的一块玻璃后，内容要跟着让出两倍间距 */
+  --sidebar-offset: 16px;
   color-scheme: light;
 }
 
@@ -152,10 +207,38 @@ html.dark {
   --color-priority-low-border: #2c302e;
   --color-high-bg: #211b38;
   --color-high-fg: #b6a4ff;
-  --shadow-card: 0 6px 24px rgba(0, 0, 0, 0.38);
-  --shadow-card-hover: 0 14px 36px rgba(0, 0, 0, 0.52);
+  --shadow-card: 0 6px 24px rgba(0, 0, 0, 0.38), var(--glass-sheen);
+  --shadow-card-hover: 0 14px 36px rgba(0, 0, 0, 0.52), var(--glass-sheen);
   --color-mask: rgba(0, 0, 0, 0.6);
   --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.5);
+  /* 液态玻璃·深色：底色压到近黑，光斑降饱和，玻璃填色换成极淡的白 */
+  --page-bg: #090b11;
+  --page-bg-image:
+    radial-gradient(1100px 780px at 6% -6%, rgba(48, 84, 190, 0.5), transparent 58%),
+    radial-gradient(900px 700px at 98% 0%, rgba(112, 66, 205, 0.42), transparent 60%),
+    radial-gradient(1000px 800px at 88% 104%, rgba(178, 62, 118, 0.34), transparent 62%),
+    linear-gradient(155deg, #0a0d16 0%, #0d0b16 46%, #150c14 100%);
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-bg-strong: rgba(22, 26, 36, 0.82);
+  --glass-bg-hover: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-panel-bg: rgba(255, 255, 255, 0.05);
+  --glass-panel-border: rgba(255, 255, 255, 0.12);
+  --glass-panel-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(0, 0, 0, 0.3),
+    var(--glass-sheen);
+  --glass-card-bg: rgba(255, 255, 255, 0.08);
+  --glass-card-bg-hover: rgba(255, 255, 255, 0.14);
+  --glass-card-border: rgba(255, 255, 255, 0.18);
+  --glass-card-sheen: inset 0 24px 24px -24px rgba(255, 255, 255, 0.1);
+  /* 苹果蓝·深色：用 iOS 深色主题的 #0a84ff，避免浅底蓝在暗背景上发灰 */
+  --color-accent: #0a84ff;
+  --color-accent-hover: #3d9bff;
+  --color-accent-active: #0068d9;
+  --color-field-bg: rgba(255, 255, 255, 0.06);
+  --color-field-bg-hover: rgba(255, 255, 255, 0.1);
+  --color-field-bg-focus: rgba(255, 255, 255, 0.12);
+  --color-field-border: rgba(255, 255, 255, 0.1);
+  --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   color-scheme: dark;
 }
 
@@ -249,6 +332,15 @@ body {
 html {
   scrollbar-width: none;
   scrollbar-gutter: stable;
+  /*
+   * 页面底色（2026-10-26）：不再是纯白，换成蓝 / 紫 / 粉三层弥散光斑。
+   * 挂在 html 上 + fixed：滚动时光斑不动，卡片像浮在同一片光里；
+   * body 与各布局层一律透明，谁也不再盖住它。
+   */
+  background-color: var(--page-bg);
+  background-image: var(--page-bg-image);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 html::-webkit-scrollbar {
@@ -408,7 +500,8 @@ body {
   font-size: 14px;
   line-height: 1.6;
   color: var(--color-text);
-  background-color: var(--color-bg);
+  /* 底色由 html 的弥散渐变负责，body 留空让光透上来 */
+  background-color: transparent;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -450,9 +543,10 @@ img {
  */
 .app-layout {
   min-height: 100vh;
-  padding-left: var(--sidebar-width);
-  /* 极浅灰画布：白卡 + 柔和阴影才有悬浮感（2026-10-18 设计稿） */
-  background-color: var(--color-canvas);
+  /* 侧栏是悬浮面板：左边让出「偏移 + 面板宽 + 间隙」，内容不会钻到玻璃底下 */
+  padding-left: calc(var(--sidebar-width) + var(--sidebar-offset) * 2);
+  /* 画布透明（2026-10-26）：底色交给 html 的弥散渐变，玻璃卡片才接得住那层光 */
+  background-color: transparent;
 }
 
 .app-layout__main {
@@ -504,9 +598,11 @@ img {
 .settings-group {
   container-type: inline-size;
   overflow: hidden; /* 让行的悬停底色跟着圆角裁切 */
-  border: 1px solid var(--color-border);
+  /* 玻璃面板（2026-10-26）：与任务卡同一套填色与描边，只是不加投影，层级低一档 */
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
 }
 
 .settings-group > * {
@@ -661,10 +757,14 @@ img {
  */
 .task-form-dialog.el-dialog {
   padding: 0;
-  border: none;
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 24px 64px -16px rgb(0 0 0 / 18%), 0 6px 20px -6px rgb(0 0 0 / 8%);
+  /* 玻璃浮层（2026-10-26）：比卡片更实一档，模糊把底下的页面虚化成一片柔光 */
+  background-color: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: 0 24px 64px -16px rgb(0 0 0 / 18%), 0 6px 20px -6px rgb(0 0 0 / 8%),
+    var(--glass-sheen);
 }
 
 .task-form-dialog .el-dialog__header {
@@ -691,4 +791,26 @@ img {
 
 .task-form-dialog .el-dialog__footer {
   padding: 12px 24px 20px;
+}
+
+/*
+ * 浮层玻璃化（2026-10-26）：确认框、下拉、气泡面板同属「压在页面之上」这一层，
+ * 统一用更实的玻璃 + 同一档模糊；箭头跟着面板一起半透明，免得露出一块实心白三角。
+ */
+.el-dialog,
+.el-message-box {
+  border: 1px solid var(--glass-border);
+  background-color: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+}
+
+.el-popper.is-light {
+  border-color: var(--glass-border);
+  background-color: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+}
+
+.el-popper.is-light .el-popper__arrow::before {
+  border-color: var(--glass-border);
+  background-color: var(--glass-bg-strong);
 }

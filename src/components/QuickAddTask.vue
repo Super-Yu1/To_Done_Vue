@@ -47,9 +47,11 @@ function handleSubmit() {
   gap: 12px;
   margin-top: 8px;
   padding: 14px 20px;
-  border: 1px dashed var(--color-border-strong);
+  /* 玻璃条上的虚线用墨色兑水：白色描边在浅底上会看不见，这条线得始终读得出来 */
+  border: 1px dashed color-mix(in srgb, var(--color-text) 20%, transparent);
   border-radius: var(--radius-card);
-  background-color: var(--color-surface);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
   transition: border-color var(--dur-fast) var(--ease);
 }
 

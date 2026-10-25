@@ -260,7 +260,10 @@ function handleRowClick() {
 </template>
 
 <style scoped>
-/* 悬浮卡：无描边、16px 大圆角、柔和扩散阴影；悬停时轻轻上浮 */
+/*
+ * 任务卡是一层更薄的玻璃（2026-10-26）：20px 大圆角、0.8 白的反光边，
+ * 卡内顶部再叠一条往下淡出的柔光（`--glass-card-sheen`），边缘才像被光擦过。
+ */
 .task-row {
   display: grid;
   /* 前置位 40px（命中区）放 24px 圆形框；正文一列；右侧元信息 + 固定宽度的操作列 */
@@ -268,18 +271,21 @@ function handleRowClick() {
   align-items: center;
   gap: 16px;
   padding: 18px 20px;
-  border: none;
-  border-radius: var(--radius-card);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-card);
+  border: 1px solid var(--glass-card-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--glass-card-bg);
+  backdrop-filter: var(--glass-card-blur);
+  box-shadow: var(--shadow-card), var(--glass-card-sheen);
   cursor: pointer;
-  transition: transform var(--dur-base) var(--ease), box-shadow var(--dur-base) var(--ease);
+  /* 悬停三件事（底色 / 投影 / 位移）走同一条缓出曲线，卡片才像「被拿起来」而不是跳一下 */
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .task-row:hover,
 .task-row:focus-within {
-  box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
+  background-color: var(--glass-card-bg-hover);
+  box-shadow: var(--shadow-card-hover), var(--glass-card-sheen);
+  transform: translateY(-2px);
 }
 
 /* 批量选择：选中行留一层品牌浅蓝，和悬停的浮起区分开 */
@@ -314,14 +320,22 @@ function handleRowClick() {
   background-color: transparent;
   color: transparent;
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
-    background-color var(--dur-fast) var(--ease);
+    background-color var(--dur-fast) var(--ease), box-shadow var(--dur-base) var(--ease);
 }
 
-/* 悬停时给出「点一下就会完成」的预览：品牌色描边 + 淡蓝底 */
+/* 卡片悬停：勾选圈先透一层很淡的光，提示这一列是「点一下就完成」的入口 */
+.task-row:hover .task-row__check-box,
+.task-row:focus-within .task-row__check-box {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 16%, transparent);
+}
+
+/* 直接悬停勾选圈：品牌色描边 + 淡蓝底 + 一圈微光（外扩光环 + 柔光） */
 .task-row__check:hover .task-row__check-box {
   border-color: var(--color-brand);
   background-color: var(--color-brand-soft);
   color: var(--color-brand);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brand) 10%, transparent),
+    0 0 16px color-mix(in srgb, var(--color-brand) 34%, transparent);
 }
 
 .task-row__check:active .task-row__check-box {
@@ -410,36 +424,41 @@ function handleRowClick() {
   transition: transform var(--dur-base) var(--ease);
 }
 
-/* 优先级：无边框、无底色，只靠颜色和字重（高 = 淡红、中 = 橙、低 = 灰） */
+/*
+ * 优先级胶囊（2026-10-26）：底色取同色 10% 透明，文字在档位色上再往正文色压一档，
+ * 浅底上才够清楚；99px 圆角与复选框、徽章同一档，形状语言不另起一套。
+ */
 .task-row__prio {
   display: inline-flex;
   align-items: center;
   height: 22px;
-  padding: 0 2px;
+  padding: 0 9px;
   border: none;
-  background-color: transparent;
+  border-radius: 99px;
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
   font-size: 12px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: opacity var(--dur-fast) var(--ease);
+  transition: background-color var(--dur-fast) var(--ease);
 }
 
+/* 悬停只把底色压实一点：整体降透明度会让胶囊发灰，看着像禁用 */
 .task-row__prio:hover:not(:disabled) {
-  opacity: 0.7;
+  background-color: color-mix(in srgb, currentColor 16%, transparent);
 }
 
 .task-row__prio--high {
-  color: var(--color-priority-high-fg);
+  color: color-mix(in srgb, var(--color-priority-high-fg) 82%, var(--color-text));
 }
 
 .task-row__prio--medium {
-  color: var(--color-priority-medium-fg);
+  color: color-mix(in srgb, var(--color-priority-medium-fg) 82%, var(--color-text));
 }
 
 .task-row__prio--low {
-  color: var(--color-text-3);
+  color: color-mix(in srgb, var(--color-priority-low-fg) 82%, var(--color-text));
 }
 
 .task-row__due {

@@ -76,7 +76,8 @@ defineProps<{ title: string; subtitle?: string }>()
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: var(--color-bg);
+  /* 2026-10-26：底色交给 html 的弥散渐变，认证页与主站同一片光 */
+  background-color: transparent;
 }
 
 /* ---------- 顶栏（默认版式：一条 56px 通栏） ---------- */
@@ -123,12 +124,30 @@ defineProps<{ title: string; subtitle?: string }>()
 
 /* ---------- 主区 ---------- */
 
-/* 默认（找回密码）：单栏窄表单居中 */
+/* 默认（找回密码 / 后台登录）：单栏窄表单居中 */
 .auth-shell__main {
   width: 100%;
   max-width: 360px;
   margin: 0 auto;
   padding: 48px 24px 64px;
+}
+
+/*
+ * 单栏版也收进一张玻璃卡（2026-10-26）：底色变成渐变之后，
+ * 光秃秃的表单会漂在光斑上；卡片宽度吃掉原本的左右内边距，控件不被挤窄。
+ */
+.auth-shell__main:not(.auth-shell__main--split) {
+  max-width: 408px;
+  padding: 48px 0 64px;
+}
+
+.auth-shell__main:not(.auth-shell__main--split) .auth-shell__panel-inner {
+  padding: 28px 28px 24px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card);
 }
 
 /* 注册 / 登录：左右 4:6，两栏铺满「屏幕顶部 → 页脚」的全部高度 */
@@ -157,7 +176,8 @@ defineProps<{ title: string; subtitle?: string }>()
   align-items: center;
   justify-content: center;
   padding: 48px clamp(24px, 4vw, 56px) 84px;
-  background-color: var(--color-hover);
+  /* 左栏半透明：点阵网格下面透出页面光斑，与右栏的玻璃卡同处一层 */
+  background-color: color-mix(in srgb, var(--color-surface) 42%, transparent);
   background-image: radial-gradient(var(--color-border) 1px, transparent 0);
   background-size: 22px 22px;
 }
@@ -191,9 +211,11 @@ defineProps<{ title: string; subtitle?: string }>()
 .auth-shell__card {
   max-width: 496px;
   padding: 28px 28px 24px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card);
 }
 
 .auth-shell__heading {

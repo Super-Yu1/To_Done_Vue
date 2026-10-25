@@ -64,9 +64,10 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   height: 42px;
   padding: 0;
 
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-pill);
-  background-color: var(--color-surface);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
   color: var(--color-text-2);
   cursor: pointer;
 
@@ -88,7 +89,8 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
 }
 
 .back-to-top:hover {
-  border-color: var(--color-border-strong);
+  /* 玻璃件悬停只擦亮自己，不换描边色 */
+  background-color: var(--glass-bg-hover);
   color: var(--color-text);
 }
 </style>

@@ -29,7 +29,7 @@ const router = useRouter()
   justify-content: center;
   min-height: 100vh;
   padding: 24px;
-  background-color: var(--color-bg);
+  background-color: transparent;
   text-align: center;
 }
 

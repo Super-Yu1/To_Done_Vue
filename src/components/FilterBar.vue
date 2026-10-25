@@ -188,9 +188,21 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 </template>
 
 <style scoped>
+/*
+ * 筛选区整块收进一张玻璃卡（2026-10-26）：搜索框与状态切换落在这块微透明面板上，
+ * 与统计栏、任务卡同一套填色 / 描边 / 模糊，页面上不再有「直接漂在渐变上」的控件。
+ */
 .filter-bar {
   display: grid;
+  /* 单列显式写成 minmax(0, 1fr)：内容再宽也只在这条轨道里省略，不会把卡片撑出屏幕 */
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card);
 }
 
 .filter-bar__row {
@@ -232,19 +244,53 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   overflow: hidden;
 }
 
-@media (max-width: 1200px) {
+/*
+ * 三列版要求整行放得下「状态切换 + 提示 + 工具」：再窄下去中间列会按内容顶宽，
+ * 把状态切换挤成两行（提示右侧加了登录入口后更容易碰到）。
+ * 所以提前回退到「剩余空间居中 + 省略」的两段式布局。
+ */
+@media (max-width: 1400px) {
   .filter-bar__row--tabs-center {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
   }
 
-  .filter-bar__center {
+  /*
+   * 剩余空间只给中间：工具列按内容宽度站住（基础样式里的 flex:1 会和提示平分，
+   * 提示就白缩了一大截；允许收缩又会让「排序 / 批量选择」自己折行）。
+   * 多带一层选择器压过基础样式，真的放不下时整行再换行。
+   */
+  .filter-bar__row--tabs-center .filter-bar__center {
     flex: 1;
+  }
+
+  .filter-bar__row--tabs-center .filter-bar__tools {
+    flex: none;
   }
 }
 
-/* 搜索框：胶囊形浅灰长条，聚焦转白底 + 品牌色细环 */
+/*
+ * 再窄一档（≤760）：中间那条演示提示已经压到只剩「当…」，硬挤不如让它独占一行；
+ * 状态切换与右侧工具留在第一行，提示整条落到第二行左对齐。
+ */
+@media (max-width: 760px) {
+  .filter-bar__row--tabs-center .filter-bar__center {
+    order: 3;
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+
+  .filter-bar__row--tabs-center .filter-bar__tools {
+    order: 2;
+    margin-left: auto;
+  }
+}
+
+/*
+ * 搜索框（2026-10-26）：胶囊形、半透明白 + 10px 模糊，去掉原来的灰底方框；
+ * 聚焦时描边转苹果蓝，外面再罩一圈很淡的蓝光。
+ */
 .filter-bar__search {
   flex: 1;
   min-width: 240px;
@@ -253,31 +299,41 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 .filter-bar__search :deep(.el-input__wrapper) {
   height: 44px;
   padding: 1px 18px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-bg-soft);
-  box-shadow: inset 0 0 0 1px transparent;
-  transition: background-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  border: none;
+  border-radius: 999px;
+  background-color: var(--color-field-bg);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 0 0 1px var(--color-field-border);
+  transition: background-color var(--dur-fast) var(--ease), box-shadow var(--dur-base) var(--ease);
 }
 
 .filter-bar__search :deep(.el-input__wrapper:hover) {
-  background-color: var(--color-surface);
-  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+  background-color: var(--color-field-bg-hover);
 }
 
 .filter-bar__search :deep(.el-input__wrapper.is-focus) {
-  background-color: var(--color-surface);
-  box-shadow: inset 0 0 0 1.5px var(--color-brand);
+  background-color: var(--color-field-bg-focus);
+  box-shadow:
+    inset 0 0 0 1.5px var(--color-accent),
+    0 0 0 4px color-mix(in srgb, var(--color-accent) 14%, transparent),
+    0 0 16px color-mix(in srgb, var(--color-accent) 24%, transparent);
 }
 
 .filter-bar__search :deep(.el-input__prefix) {
   color: var(--color-text-3);
+  transition: color var(--dur-fast) var(--ease);
+}
+
+/* 聚焦时放大镜跟着描边一起转苹果蓝 */
+.filter-bar__search :deep(.el-input__wrapper.is-focus) .el-input__prefix {
+  color: var(--color-accent);
 }
 
 .filter-bar__search :deep(.el-input__inner) {
   font-size: 14px;
 }
 
-/* 主操作（新建任务）：品牌色实心、大圆角、带一圈同色柔光 */
+/* 主操作区：按钮统一 44px 高 / 14px 圆角；「新建任务」的苹果蓝与按压反馈单独写在下面 */
 .filter-bar__actions {
   display: flex;
   flex: none;
@@ -294,16 +350,34 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   font-weight: 500;
 }
 
+/*
+ * 「新建任务」（2026-10-26）：苹果蓝实底、12px 圆角、带一层蓝色柔光投影；
+ * 悬停提亮一档，按下缩到 0.96 —— 触感来自位移，不靠变色。
+ */
 .filter-bar__actions :deep(.el-button--primary) {
-  --el-button-bg-color: var(--color-brand);
-  --el-button-border-color: var(--color-brand);
-  --el-button-text-color: var(--color-brand-fg);
-  --el-button-hover-bg-color: var(--color-brand-hover);
-  --el-button-hover-border-color: var(--color-brand-hover);
-  --el-button-hover-text-color: var(--color-brand-fg);
-  --el-button-active-bg-color: var(--color-brand-active);
-  --el-button-active-border-color: var(--color-brand-active);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--color-brand) 26%, transparent);
+  --el-button-bg-color: var(--color-accent);
+  --el-button-border-color: var(--color-accent);
+  --el-button-text-color: #fff;
+  --el-button-hover-bg-color: var(--color-accent-hover);
+  --el-button-hover-border-color: var(--color-accent-hover);
+  --el-button-hover-text-color: #fff;
+  --el-button-active-bg-color: var(--color-accent-active);
+  --el-button-active-border-color: var(--color-accent-active);
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 122, 255, 0.4);
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease),
+    transform 120ms var(--ease);
+}
+
+.filter-bar__actions :deep(.el-button--primary:hover) {
+  box-shadow: 0 6px 18px rgba(0, 122, 255, 0.46);
+}
+
+.filter-bar__actions :deep(.el-button--primary:active) {
+  transform: scale(0.96);
+  box-shadow: 0 3px 10px rgba(0, 122, 255, 0.35);
 }
 
 /* 分段控件：浅灰容器 + 选中项白底微阴影 */
@@ -481,7 +555,10 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 /* 排序面板是 teleport 出去的气泡，外层壳的留白与描边只能写成全局样式 */
 .todone-sort-pop.el-popover {
   padding: 8px;
-  border: 1px solid var(--color-border);
+  /* 玻璃面板（2026-10-26）：与全站浮层同一档填色与描边 */
+  border: 1px solid var(--glass-border);
+  background-color: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
   border-radius: var(--radius-md);
   box-shadow: 0 10px 30px rgba(16, 24, 20, 0.08);
 }

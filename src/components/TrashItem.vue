@@ -113,18 +113,19 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   align-items: center;
   gap: 16px;
   padding: 18px 20px;
-  border: none;
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
-  background-color: var(--color-surface);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-card);
   transition: box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
 
-/* 整行悬停：极浅灰底 + 轻浮起 */
+/* 整行悬停：玻璃擦亮一档 + 轻浮起（不换成实底灰，否则整行会从玻璃里「掉」出来） */
 .trash-row:hover,
 .trash-row:focus-within {
-  background-color: var(--color-row-hover);
+  background-color: var(--glass-bg-hover);
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-1px);
 }

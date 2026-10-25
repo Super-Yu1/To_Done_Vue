@@ -105,8 +105,11 @@ function toggle(next: TaskQuickFilter) {
   gap: 24px;
   min-height: 64px;
   padding: 12px 20px;
+  /* 玻璃卡（2026-10-26）：与任务卡同一套填色 / 描边 / 模糊，只有高度不同 */
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
-  background-color: var(--color-surface);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-card);
 }
 

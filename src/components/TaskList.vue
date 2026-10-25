@@ -142,10 +142,12 @@ onUnmounted(() => observer?.disconnect())
   align-items: center;
   gap: 16px;
   padding: 18px 20px;
-  border: none;
-  border-radius: var(--radius-card);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-card);
+  /* 与真实行同一层玻璃（2026-10-26）：20px 圆角、0.8 白反光边、12px 模糊 */
+  border: 1px solid var(--glass-card-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--glass-card-bg);
+  backdrop-filter: var(--glass-card-blur);
+  box-shadow: var(--shadow-card), var(--glass-card-sheen);
 }
 
 .task-list__skeleton-check {
@@ -190,12 +192,16 @@ onUnmounted(() => observer?.disconnect())
   height: 1px;
 }
 
-/* 行进退场与让位：只动 transform 与 opacity（8.7 动效） */
-.row-enter-active {
+/*
+ * 行进退场与让位：只动 transform 与 opacity（8.7 动效）。
+ * 选择器带上 .task-list__rows：卡片的悬停过渡是 `transition: all`，同权重时会被它抢走，
+ * 这几条得压过 .task-row，420ms 的补位节奏才不会被改成 300ms。
+ */
+.task-list__rows .row-enter-active {
   transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
 }
 
-.row-leave-active {
+.task-list__rows .row-leave-active {
   /*
    * 离开的行脱离文档流（位置仍取它原来的 static position）：
    * 勾选完成的退场动画播完后行已透明，这里不让它继续占位，下方行马上平滑补上。
@@ -228,7 +234,7 @@ onUnmounted(() => observer?.disconnect())
  * 行让位：慢一点、从下往上滑到新位置，不再「跳一下」就到位。
  * 曲线选 ease-in-out 而不是强 ease-out：起步不抢帧，整段位移都看得见。
  */
-.row-move {
+.task-list__rows .row-move {
   transition: transform var(--dur-reorder) cubic-bezier(0.45, 0.03, 0.2, 1);
   will-change: transform;
 }

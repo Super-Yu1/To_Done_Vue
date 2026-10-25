@@ -6,6 +6,7 @@
  * 2026-10-15 起与真实页一样有：行内快捷改（E）、批量选择（F）、底部快速录入（H）。
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
 import BackToTop from '@/components/BackToTop.vue'
@@ -363,7 +364,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </el-button>
       </template>
 
-      <!-- 第二行中间：演示环境提示（红色感叹号 + 浅红底，提醒「刷新会重置」） -->
+      <!-- 第二行中间：演示环境提示（红色感叹号 + 浅红底，提醒「刷新会重置」），登录出口就长在这条提示里 -->
       <template #tabs-center>
         <p
           class="demo-hint"
@@ -373,6 +374,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           <span class="demo-hint__text">
             当前为演示环境 —— 新建、修改只存在内存里，刷新页面就会重置。
           </span>
+          <!-- 提示只讲「不会保存」，右端这句才是把数据留下来的路 -->
+          <RouterLink class="demo-hint__login" to="/login">去登录</RouterLink>
         </p>
       </template>
 
@@ -518,15 +521,20 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   }
 }
 
-/* 第二行中间的演示环境提示：红色感叹号 + 浅红胶囊底，提醒「刷新会重置」 */
+/*
+ * 演示环境提示条：红色感叹号 + 浅红胶囊底，提醒「刷新会重置」；
+ * 右端直接长着「去登录」—— 同一条红底、同一个红字，不再另起一颗按钮。
+ */
 .demo-hint {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 7px;
   min-width: 0;
   max-width: 100%;
   height: 30px;
-  padding: 0 12px;
+  /* 右端给登录留 6px 内边距（它自己还带 6px），和左端 12px 对齐视觉重量 */
+  padding: 0 6px 0 12px;
   border-radius: var(--radius-pill);
   background-color: var(--color-danger-bg);
   color: var(--color-danger-text);
@@ -544,5 +552,46 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/*
+ * 提示条里的登录出口：一条竖细线把它和「刷新会重置」分开，加粗区分于正文；
+ * 悬停浮一层同色浅底，说明这句能按。窄屏时先省略提示语，它保持原宽不缩。
+ */
+.demo-hint__login {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  /* 24px 是点按的最小舒服尺寸，30px 的长条里上下各留 3px */
+  height: 24px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+  transition: background-color var(--dur-fast) var(--ease),
+    text-decoration-color var(--dur-fast) var(--ease);
+}
+
+.demo-hint__login::before {
+  content: '';
+  width: 1px;
+  height: 12px;
+  margin-right: 7px;
+  background-color: currentColor;
+  opacity: 0.3;
+}
+
+.demo-hint__login:hover {
+  background-color: color-mix(in srgb, currentColor 12%, transparent);
+  text-decoration-color: currentColor;
+}
+
+.demo-hint__login:focus-visible {
+  outline: 2px solid var(--color-danger);
+  outline-offset: 1px;
 }
 </style>
