@@ -63,27 +63,38 @@ onUnmounted(() => {
     :tabindex="visible ? 0 : -1"
     @click="scrollToTop"
   >
-    <AppIcon name="up" :size="18" />
+    <AppIcon name="up" :size="17" />
   </button>
 </template>
 
 <style scoped>
 /*
- * 位置：贴右下角，右边缘与 .page 的左右内边距对齐（clamp 同源），
- * 这样窄屏贴边、宽屏与内容右边线对齐。
+ * 位置（2026-10-27 定稿）：**任务行右侧空白带的正中**。
+ * 空白带 = 页面左右内边距（clamp 16~40）+ 外壳左右内边距（--sidebar-offset 24），
+ * 按钮宽 34，`right` 取 (带宽 - 34) / 2，于是两侧留白始终相等、随窗口自适应。
  * 层级压在弹窗遮罩（2000+）之下、内容之上；顶栏是 sticky z-index: 10，两者不重叠。
  */
 .back-to-top {
+  /*
+   * 2026-10-27 定稿位置：**贴在任务行右侧的空白带正中，且不被滚动容器裁切**。
+   * 为什么不用 sticky + translateX：按钮是 .page 的子元素，右移后会超出
+   * `.app-layout__main` 的横向范围，而它 `overflow-y: auto`（按规范横向也算 auto），
+   * 多出来的部分会被裁掉 —— 这正是「按钮被挡住一半」的原因。
+   * 改成 fixed 后脱离滚动容器的裁切；`right` 仍按「页面内边距 + 外壳内边距」推算，
+   * 于是两侧留白相等、随窗口宽度自适应。
+   */
   position: fixed;
-  right: clamp(16px, 2.5vw, 40px);
-  bottom: 32px;
+  right: calc((clamp(16px, 2.5vw, 40px) + var(--sidebar-offset) - 34px) / 2);
+  /* 2026-10-27：离底边再抬一个按钮直径（24 → 58），按钮不再贴边 */
+  bottom: 58px;
   z-index: 10;
+  transform: translateY(6px);
 
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   padding: 0;
 
   border: 1px solid var(--glass-border);
@@ -96,7 +107,6 @@ onUnmounted(() => {
   /* 未出现时不占交互：只留一点点位移，浮出时像"从下沿升起" */
   opacity: 0;
   pointer-events: none;
-  transform: translateY(6px);
   transition:
     opacity var(--dur-base) var(--ease),
     transform var(--dur-base) var(--ease),

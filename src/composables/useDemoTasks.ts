@@ -16,8 +16,9 @@ export function useDemoTasks() {
     page: 1,
     size: PAGE_SIZE,
     keyword: '',
-    // 默认停在「未完成」+ 按截止时间近→远（2026-10-18）：与真实页一致
-    status: 'TODO',
+    // 默认「未完成」（非 DONE，含 IN_PROGRESS）+ 按截止时间近→远：与真实页一致
+    status: undefined,
+    onlyUnfinished: true,
     sortBy: 'dueDate',
     sortDirection: 'asc',
     priority: undefined,
@@ -182,7 +183,7 @@ export function useDemoTasks() {
   }
 
   /**
-   * 行内快捷改（E）：与真实 store 的 patchTask 同构 —— 只改这一行，
+   * 局部更新（与真实 store 的 patchTask 同构）：只改这一行，
    * recordedAt 不动，所以 rebuild() 之后位置不会跳。
    */
   function patchTask(id: string, patch: { priority?: TaskPriority; dueDate?: string | null }) {

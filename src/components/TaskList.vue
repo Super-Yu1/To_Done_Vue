@@ -9,7 +9,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import TaskItem from './TaskItem.vue'
 import EmptyState from './EmptyState.vue'
-import type { Task, TaskPriority } from '@/types'
+import type { Task } from '@/types'
 
 withDefaults(
   defineProps<{
@@ -41,14 +41,10 @@ withDefaults(
 )
 
 const emit = defineEmits<{
-  /** 点击任务行：打开只读详情 */
+  /** 点击任务行：直接打开编辑弹窗（2026-10-27 起没有只读详情） */
   open: [Task]
-  /** 点行尾铅笔：直接打开可编辑的弹窗 */
-  edit: [Task]
   remove: [Task]
   'toggle-status': [Task]
-  'change-priority': [Task, TaskPriority]
-  'change-due-date': [Task, string | null]
   'toggle-select': [Task]
   'load-more': []
   'empty-action': []
@@ -107,11 +103,8 @@ onUnmounted(() => observer?.disconnect())
         :leave-on-toggle="leavingOnToggle"
         :selected="selectedIds.includes(task.id)"
         @open="emit('open', $event)"
-        @edit="emit('edit', $event)"
         @remove="emit('remove', $event)"
         @toggle-status="emit('toggle-status', $event)"
-        @change-priority="(task, priority) => emit('change-priority', task, priority)"
-        @change-due-date="(task, dueDate) => emit('change-due-date', task, dueDate)"
         @toggle-select="emit('toggle-select', $event)"
       />
     </TransitionGroup>

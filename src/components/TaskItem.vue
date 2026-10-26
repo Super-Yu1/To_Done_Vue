@@ -3,18 +3,17 @@
  * 任务卡片（8.5；2026-10-18 按设计稿改版）：
  * 左侧方形复选框，中间标题 / 描述，右侧优先级标签与人类可读的截止时间（`今天 14:57` / `10-18`）。
  *
- * 整行点击 = 打开**只读详情**（不是直接进编辑）：编辑入口挪到详情弹窗右上角那个按钮上。
+ * 整行点击 = **直接打开编辑弹窗**（2026-10-27 起不再有只读详情）。
  *
- * 行内快捷入口（E）：优先级胶囊点开就是三档选择、截止时间点开就地弹日期面板；
- * 本组件只发事件，落接口由调用方负责（真实页走 store、演示页走内存态）。
- * 批量选择（F）：前置位换成方形多选框，行内快捷入口与删除整体禁用/隐藏。
+ * 行内只读（2026-10-27）：优先级与截止时间不再能就地修改，统一走编辑弹窗；
+ * 行尾只保留删除。本组件只发事件，落接口由调用方负责。
+ * 批量选择（F）：前置位换成方形多选框，行尾操作隐藏、点击整行 = 勾选。
  */
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
-import PriorityPicker from './PriorityPicker.vue'
 import { TASK_PRIORITY_LABEL } from '@/constants'
 import { formatDateTime, formatDueDay, isOverdue } from '@/utils/date'
-import type { Task, TaskPriority } from '@/types'
+import type { Task } from '@/types'
 
 const props = defineProps<{
   task: Task
@@ -33,21 +32,12 @@ const props = defineProps<{
 const SETTLE_MS = 160
 
 const emit = defineEmits<{
-  /** 点击整行：打开只读详情 */
+  /** 点击整行：直接打开编辑弹窗 */
   open: [Task]
-  /** 点行尾铅笔：直接打开可编辑的弹窗 */
-  edit: [Task]
   remove: [Task]
   'toggle-status': [Task]
-  'change-priority': [Task, TaskPriority]
-  'change-due-date': [Task, string | null]
   'toggle-select': [Task]
 }>()
-
-/** 日期选择器只用到「展开面板」这一个能力，这里只声明用到的那部分，不引组件内部类型 */
-interface PickerHandle {
-  handleOpen: () => void
-}
 
 const isDone = computed(() => props.task.status === 'DONE')
 const overdue = computed(() => isOverdue(props.task.dueDate, props.task.status))
@@ -80,48 +70,10 @@ function handleToggleStatus() {
 
 onUnmounted(() => window.clearTimeout(leaveTimer))
 
-const priorityOpen = ref(false)
-
-function pickPriority(priority: TaskPriority) {
-  priorityOpen.value = false
-  if (priority === props.task.priority) return
-  emit('change-priority', props.task, priority)
-}
-
 /**
- * 截止时间：平时是文字按钮，点开才实例化日期选择器并展开面板 ——
- * 一行只实例化一个，长列表滚动时不会为每行都建一个 picker。
- * 收起时机取「面板关闭」（visible-change = false）：用 blur 会在点面板时误收。
+ * 整行点击（2026-10-27）：选择模式下改为勾选；否则直接打开编辑弹窗。
+ * 用户正在划选文字（想复制）时不触发。
  */
-const dueEditing = ref(false)
-const duePicker = ref<PickerHandle | null>(null)
-/** 面板里的草稿值：改动先落在这里，面板收起时再决定要不要提交 */
-const dueDraft = ref<string | null>(null)
-
-async function openDue() {
-  dueDraft.value = props.task.dueDate ?? null
-  dueEditing.value = true
-  await nextTick()
-  duePicker.value?.handleOpen()
-}
-
-/**
- * 提交草稿：值一被写回就提交，与 EP 的事件顺序无关。
- * 不要在这里判 `dueEditing`：EP 先派发 `visible-change(false)`、之后才写回 modelValue，
- * 拿它当守卫会把真正该提交的那一次挡掉。草稿只有这个面板会写，安全。
- */
-watch(dueDraft, (value) => {
-  const next = value || null
-  if (next === (props.task.dueDate ?? null)) return
-  emit('change-due-date', props.task, next)
-  dueEditing.value = false
-})
-
-function handleDueVisible(visible: boolean) {
-  if (!visible) dueEditing.value = false
-}
-
-/** 整行点击：选择模式下改为勾选；用户正在划选文字（想复制）时不触发 */
 function handleRowClick() {
   if (props.selectMode) {
     emit('toggle-select', props.task)
@@ -173,7 +125,8 @@ function handleRowClick() {
     </button>
 
     <div class="task-row__body">
-      <h3 class="task-row__title">{{ task.title }}</h3>
+      <!-- 标题锁单行后可能被省略，用原生 title 兜住全文（2026-10-26） -->
+      <h3 class="task-row__title" :title="task.title">{{ task.title }}</h3>
       <!--
         描述是可选字段，但这一行**始终渲染**并占一行高度：
         否则没填描述的任务会矮一截，长列表里行的节奏忽高忽低。
@@ -181,70 +134,30 @@ function handleRowClick() {
       <p class="task-row__description">{{ task.description || '' }}</p>
     </div>
 
-    <!-- 右侧：优先级 + 截止时间，操作按钮留固定位置、悬停才显形（不推动布局） -->
+    <!-- 右侧：优先级 + 截止时间（**只读展示**）+ 删除；操作按钮悬停才显形（不推动布局） -->
     <div class="task-row__side">
       <div class="task-row__meta">
-        <el-popover
-          v-model:visible="priorityOpen"
-          trigger="click"
-          placement="bottom-end"
-          :width="128"
-          :disabled="selectMode"
-        >
-          <template #reference>
-            <button
-              class="task-row__prio"
-              :class="`task-row__prio--${task.priority.toLowerCase()}`"
-              type="button"
-              :disabled="selectMode"
-              :aria-label="`优先级 ${TASK_PRIORITY_LABEL[task.priority]}，点击修改`"
-              :title="selectMode ? '' : '修改优先级'"
-              @click.stop
-            >
-              {{ TASK_PRIORITY_LABEL[task.priority] }}
-            </button>
-          </template>
-          <PriorityPicker :value="task.priority" @pick="pickPriority" />
-        </el-popover>
+        <!-- 2026-10-27：优先级只展示，修改统一走编辑弹窗 -->
+        <span class="task-row__prio" :class="`task-row__prio--${task.priority.toLowerCase()}`">
+          {{ TASK_PRIORITY_LABEL[task.priority] }}
+        </span>
 
-        <el-date-picker
-          v-if="dueEditing"
-          ref="duePicker"
-          class="task-row__picker"
-          size="small"
-          type="datetime"
-          value-format="YYYY-MM-DDTHH:mm:ss"
-          format="YYYY-MM-DD HH:mm"
-          v-model="dueDraft"
-          :editable="false"
-          clearable
-          placeholder="未设截止时间"
-          @visible-change="handleDueVisible"
-        />
-        <button
-          v-else
+        <!-- 截止时间同样只展示：默认短日期（今天 / 10-18），整行悬停换成完整「日期 + 时分」 -->
+        <span
           class="task-row__due"
           :class="{ 'task-row__due--overdue': overdue, 'task-row__due--empty': !task.dueDate }"
-          type="button"
-          :disabled="selectMode"
-          :title="selectMode ? '' : task.dueDate ? `${dueTitle}，点击修改` : '设置截止时间'"
-          @click.stop="openDue"
+          :title="task.dueDate ? dueTitle : '未设截止时间'"
         >
           <AppIcon name="clock" :size="12" />
-          {{ dueText }}
-        </button>
+          <span class="task-row__due-text">
+            <span class="task-row__due-short">{{ dueText }}</span>
+            <span class="task-row__due-full">{{ dueTitle || dueText }}</span>
+          </span>
+        </span>
       </div>
 
       <div v-if="!selectMode" class="task-row__actions">
-        <button
-          class="task-row__action"
-          type="button"
-          :aria-label="`编辑：${task.title}`"
-          title="编辑"
-          @click.stop="emit('edit', task)"
-        >
-          <AppIcon name="edit" />
-        </button>
+        <!-- 2026-10-27：铅笔去掉，点整行即编辑；这里只留删除 -->
         <button
           class="task-row__action task-row__action--danger"
           type="button"
@@ -282,7 +195,8 @@ function handleRowClick() {
 }
 
 .task-row:hover,
-.task-row:focus-within {
+.task-row:focus-visible,
+.task-row:has(:focus-visible) {
   background-color: var(--glass-card-bg-hover);
   box-shadow: var(--shadow-card-hover), var(--glass-card-sheen);
   transform: translateY(-2px);
@@ -325,7 +239,7 @@ function handleRowClick() {
 
 /* 卡片悬停：勾选圈先透一层很淡的光，提示这一列是「点一下就完成」的入口 */
 .task-row:hover .task-row__check-box,
-.task-row:focus-within .task-row__check-box {
+.task-row:focus-visible .task-row__check-box, .task-row:has(:focus-visible) .task-row__check-box {
   box-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 16%, transparent);
 }
 
@@ -372,6 +286,12 @@ function handleRowClick() {
 
 /* 标题是这一行唯一的「重音」：16px / 600 */
 .task-row__title {
+  /* 2026-10-26：标题也锁单行 —— 极窄窗口下换行会让行高从 84 变成 107，行高必须恒定才彻底平滑 */
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-size: 16px;
   font-weight: 600;
   line-height: 1.4;
@@ -440,14 +360,9 @@ function handleRowClick() {
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
-  cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease);
 }
 
-/* 悬停只把底色压实一点：整体降透明度会让胶囊发灰，看着像禁用 */
-.task-row__prio:hover:not(:disabled) {
-  background-color: color-mix(in srgb, currentColor 16%, transparent);
-}
+/* 2026-10-27：胶囊只用于展示，不再有可点手感（修改统一走编辑弹窗） */
 
 .task-row__prio--high {
   color: color-mix(in srgb, var(--color-priority-high-fg) 82%, var(--color-text));
@@ -467,7 +382,8 @@ function handleRowClick() {
   justify-content: flex-end;
   align-items: center;
   gap: 4px;
-  min-width: 92px;
+  /* 预留完整日期（2026-10-26 18:00）的宽度：悬停切换文本时列宽不变，胶囊不会左右抖 */
+  min-width: 116px;
   padding: 0;
   border: none;
   background-color: transparent;
@@ -477,12 +393,21 @@ function handleRowClick() {
   font-variant-numeric: tabular-nums;
   line-height: 1.6;
   white-space: nowrap;
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease);
 }
 
-.task-row__due:hover:not(:disabled) {
-  color: var(--color-text-2);
+/* 悬停才显完整日期（2026-10-26）：两段文本互换，列宽已由 min-width 预留，不产生抖动 */
+.task-row__due-full {
+  display: none;
+}
+
+@media (hover: hover) {
+  .task-row:hover .task-row__due-short {
+    display: none;
+  }
+
+  .task-row:hover .task-row__due-full {
+    display: inline;
+  }
 }
 
 .task-row__due--empty {
@@ -490,36 +415,9 @@ function handleRowClick() {
 }
 
 /* 逾期：只用红字 + 红图标 */
-.task-row__due--overdue,
-.task-row__due--overdue:hover:not(:disabled) {
+.task-row__due--overdue {
   color: var(--color-danger);
   font-weight: 500;
-}
-
-.task-row__prio:disabled,
-.task-row__due:disabled {
-  cursor: default;
-}
-
-/* 就地编辑的日期面板：外观贴着元信息文字，点开才出现 */
-.task-row__picker {
-  width: 152px;
-}
-
-.task-row__picker :deep(.el-input__wrapper) {
-  padding: 0 4px;
-  background-color: transparent;
-  box-shadow: none;
-}
-
-.task-row__picker :deep(.el-input__wrapper.is-focus) {
-  box-shadow: none;
-}
-
-.task-row__picker :deep(.el-input__inner) {
-  height: 20px;
-  color: var(--color-text-2);
-  font-size: 12px;
 }
 
 /*
@@ -530,7 +428,8 @@ function handleRowClick() {
 .task-row__actions {
   display: flex;
   flex: none;
-  width: 60px;
+  /* 2026-10-27：只剩删除一个按钮（29px），让位宽度同步收窄 */
+  width: 29px;
   justify-content: flex-end;
   gap: 2px;
   transition: opacity var(--dur-fast) var(--ease);
@@ -546,14 +445,14 @@ function handleRowClick() {
   }
 
   .task-row:hover .task-row__actions,
-  .task-row:focus-within .task-row__actions {
+  .task-row:focus-visible .task-row__actions, .task-row:has(:focus-visible) .task-row__actions {
     opacity: 1;
   }
 
-  /* 左移 68px：正好让出两个 29px 按钮 + 间距 */
+  /* 左移 37px：正好让出一个 29px 按钮 + 间距（2026-10-27 去掉铅笔后收窄） */
   .task-row:hover .task-row__meta,
-  .task-row:focus-within .task-row__meta {
-    transform: translateX(-68px);
+  .task-row:focus-visible .task-row__meta, .task-row:has(:focus-visible) .task-row__meta {
+    transform: translateX(-37px);
   }
 }
 
@@ -626,36 +525,11 @@ function handleRowClick() {
 }
 
 /* 窄容器：右侧元信息换到正文下方，左元信息、右操作 */
-@container (max-width: 720px) {
-  .task-row {
-    grid-template-columns: 40px minmax(0, 1fr);
-    gap: 12px;
-  }
+  /*
+   * 2026-10-26 移除 720px 容器断点（原「窄容器把元信息挤到第三行」那套）：
+   * 断点切换是瞬时的，无法补间 —— 宽度一变，行高就从 84 跳到 125，怎么调过渡都会有一下「顿」。
+   * 现在行在任何宽度都保持同一套栅格，只压缩列宽、不改行高，滚动条缩放全程平滑。
+   * 代价：窄窗口（< 720）正文列会偏窄，这是桌面优先的取舍。
+   */
 
-  .task-row__side {
-    grid-column: 2;
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .task-row__meta {
-    justify-content: flex-start;
-  }
-
-  .task-row__due {
-    min-width: 0;
-  }
-
-  .task-row__actions {
-    position: static;
-    transform: none;
-    opacity: 1;
-  }
-
-  /* 覆盖桌面端的「悬停让位」：窄容器里元信息与操作分列两端，不需要左移 */
-  .task-row:hover .task-row__meta,
-  .task-row:focus-within .task-row__meta {
-    transform: none;
-  }
-}
 </style>

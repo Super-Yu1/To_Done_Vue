@@ -18,6 +18,8 @@ import AppIcon from './AppIcon.vue'
 const props = defineProps<{
   /** 主导航项；`badge` 给数字徽标（如「任务」的未完成条数），没有就不渲染 */
   items: { to: string; label: string; icon: IconName; exact?: boolean; badge?: number }[]
+  /** 折叠成图标条（2026-10-26）：只留图标与头像，宽度收到 76px */
+  collapsed?: boolean
   brandTo: string
   /** 品牌后面的小徽章（演示模式） */
   brandSuffix?: string
@@ -114,7 +116,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :class="{ 'sidebar--collapsed': collapsed }">
     <div class="sidebar__top">
       <RouterLink class="sidebar__brand" :to="brandTo">
         <img class="sidebar__logo" src="/logo.svg" alt="" width="26" height="26" />
@@ -167,6 +169,11 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   width: var(--sidebar-width);
+  /*
+   * 折叠 / 展开（2026-10-26）：时长拉到 280ms 并用「先快后慢」的缓出曲线 ——
+   * 原先是通用 200ms + 通用曲线，收尾太急，看起来像被掐断。
+   */
+  transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1);
   overflow-y: auto;
   /* 内容过多时能滚，但别在玻璃面板上压一根系统灰滚动条（与内容区同一套做法） */
   scrollbar-width: none;
@@ -176,6 +183,55 @@ onUnmounted(() => {
   background-color: var(--glass-panel-bg);
   backdrop-filter: var(--glass-panel-blur);
   box-shadow: var(--glass-panel-shadow);
+}
+
+/* 折叠态：只留图标、宽度 76px，导航居中，白色选中浮块隐藏（位置靠 JS 量，收窄后不重算） */
+.sidebar--collapsed {
+  width: 76px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+/* 折叠后彻底不占位的：徽标与选中浮块 */
+.sidebar--collapsed .sidebar__badge,
+.sidebar--collapsed .sidebar__count,
+.sidebar--collapsed .sidebar__indicator {
+  display: none;
+}
+
+/*
+ * 文字类内容改成「渐隐 + 收宽」而不是 `display: none` ——
+ * 后者是瞬间消失，会让整个折叠看起来像跳帧；这样才跟得上 280ms 的宽度动画。
+ */
+.sidebar__name,
+.sidebar__link-text {
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 160ms var(--ease), max-width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sidebar--collapsed .sidebar__name,
+.sidebar--collapsed .sidebar__link-text {
+  max-width: 0;
+  opacity: 0;
+}
+
+/*
+ * 折叠态居中（2026-10-26 修）：文字用 max-width: 0 收起后**宽度为 0、但 flex 的 gap 还在**，
+ * 图标会被顶偏（实测导航图标偏 -6px、logo 偏 -4px）。这里把 gap 一并归零。
+ */
+.sidebar--collapsed .sidebar__brand,
+.sidebar--collapsed .sidebar__link {
+  justify-content: center;
+  gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* 品牌行原本是 inline-flex，宽度只包住 logo，居中只是「在自身里居中」—— 拉满才能对齐侧栏中线 */
+.sidebar--collapsed .sidebar__brand {
+  display: flex;
+  width: 100%;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -327,64 +383,6 @@ onUnmounted(() => {
 }
 
 /* 窄屏：整条收回成顶部横条（品牌左、导航中、设置右） */
-@media (max-width: 1024px) {
-  /* 窄屏：同一条玻璃横过来；四周留白交给外壳，这里只补与下方内容的间距 */
-  .sidebar {
-    position: static;
-    align-self: auto;
-    flex-direction: row;
-    align-items: center;
-    gap: 14px;
-    width: auto;
-    height: auto;
-    margin: 0 0 var(--sidebar-offset);
-    overflow: visible;
-    padding: 10px clamp(16px, 2.5vw, 40px);
-    border-radius: 20px;
-  }
+  /* 2026-10-26：移除「窄屏把侧栏改成顶部横条」的规则 —— 侧栏在任何宽度都留在左侧，窄屏靠自动折叠解决 */
 
-  .sidebar__top {
-    padding: 0;
-  }
-
-  .sidebar__nav {
-    flex-direction: row;
-    gap: 6px;
-  }
-
-  /* 横排没有「上下滑动」这回事：浮块隐藏，选中项回到链接自身白底 */
-  .sidebar__indicator {
-    display: none;
-  }
-
-  /* 横条里收一档：字号 15px、图标 18px、内边距 8×10，避免一行塞不下 */
-  .sidebar__link {
-    gap: 9px;
-    padding: 8px 10px;
-    font-size: 15px;
-  }
-
-  .sidebar__link-icon {
-    width: 18px;
-    height: 18px;
-  }
-
-  .sidebar__name {
-    font-size: 16px;
-  }
-
-  .sidebar__link.router-link-active:not(.sidebar__link--exact),
-  .sidebar__link--exact.router-link-exact-active {
-    background-color: color-mix(in srgb, var(--color-brand) 14%, transparent);
-  }
-
-  .sidebar__settings {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 0 auto;
-    padding: 0;
-    border-top: none;
-  }
-}
 </style>

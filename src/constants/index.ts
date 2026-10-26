@@ -15,6 +15,8 @@ export const THEME_KEY = 'app-theme'
  * 只影响单条删除类操作（回收站的彻底删除）；清空回收站仍强制输入「清空」二字。
  */
 export const CONFIRM_DELETE_KEY = 'todone_confirm_delete'
+/** 侧边栏折叠状态（2026-10-26）：纯本地偏好，'1' = 收起成图标条 */
+export const SIDEBAR_COLLAPSED_KEY = 'todone_sidebar_collapsed'
 
 /** 分页与查询（6.6） */
 export const PAGE_SIZE = 20

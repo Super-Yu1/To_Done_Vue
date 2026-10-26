@@ -123,8 +123,13 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
 }
 
 /* 整行悬停：玻璃擦亮一档 + 轻浮起（不换成实底灰，否则整行会从玻璃里「掉」出来） */
+/*
+ * 2026-10-26：焦点驱动改成「只认键盘焦点」。原来用 :focus-within，
+ * 鼠标点过行内的恢复 / 彻底删除后，确认框一关焦点还回按钮，整行就一直浮着。
+ */
 .trash-row:hover,
-.trash-row:focus-within {
+.trash-row:focus-visible,
+.trash-row:has(:focus-visible) {
   background-color: var(--glass-bg-hover);
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-1px);

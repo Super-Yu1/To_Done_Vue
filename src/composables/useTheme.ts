@@ -38,6 +38,12 @@ const TRANSITION_CLASS = 'theme-transition'
 const TRANSITION_FALLBACK_MS = 800
 let transitionTimer: number | undefined
 
+/** View Transitions：支持时用它做整页交叉淡出（Chrome 111+ 等），不支持则退回颜色过渡 */
+type ViewTransitionCapable = Document & { startViewTransition?: (cb: () => void) => unknown }
+function supportsViewTransition(): boolean {
+  return typeof (document as ViewTransitionCapable).startViewTransition === 'function'
+}
+
 /** 切换窗口内给 <html> 挂过渡类；连续点击时重新计时，不会被上一次的清理提前摘掉 */
 function playTransition() {
   const root = document.documentElement
@@ -49,11 +55,31 @@ function playTransition() {
   }, readCssDurationMs('--dur-theme', TRANSITION_FALLBACK_MS) + 50)
 }
 
+/**
+ * 切主题（2026-10-26）：
+ * 页面画布是一层 gradient（background-image），**无法用 transition 补间** ——
+ * 其它颜色都在 0.8s 里平滑过渡，唯独整块背景是硬切，看起来就是「闪一下」。
+ * 所以优先用 View Transitions 做整页交叉淡出（快照叠化，渐变也能一起淡），
+ * 时长在 CSS 里设成 500ms；不支持的浏览器仍退回原来的颜色过渡。
+ */
+function applyWithTransition() {
+  const vt = (document as ViewTransitionCapable).startViewTransition
+  if (vt) {
+    vt.call(document, () => apply())
+    return
+  }
+  playTransition()
+  apply()
+}
+
 function setMode(next: ThemeMode) {
   mode.value = next
   localStorage.setItem(THEME_KEY, next)
   // 只在明暗真的发生变化时才播过渡：从「跟随系统」切到与当前相同的明暗不该有任何动画
-  if (resolveDark(next) !== isDark.value) playTransition()
+  if (resolveDark(next) !== isDark.value) {
+    applyWithTransition()
+    return
+  }
   apply()
 }
 

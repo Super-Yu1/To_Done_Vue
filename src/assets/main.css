@@ -599,29 +599,8 @@ img {
   padding-top: 0;
 }
 
-/*
- * 窄屏：侧栏收回成一条横条，整页回到正常的文档流滚动
- * （手机上没有「两栏各自滚动」这回事，内滚动反而更难用）。
- */
-@media (max-width: 1024px) {
-  .app-layout {
-    display: block;
-    height: auto;
-    min-height: 100vh;
-    padding: var(--app-gutter-y) var(--sidebar-offset);
-    overflow: visible;
-  }
+  /* 2026-10-26：移除「窄屏把侧栏改到顶部」的外壳规则 —— 侧栏在任何宽度都留在左侧，窄屏由自动折叠解决 */
 
-  .app-layout__main {
-    height: auto;
-    max-width: none;
-    overflow-y: visible;
-  }
-
-  .app-layout__main .page {
-    padding-top: 0;
-  }
-}
 
 /* ④ 通用容器：内容区随窗口自适应并居中，左右内边距也随窗口缩放；上下留白 40px */
 .page {
@@ -874,4 +853,134 @@ img {
 .el-popper.is-light .el-popper__arrow::before {
   border-color: var(--glass-border);
   background-color: var(--glass-bg-strong);
+}
+
+/*
+ * 侧栏折叠（2026-10-26）：不需要给主区补 padding —— 侧栏是玻璃外壳的 flex 子项，
+ * 收窄到 76px 后主区会自动补位；这里只是给外壳挂一个标记类，方便以后做别的折叠态样式。
+ */
+
+/*
+ * 用户菜单（左下游标向上弹出）：el-popover 会 teleport 到 body，
+ * 组件里的 scoped 样式够不到，只能写全局。
+ */
+.user-menu.el-popover.el-popper {
+  /*
+   * 2026-10-26：宽度收成「跟着文字走」。
+   * 两道坎：① EP 的 `.el-popover.el-popper` 带 `min-width: 150px`；
+   * ② el-popover 的 `width` 属性默认就是 150，会被写成**内联** `width: 150px`（特异性压不过）。
+   * 所以这里 min-width 清零、width 用 !important 顶掉内联值。
+   */
+  width: fit-content !important;
+  min-width: 0;
+  padding: 6px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 20%), 0 4px 12px -4px rgb(0 0 0 / 8%);
+}
+
+.user-menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-menu__item {
+  /* 图标 + 文字作为一个整体居中；上下 padding 拉高点击热区（2026-10-26） */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  /* 满宽：悬停底色包住整行，而不是只有文字那一小块 */
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.user-menu__item:hover {
+  background-color: var(--color-hover);
+}
+
+/* 退出登录默认弱化成次要色，只在悬停时变红 + 浅红底，避免常驻的刺眼红 */
+.user-menu__item--danger {
+  color: var(--color-text-2);
+}
+
+.user-menu__item--danger:hover {
+  color: var(--color-danger);
+  background-color: var(--color-danger-bg);
+}
+
+.user-menu__divider {
+  height: 1px;
+  margin: 4px 6px;
+  background-color: var(--color-border);
+}
+
+/*
+ * 悬浮提示气泡不可选中（2026-10-26；2026-10-27 修）。
+ * ⚠ 只留 user-select，**不要** pointer-events: none ——
+ * EP 的日期面板本身就带 el-tooltip 类（classList 实测含 el-tooltip），
+ * 按类名怎么收窄都会误伤它，面板就会「看得见、点不动」。
+ */
+.el-popper.el-tooltip {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/*
+ * 主题切换的交叉淡出（2026-10-26）。
+ * 页面画布是 gradient（background-image），transition 无法补间 —— 那是「闪一下」的根源；
+ * View Transitions 把新旧两帧快照叠化，渐变也能一起淡。800ms（2026-10-26 按反馈从 500ms 加长）。
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 800ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
+  }
+}
+
+/*
+ * 批量操作条的进出场（2026-10-27）。
+ * 进入选择模式：从右侧滑入（右 → 左）；退出选择：原路滑回（左 → 右）。
+ * 位移负责「滑」，透明度负责收尾，长条才不会横穿视线。
+ */
+.batch-slide-enter-active,
+.batch-slide-leave-active {
+  transition:
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms var(--ease);
+}
+
+.batch-slide-enter-from,
+.batch-slide-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/*
+ * 退出时把操作条的「占位」一起收掉（2026-10-27）。
+ * 背景：操作条滑走之后，那一块空间会**瞬间**消失，下面的任务列表跟着上跳 —— 用户看到的就是「闪一下」。
+ * 这里用 grid 行高从 1fr 收到 0fr，高度是连续变化的，收得和滑动一样快。
+ */
+.filter-bar__tabs-actions:has(> .batch-slide-leave-active) {
+  /* !important 压过组件内 scoped 的 `grid-template-rows: 1fr`（后者运行时注入，顺序在后） */
+  grid-template-rows: 0fr !important;
+}
+
+/* 网格行高要能被压缩，子项必须允许 min-height: 0（槽内容在父级作用域，只能写在全局） */
+.filter-bar__tabs-actions > * {
+  min-height: 0;
 }

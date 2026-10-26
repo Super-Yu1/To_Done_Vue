@@ -21,6 +21,7 @@
 > **B. 环境、联调与进站**
 >
 > - **后端现状**：实际在 **8081**（不是 8080），JWT Bearer + 统一 JSON 响应已按契约工作、**可联调**（31 个操作 / 22 条路径，含 P5 的 `/api/admin/**`）。联调**必须用 5173**——后端 CORS 白名单只认它，换成 5174 时浏览器请求带 `Origin: 5174` 会被判 403，而 curl 不带 Origin 所以看着像通的。
+> - **两个「零调用方」接口保留（2026-10-18 定）**：`GET /api/tasks/{id}` 与 `GET /api/admin/users/{id}` 后端**保留不删**（各有实现与测试覆盖，说明书 §6.4 明确列了）；将来做任务详情页 / 分享链接 / 通知跳转、后台用户详情抽屉时直接用，`stores/admin.ts` 的 `fetchUser` 也留着。
 > - **进站落点（2026-10-14 定稿）**：`/` 与受保护页按三态分流 —— 有效票 → 任务页；**票过期（登录过期）→ 登录页**（受保护页带上 `redirect`）；**没有票（从没登录过 / 已登出）→ 演示模式**。过期票**只判断、不删除**：它是区分「登录过期」与「从没登录过」的唯一依据（实现见 `src/utils/token.ts` 的 `readTokenState`）。后台 `/admin/**` 是另一套守卫，行为不变。
 > - **演示模式口径**：`/demo` 免登录、不请求后端，数据是内置示范数据。写操作（新建 / 编辑 / 删除 / 切换状态，回收站恢复 / 彻底删除 / 清空）都是**内存态真实生效**，删除会真的进演示回收站并沿用同一 id，刷新即还原；个人中心的资料 / 邮箱 / 密码仍只提示不保存。
 >
@@ -56,40 +57,43 @@
 
 ---
 
-## 2026-10-26 01:50 · 搜索框改胶囊玻璃 + 苹果蓝聚焦，主按钮换苹果蓝
+## 2026-10-27 01:42 · 批量操作条滑入滑出：进时右→左，退时左→右
 
-- **文件**：`src/components/FilterBar.vue`（搜索框改胶囊玻璃与聚焦环、「新建任务」按钮换色与按压反馈）、`src/assets/main.css`（新增 `--color-accent*` 与 `--color-field-*` 令牌；品牌色注释补一句）
-- **内容**：① 搜索框：`border-radius: 999px`、`rgba(255,255,255,.3)` 半透明底 + `backdrop-filter: blur(10px)`，去掉原来的 `--color-bg-soft` 灰底与灰色描边（只留 1px 白描边）；hover 提亮到 0.44；focus 时描边转苹果蓝 1.5px，外面罩 4px/14% 光环 + 16px/24% 柔光，放大镜同步转蓝。深色主题底色换成 6% 白。② 「新建任务」：苹果蓝实底、**12px 圆角**、`0 4px 14px rgba(0,122,255,.4)` 蓝色柔光；hover 提亮到 `--color-accent-hover` 且投影加深到 0.46；`:active` 缩到 `scale(.96)`、投影收一档。③ 令牌：`--color-accent / -hover / -active`（浅色 #007AFF，深色用 iOS 的 #0a84ff）、`--color-field-bg / -hover / -focus / -border`；品牌蓝 `--color-brand` 不动，仍管选中态 / 进度条 / 勾选。
-- **验证**（无头 Chrome 实拍）：1440 浅色（临时 `autofocus` 让搜索框停在聚焦态）+ 深色各一张；胶囊、蓝环外发光、12px 圆角与蓝色投影均在位，截完即删除 `autofocus` 与深色补丁；`npm run type-check` EXIT=0。
+- **文件**：`src/views/TaskListView.vue`、`src/views/DemoView.vue`（`<BatchActionBar>` 外面包一层 `<Transition name="batch-slide">`）、`src/components/FilterBar.vue`（`.filter-bar__tabs-actions` 加 `overflow: hidden`，裁掉滑动时探出的那一截）、`src/assets/main.css`（新增 `.batch-slide-*` 过渡）
+- **内容**：点「批量选择」时操作条**从右侧滑入**（`translateX(100%)` → 0，即右 → 左），点「退出选择」时**原路滑回**（0 → `translateX(100%)`，左 → 右）；位移 300ms `cubic-bezier(0.22,1,0.36,1)` + 透明度 200ms 叠加，长条不会横穿视线。
+- **退出「闪动」修复（2026-10-27 追加）**：退出时有两处会抢在动画前面完成，看起来就是闪一下 ——
+  ① **右侧内容提前换回**：条还在右滑，「排序 ▾ / 批量选择」已在同一帧换回来，两块在同一处交叠。现在给 `FilterBar` 加 `visualSelectMode`：**关闭**延迟 320ms 生效、打开立即生效，右侧等条滑完再切。
+  ② **占位瞬塌**（演示页明显：卡片 210 → 126、列表 top 362 → 278）：把 `.filter-bar__tabs-actions` 改成 `display: grid` 单行，退出时行高 `1fr → 0fr`，并给收缩加 110ms 延迟（条先滑出去、空间随后收）；`!important` 是为了压过组件内 scoped 的同名声明。
+- **验证（退出过程采样，真实账号）**：0–300ms 右侧一直是 `退出选择`（无 `排序 ▾`）、360ms 才切回；条位置 787→1281 … 1281→1775 连续右移，无交叠。
+- **验证（演示页真机）**：进入后 +80ms → 带 `batch-slide-enter-active`，`transform` 为 **translateX(59.6px)**、opacity 0.82（正在左移入场）；+480ms → `transform: none`、opacity 1（落位）。退出 +80ms → `batch-slide-leave-active`，**translateX(126.4px)**、opacity 0.28（正在右移退场）；+530ms → 元素已移除。`npm run build` EXIT=0。
 
-## 2026-10-26 01:45 · 任务卡改成 20px 玻璃卡，优先级换成同色胶囊
+## 2026-10-27 01:36 · 全局悬浮提示接管：统一 350ms 延迟（原生约 1 秒）
 
-- **文件**：`src/components/TaskItem.vue`（`.task-row` 换玻璃卡与悬停动效、勾选圈微光、优先级胶囊）、`src/assets/main.css`（新增 `--glass-card-*` 一组令牌，深色另给值）、`src/components/TaskList.vue`（骨架行同步；`.row-*` 过渡选择器加 `.task-list__rows` 前缀）
-- **内容**：① 卡片：`rgba(255,255,255,.6)` + `blur(12px) saturate(180%)`、**20px 圆角**（`--radius-lg`）、`1px solid rgba(255,255,255,.8)` 反光边；卡内顶部再叠一条往下淡出的柔光（`--glass-card-sheen` = `inset 0 24px 24px -24px`），边缘看起来像被光擦过。② 悬停：`transition: all .3s cubic-bezier(.25,.8,.25,1)`，底色提亮到 0.8、`translateY(-2px)`、阴影换 `--shadow-card-hover`；勾选圈在卡片悬停时透一层品牌微光，直接悬停时再加 4px 光环。③ 优先级：无边框纯文字改成胶囊（99px 圆角、`padding: 0 9px`），底色 `color-mix(in srgb, currentColor 10%, transparent)`、文字在档位色上混 18% 正文色压深；悬停把底色压实到 16%，不再整体降透明度（降透明度会让胶囊发灰）。④ 骨架行与真实行同步（同令牌、同圆角）。⑤ `transition: all` 会盖掉列表的进退场与补位节奏，故 `.row-enter-active` / `.row-leave-active` / `.row-move` 统一加 `.task-list__rows` 前缀压过 `.task-row`，420ms 补位与 420ms 退场保持不变。
-- **验证**（无头 Chrome 实拍）：1440 浅色 + 深色各一张；卡片顶部像素由 `#FEFDFF` 在约 12px 内渐变到 `#FAF6FF`（内阴影高光生效），优先级胶囊 22px 高 / 99px 圆角；另用临时样式把第二行渲染成悬停态，确认「提亮 + 上浮 + 勾选圈微光」后即删除。`npm run type-check` EXIT=0。
+- **文件**：新增 `src/components/TitleTip.vue`；`src/App.vue` 挂载该组件
+- **背景**：上一轮统一成原生 `title` 后，**显示延迟由浏览器决定**（Chrome 约 1000ms，各平台不一致），CSS/JS 都改不了 —— 只能自己接管。
+- **做法**：全站只挂一个实例。鼠标进入 / 键盘聚焦到任意 `[title]` 元素时，把 title 暂存到 `data-tip-text` 并**移除属性**（原生气泡因此不再弹），到点后显示自绘气泡；移出 / 滚动 / 缩放 / Esc 时恢复 title 并收起。样式沿用系统提示的轻量感（12px、8 圆角、浅底细边 + 柔和阴影），`pointer-events: none` 不粘鼠标；下方放不下会自动翻到上方，贴边会往回收，超长文案末尾省略。
+- **时间**：鼠标 **350ms**（2026-10-27 按反馈从 150ms 调回，避免扫过按钮时乱闪）、键盘聚焦 **0ms**；全站统一，改 `SHOW_DELAY` 一处即可。
+- **验证（真实账号只读票，1440×900）**：悬停 200ms → 气泡未出现；450ms → 出现「浅色」；移出 80ms 后 → 隐藏且 `title` 已恢复。三类元素实测：行内勾选「标记为已完成」（与元素间距 8px）、主题「浅色」、折叠「折叠」。`npm run build` EXIT=0。
 
-## 2026-10-26 01:36 · 侧栏改成悬浮玻璃面板，筛选区收进玻璃卡
+## 2026-10-27 01:34 · 左下角两个按钮的悬浮提示改为原生 title（与任务行一致）
 
-- **文件**：`src/components/AppSidebar.vue`（`.sidebar` 改悬浮面板、选中浮块换半透明品牌高亮、≤1024 横条同步）、`src/assets/main.css`（新增 `--sidebar-offset` 与 `--glass-panel-*`，`.app-layout` 的左侧让位改 `calc()`）、`src/components/FilterBar.vue`（`.filter-bar` 加玻璃容器、单列改 `minmax(0, 1fr)`、新增 ≤760 提示独占一行）
-- **内容**：① 侧栏四周各留 `--sidebar-offset: 16px` 浮起：24px 圆角、`1px solid rgba(255,255,255,.5)` 描边、`rgba(255,255,255,.5)` 底 + `blur(24px) saturate(180%)`、落影 `0 24px 60px rgba(31,45,90,.12)`（深色另给一组）；`.app-layout` 左让位改为 `calc(var(--sidebar-width) + var(--sidebar-offset) * 2)`，内容不会钻到面板下面；≤1024 收成顶部横条时同样四周留 16px、20px 圆角。② 菜单选中态：浮块 `.sidebar__indicator` 从 `--color-brand-soft` 实底改成 `color-mix(in srgb, var(--color-brand) 14%, transparent)` + 显式 12px 圆角；横排时链接自身的选中底换成同一层。③ 筛选区整块收进玻璃卡（`--glass-bg` + `--glass-blur` + `--glass-border` + `--shadow-card`、16px 圆角、内边距 14/16）；单列显式写 `minmax(0, 1fr)`，内容再宽只在这条轨道里省略，不会把卡片撑出屏幕；≤760 时演示提示整条落第二行左对齐，不再被压成「当…」。
-- **验证**（无头 Chrome 实拍）：1440 / 1280 / 1024 / 900 / 760 / 560 浅色 + 1440 深色 + 演示个人中心；侧栏浮起后左右留白与内容左边界一致、选中高亮 12px 圆角、筛选卡两行控件无错位，560 下筛选卡不再横向溢出。`npm run type-check` EXIT=0。
-- **17:24 修订（按反馈，两栏顶边对齐）**：浮岛浮起来之后**左侧顶边比右侧第一块内容高了一截** —— 量出来是浮岛 `top: 16px`、而内容区顶部是 `0` 再叠 `.page` 的 `padding-top: 40px`，右边首块落在 **40px**，差 24px。修法：把「顶部偏移」也做成共用的一条线 —— `.app-layout` 增加 `padding-top: var(--sidebar-offset)`（与浮岛同一个 16px），并让 `.app-layout__main .page` 的顶部内边距归零（**只在这个外壳内**，`.page` 的全局 40px 留给后台等其它骨架），于是左右两侧的顶边严格相等；≤1024px 折成横条时把这两条都还原（横条自己带 margin，内容恢复 40px 顶部留白）。
-- **17:24 修订的验证（真实浏览器，本机 Edge 无头驱动）**：`/demo` 在 **1440×900 / 1920×1080 / 1200×900** 三档下 `sidebarTop = 16` 且 `firstBlockTop = 16`（**逐像素相等**，`layoutPadTop: 16px` / `pagePadTop: 0px`）；`/demo/trash` 与 `/demo/profile` 同为 16/16；1000px 折行档 `layoutPadTop: 0 / pagePadTop: 40`（横条之下恢复原节奏，不要求两栏对齐）；各页 `hOverflow=false`；`/login` 走认证页外壳、不受影响。`npm run build` EXIT=0。
-- **17:28 修订（按反馈，主导航放大 + 任务徽标）**：三项从「14px / 16px 图标 / 10×12 内边距 / 3px 间隔」放大到 **16px（text-base）/ 20px 图标（w-5）/ 12px 图文间距（gap-3）/ 12px 上下内边距（py-3）/ 8px 项间隔（space-y-2）** —— 实测每项高 **50px**，左侧不再显得空；品牌名同步 15 → **17px**（否则比导航项还小，层级倒挂）。② **「任务」挂数字徽标**：品牌色 14% 底 + 品牌色字、12px/600、`border-radius: 999px`，内容 = **未完成条数** —— 真实页取 store 的 `stats.todo`（`DefaultLayout` 进站时若 `stats` 为空先 `fetchStats()` 取一次，之后随任务操作自动刷新），演示页取 `demoTasks` 里 `status !== 'DONE'` 的条数（模块级共享内存态，与演示页同一份）；**`0` 与无数据都不渲染**（不挂空胶囊）。③ 导航与底部设置区之间那条线明确成「一条分割线」：`.sidebar__settings` 保留 `1px` 上边线并把上内边距加到 16px。④ ≤1024px 横条里收一档（15px / 18px 图标 / 8×10 内边距 / 6px 间隔），徽标保留。
-- **17:28 修订的验证（真实浏览器，本机 Edge 无头驱动 /demo）**：三项 `fontSize=16px`、`gap=12px`、`padding=12px 12px`、行高 **50px**、图标 **20px**、导航 `gap=8px`、品牌名 17px；「任务」徽标文本 **16**（12px / `rgb(47,75,255)` / 999px 胶囊），另两项无徽标；设置区分割线 `1px rgb(237,240,244)`；**选中浮块与激活项的 rect 完全一致**（84/31/242/50 —— 放大后 JS 量位仍然准）；勾掉一条任务后徽标 **16 → 15**（跟着数据变）；1000px 横条：15px / 18px / `row` / 浮块隐藏 / 徽标仍在；`hOverflow=false`。`npm run build` EXIT=0。
-- **17:32 修订（按反馈，四周留白 + 两栏各自内部滚动）**：① 骨架从「侧栏 `position: fixed` 贴边 + 内容区靠 `padding-left` 让位」改成**真正的 flex 应用外壳** —— `.app-layout { display: flex; align-items: flex-start; gap: 24px; height: 100vh; padding: 24px; overflow: hidden }`，两侧都不再贴浏览器边缘；`--sidebar-offset` 16 → **24**（16 时上下仍像「贴着边」）。② 侧栏不再是 fixed：它是外壳的 flex 子项，`align-self: stretch` 撑满外壳内容高（= `100vh − 48px`，**不写死 calc**）+ `overflow-y: auto` 自己滚。③ 内容区 `overflow-y: auto` 自己滚（`min-width: 0`、上限仍 1720 居中），**整页不再滚**（`documentElement.scrollHeight === 视口高`）。④ 顶边对齐由外壳的 padding 天然给出（两栏都从 24px 起），`17:24` 那个「给 `.app-layout` 单独加 `padding-top`」的临时做法被这次取代，`.page` 顶部内边距仍归零。⑤ 连带修了两处「只认窗口滚动」的地方：**`BackToTop`** 改为取「真的能滚的那个容器」（`.app-layout__main`，否则退回 window），并用 **document 捕获阶段的 scroll 监听**一次覆盖内层与窗口；**路由 `scrollBehavior`** 除了返回 `{ top: 0 }`，还把 `.app-layout__main` 的 `scrollTop` 归零（否则切页后内容区停在上一页的位置）。⑥ ≤1024px 回到文档流：外壳 `display: block` + `height: auto`，侧栏成静态横条（`margin: 0 0 24px`、`overflow: visible`），内容区不再内滚。
-- **17:41 修订（按反馈，隐藏内容区滚动条 + 上下留白）**：① **右侧内容区的原生滚动条隐藏、滚动能力保留** —— `.app-layout__main` 加 `scrollbar-width: none` + `::-webkit-scrollbar { width: 0; height: 0 }`（与根滚动条同一套做法），侧栏那块 `overflow-y: auto` 的玻璃面板同样处理（面板上压一根系统灰滚动条很难看）。滚轮 / 触控板 / 键盘翻页照旧能用。② **上下留白与左右分开给**：新增 `--app-gutter-y: 40px`，外壳从 `padding: 24px` 改成 **`padding: 40px 24px`** —— 纵向更透气，横向仍是 24px，浮岛左边缘与内容左边缘继续对齐；侧栏高度随之 = `100vh − 80px`（仍由外壳算出，不写死）。③ ≤1024px 折行档同样用 `40 / 24`。
-- **17:41 修订的验证（真实浏览器，本机 Edge 无头驱动 /demo，1414×907）**：外壳 `padding = 40px 24px`；侧栏 `top=40 left=24 bottom=867`、高 **827 = 907−80**、`scrollbar-width: none`；内容区 `top=40 / bottom=867`、`scrollbar-width: none`、**`offsetWidth − clientWidth = 0`（滚动条没有占位）**、仍可滚；右侧首块 `top=40` 与侧栏顶边相等（`alignedTop=true`，左右对齐未被破坏）；**真实派发滚轮事件**后 `mainScrollTop=300` 而 `windowScrollY=0`（滚的是内容区、不是整页）；1000×800：`padding` 仍为 `40px 24px`、外壳 `block`、内容区 `overflow=visible`。`npm run build` EXIT=0。
-- **17:32 修订的验证（真实浏览器，本机 Edge 无头驱动 /demo，1414×907）**：外壳 `display=flex / align=flex-start / padding=24px / height=907 / overflow=hidden`；侧栏 `top=24 left=24 bottom=883`、**高 859 = 907−48**、`position=relative`、`overflow-y=auto`；内容区 `top=24`、`overflow-y=auto`、`scrollHeight 1899 > clientHeight 859`（**可内滚**）；右侧首块 `top=24` 与侧栏顶边相等（`alignedTop=true`）；**窗口不可滚**（`docHeight = 907 = 视口`）。滚内容区到 600：`mainScrollTop=600`、`windowScrollY=0`、侧栏位置不动、回到顶部浮出（`opacity 1 / pointer-events auto`）；点它 → `scrollTop` 回 **0**。切页：内容区滚到 700 → 点「回收站」→ `/demo/trash` 且 `scrollTop=0`。1000×800：外壳 `block`、内容区 `overflow=visible`、侧栏 `static` + 下边距 24。`npm run build` EXIT=0。
+- **文件**：`src/components/ThemeToggle.vue`（去掉 `el-tooltip`，按钮直接挂 `:title="tip"`）、`src/layouts/DefaultLayout.vue`（折叠按钮同样去掉 `el-tooltip`，`:title` 为「折叠 / 展开」，`side-row__tool` 类移到按钮本身）
+- **内容**：按反馈统一成任务行「标记为已完成」那种**原生 title** 提示 —— 出现快、跟手、不抢焦点，也不再是 EP 的深色大气泡。文案保持上轮收短后的「浅色 / 深色」「折叠 / 展开」；`aria-label` 仍是完整描述（「切换主题，当前为浅色」「折叠侧栏」），无障碍不受影响。
+- **验证（真实账号只读票，1440×900）**：底部三项仍是 `Y / 浅色 / 折叠`、按钮宽 32；悬停主题 → **EP 气泡 0 个**、`title="浅色"`；悬停折叠 → **EP 气泡 0 个**、`title="折叠"`；截图复核三件套位置未变。`npm run build` EXIT=0。
+- **未动**：后台用户表的状态徽标仍用 `el-tooltip`（它显示多行状态明细，原生 title 不支持换行）。
 
-## 2026-10-26 01:21 · 全站液态玻璃基础改版：弥散渐变底 + 苹果字体 + 玻璃令牌
+## 2026-10-27 01:29 · 「将时间更新为当前时间」的勾选改为强调蓝
 
-- **文件**：`src/assets/main.css`（玻璃令牌、字体栈、`html` 渐变、卡片阴影并入高光、浮层玻璃化、`.settings-group` / `.task-form-dialog`）、`src/components/AppSidebar.vue`、`StatBar.vue`、`TaskItem.vue`、`TaskList.vue`、`TrashItem.vue`、`QuickAddTask.vue`、`BackToTop.vue`、`profile/IdentityRow.vue`、`AuthShell.vue`、`AuthAside.vue`、`FilterBar.vue`（排序气泡）、`src/layouts/AdminLayout.vue`、`src/views/NotFoundView.vue`
-- **内容**：① 底色：`html` 上铺蓝 / 紫 / 粉三层弥散 `radial-gradient` + 155° 线性渐变（`--page-bg-image`，`background-attachment: fixed`），`body`、`.app-layout`、认证页、后台、404 全部改透明，纯白底彻底摘掉。② 字体：`--font-stack` 换成 `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif`（`--el-font-family` 跟随）。③ 令牌：`--glass-bg`（0.55 白）/ `--glass-bg-strong`（0.8）/ `--glass-bg-hover`（0.7）/ `--glass-border`（0.65）/ `--glass-blur: blur(20px) saturate(180%)` / `--glass-sheen`（上沿一线高光，已并进 `--shadow-card` 与 `-hover`），深色主题整套换值。④ 落地：侧栏、统计栏、任务行与骨架、快速录入（虚线改墨色兑水）、回收站行、设置分组、身份卡、回到顶部、任务弹窗、确认框、所有 `el-popper` 面板统一玻璃化；认证页单栏版（找回密码 / 后台登录）补一张玻璃卡。
-- **验证**（无头 Chrome 实拍）：1440 / 1280 / 1024 / 900 / 560 浅色 + 1440 深色，登录页、演示个人中心、回收站、后台登录，以及任务弹窗与排序气泡各一张；像素采样卡片上的次要文字对比度 ≈ 4.4–4.6:1（与改造前白底持平）；`npm run type-check` EXIT=0。
+- **文件**：`src/components/TaskFormDialog.vue`（`.task-form__refresh` 覆盖 EP 复选框变量 + `:deep()` 三条细则）
+- **根因**：这个勾选框原来跟随 Element Plus 的 `--el-color-primary`，而项目里它被映射到 `--color-primary-bg` —— 浅色主题近黑、**深色主题近白**。于是深色下「勾上」是白底深勾、「没勾」是深底白框，明暗差极小，几乎分不出来。
+- **修法**：改用全站的强调蓝 `--color-accent`（浅色 `#007aff` / 深色 `#0a84ff`，与「新建任务」按钮、搜索聚焦环同一支色）：勾选态蓝底白勾；未勾选保持原底色、**悬停时描边变蓝**；键盘 `focus-visible` 给一圈淡蓝描边。
+- **一处自纠**：第一版用 `.is-focus` 做聚焦染色，但 EP 在**鼠标点击后**也会加这个类，导致未勾选状态被涂成蓝底；已改为只认 `.el-checkbox__original:focus-visible`。
+- **验证（演示页真机，深浅两主题）**：深色勾选 → 底 `rgb(10,132,255)` + 白勾；深色未勾选 → 底回到 `rgb(25,29,36)`（表面色）、仅描边蓝；浅色勾选 → `rgb(0,122,255)` + 白勾。`npm run build` EXIT=0。
 
-## 2026-10-26 01:08 · 演示提示条内嵌「去登录」入口，三列断点提前到 1400
+## 2026-10-27 01:07 · 修「回到顶部按钮压住任务行」
 
-- **文件**：`src/views/DemoView.vue`（提示条内嵌 `RouterLink`、新增 `.demo-hint__login` 样式）、`src/components/FilterBar.vue`（三列断点 1200 → 1400；工具列 `flex: none`；中间列 `flex: 1` 并提高选择器权重）
-- **内容**：演示环境提示条右端直接内嵌「去登录」——同一条红底、竖细线分隔、加粗 + 1px 细下划线（45% 透明红）、悬停浮同色 12% 浅底、24px 点按区，点击去 `/login`；窄屏先省略提示语，入口保持原宽不缩。加了入口后提示条变长，1200–1400 之间三列网格会把「未完成 / 已完成 / 全部」挤成两行，所以回退断点提前到 1400，并让工具列按内容宽度站住（`flex: none`）、剩余空间全给中间。
-- **验证**（无头 Chrome 实拍）：1441 / 1280 / 1200 / 900 / 560 五个宽度；1441 起整句完整、1200 起按预期省略且「去登录」常在、状态切换始终单行；`npm run type-check` EXIT=0。
+- **文件**：`src/components/BackToTop.vue`（`position: fixed` + `right: calc((clamp(16px, 2.5vw, 40px) + var(--sidebar-offset) - 34px) / 2)`；`bottom` 24 → **58**（2026-10-27 按反馈再抬一个按钮直径）；尺寸 42 → **34**；图标 18 → 17）
+- **根因**：按钮原来是 `position: fixed` 且 `right` 与 `.page` 内边距同值（16~40px），但按钮宽 42px —— 必然越过页面内边距、压住任务行的「优先级 / 截止时间」列；视口越窄内边距越小（最小 16px），重叠越明显。
+- **修法（定稿：行右侧空白带正中）**：`right` 取「(页面内边距 + 外壳内边距 − 按钮宽) / 2」，两侧留白始终相等、随窗口自适应。**关键坑**：先试过 sticky + `translateX` 把按钮推出内容列，但它仍是 `.page` 的子元素，一旦越过 `.app-layout__main` 的横向范围就会被裁掉（该容器 `overflow-y: auto`，按规范横向同样算 auto）——按钮「被挡住一半」正是这个原因；改回 `fixed` 才完全脱离滚动容器的裁切。
+- **验证（演示页真机，六档宽度）**：左右留白**完全相等** —— 700→4/4、900→6/6、1079→8/8、1280→11/11、1440→13/13、1920→15/15；六档全部 `压行=false`（1079 下按钮 1037~1071、行右缘 1028），且按钮中心 `elementFromPoint` 命中的就是按钮本身（**无遮挡、无裁切**）。
+- `npm run build` EXIT=0。

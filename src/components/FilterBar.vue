@@ -9,8 +9,8 @@
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
-import { SEARCH_DEBOUNCE_MS, TASK_STATUS_OPTIONS } from '@/constants'
-import type { TaskQuery, TaskStatus } from '@/types'
+import { SEARCH_DEBOUNCE_MS } from '@/constants'
+import type { TaskQuery } from '@/types'
 
 const props = defineProps<{ query: TaskQuery; selectMode?: boolean }>()
 /**
@@ -19,15 +19,47 @@ const props = defineProps<{ query: TaskQuery; selectMode?: boolean }>()
  */
 const emit = defineEmits<{ change: []; 'toggle-select': [] }>()
 
-/** 分段控件的 value 得是字符串，而 query.status 是 `TaskStatus | undefined` —— 用 all 代表「全部」 */
+/**
+ * 退出选择时右侧「晚一步」（2026-10-27）：
+ * 批量操作条要向右滑 300ms，如果「排序 ▾ / 批量选择」在同一帧就换回来，
+ * 两块内容会在同一处交叠 —— 看着就是闪一下。让**关闭**晚 320ms 生效、打开立即生效。
+ */
+const visualSelectMode = ref(Boolean(props.selectMode))
+let modeTimer: number | undefined
+
+watch(
+  () => props.selectMode,
+  (value) => {
+    window.clearTimeout(modeTimer)
+    if (value) {
+      visualSelectMode.value = true
+      return
+    }
+    modeTimer = window.setTimeout(() => {
+      visualSelectMode.value = false
+    }, 320)
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => window.clearTimeout(modeTimer))
+
+/** 分段控件的 value 统一用字符串：`unfinished` / `DONE` / `all`，再映射回查询字段 */
 const ALL = 'all'
 
 /**
  * 页签顺序：**未完成 → 已完成 → 全部**。
  * 「全部」退到最后 —— 日常最常看的是「还没做完的」，默认也停在这里（见 store / useDemoTasks 的初始 status）。
  */
+/**
+ * 页签（2026-10-26 修）：「未完成」= **非 DONE**（TODO + IN_PROGRESS），走 `onlyUnfinished`。
+ * 原来这一档发的是 `status=TODO`，把 IN_PROGRESS 的任务藏了起来 ——
+ * 于是出现「统计写已完成 22 / 共 24，列表却只剩 1 条」，差的正是那 1 条 IN_PROGRESS。
+ */
+const TAB_UNFINISHED = 'unfinished'
 const tabs = [
-  ...TASK_STATUS_OPTIONS.map((item) => ({ value: item.value as string, label: item.label })),
+  { value: TAB_UNFINISHED, label: '未完成' },
+  { value: 'DONE', label: '已完成' },
   { value: ALL, label: '全部' },
 ]
 
@@ -60,9 +92,13 @@ function setDirection(direction: 'asc' | 'desc') {
 }
 
 const activeTab = computed({
-  get: () => props.query.status ?? ALL,
+  get: () => {
+    if (props.query.onlyUnfinished) return TAB_UNFINISHED
+    return props.query.status === 'DONE' ? 'DONE' : ALL
+  },
   set: (value: string) => {
-    props.query.status = value === ALL ? undefined : (value as TaskStatus)
+    props.query.onlyUnfinished = value === TAB_UNFINISHED ? true : undefined
+    props.query.status = value === 'DONE' ? 'DONE' : undefined
     emit('change')
   },
 })
@@ -126,7 +162,7 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
         </div>
 
         <el-popover
-          v-if="!selectMode"
+          v-if="!visualSelectMode"
           v-model:visible="sortOpen"
           trigger="click"
           placement="bottom-end"
@@ -180,7 +216,7 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
         </el-popover>
 
         <button class="filter-bar__ghost" type="button" @click="emit('toggle-select')">
-          {{ selectMode ? '退出选择' : '批量选择' }}
+          {{ visualSelectMode ? '退出选择' : '批量选择' }}
         </button>
       </div>
     </div>
@@ -431,11 +467,21 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   gap: 4px;
 }
 
+/*
+ * 批量操作条从这里滑进滑出（2026-10-27）。
+ * 用 grid 的单行做「占位」过渡：退出时把 `1fr` 收到 `0fr`，高度是**连续收**的 ——
+ * 否则操作条滑走后整块空间瞬塌，下面的列表会突然上跳（看着就是闪一下）。
+ * overflow: hidden 顺便裁掉横向滑动探出的那一截。
+ */
 .filter-bar__tabs-actions {
-  display: flex;
+  display: grid;
+  grid-template-rows: 1fr;
   align-items: center;
   gap: 8px;
   margin-right: 6px;
+  overflow: hidden;
+  /* 先让操作条滑出去（0~110ms），这块空间再收（110~310ms），两者不互相「吃掉」 */
+  transition: grid-template-rows 200ms cubic-bezier(0.4, 0, 0.2, 1) 110ms;
 }
 
 /* 文字按钮（排序 / 批量选择）：无框无底，悬停才浮一层浅灰 */

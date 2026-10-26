@@ -152,18 +152,6 @@ async function handleAvatarConfirm(file: File) {
   }
 }
 
-async function handleLogout() {
-  try {
-    await ElMessageBox.confirm('退出后需要重新登录。', '退出登录', {
-      confirmButtonText: '退出',
-      cancelButtonText: '取消',
-    })
-  } catch {
-    return
-  }
-  auth.logout()
-  await router.push('/login')
-}
 </script>
 
 <template>
@@ -269,7 +257,7 @@ async function handleLogout() {
       <div class="settings-group">
         <AppearanceSettings />
         <!-- 2026-10-18：删除二次确认（本地偏好，默认开；文案收短避免折行） -->
-        <SettingRow label="删除二次确认">
+        <SettingRow label="删除二次确认" align-end>
           <el-switch
             :model-value="confirmDelete"
             @update:model-value="setConfirmDelete($event === true)"
@@ -277,16 +265,10 @@ async function handleLogout() {
         </SettingRow>
       </div>
 
-      <h2 class="settings-group-title">会话</h2>
-      <div class="settings-group">
-        <SettingRow
-          label="退出登录"
-          value="退出后需要重新登录"
-          action-text="退出"
-          danger
-          @action="handleLogout"
-        />
-      </div>
+      <!--
+        2026-10-26：删掉「会话 / 退出登录」整组 —— 退出登录只保留左下角用户菜单一个入口，
+        避免同一个动作在界面里出现两处。
+      -->
     </template>
 
     <BasicInfoDialog

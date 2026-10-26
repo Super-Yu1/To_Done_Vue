@@ -26,7 +26,7 @@ const navItems = computed<{ to: string; label: string; icon: IconName; exact?: b
       badge: demoTasks.value.filter((task) => task.status !== 'DONE').length,
     },
     { to: '/demo/trash', label: '回收站', icon: 'trash' },
-    { to: '/demo/profile', label: '个人中心', icon: 'user' },
+    // 2026-10-26：与真实布局一致，个人中心不再占导航位
   ],
 )
 </script>

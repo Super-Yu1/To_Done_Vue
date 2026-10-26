@@ -20,6 +20,11 @@ defineProps<{
   actionText?: string
   /** 破坏性动作：悬停显危险色 */
   danger?: boolean
+  /**
+   * 控件类设置（外观 / 删除前二次确认）：把中间的值列推到**右侧**，
+   * 与账号行右侧的动作按钮对齐（2026-10-26 反馈：控件贴在左边看着像没做完）。
+   */
+  alignEnd?: boolean
 }>()
 
 const emit = defineEmits<{ action: [] }>()
@@ -38,7 +43,7 @@ function handleRowClick(actionText?: string) {
   >
     <span class="setting-row__label">{{ label }}</span>
 
-    <div class="setting-row__value">
+    <div class="setting-row__value" :class="{ 'setting-row__value--end': alignEnd }">
       <slot>
         <span :class="{ 'setting-row__text--muted': muted }">{{ value }}</span>
       </slot>
@@ -53,7 +58,11 @@ function handleRowClick(actionText?: string) {
     >
       {{ actionText }}
     </button>
-    <span v-else></span>
+    <!--
+      align-end 时值列已跨到最后一列，这个占位 span 会被挤到第二行（0 高，但带走 16px 的 row-gap），
+      导致整行内容上移 8px —— 这种行不要再渲染它（2026-10-26 修复）。
+    -->
+    <span v-else-if="!alignEnd"></span>
   </div>
 </template>
 
@@ -63,7 +72,8 @@ function handleRowClick(actionText?: string) {
   /* 96px 足够放下「删除二次确认」这类 6 字标签，不再折行 */
   grid-template-columns: 96px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
+  /* 只要列间距：单行设置行不需要 row-gap（留它会因意外换行多出半截间距，见上方模板注释） */
+  column-gap: 16px;
   min-height: 56px;
   padding: 12px 20px;
   transition: background-color var(--dur-fast) var(--ease);
@@ -99,6 +109,16 @@ function handleRowClick(actionText?: string) {
   min-width: 0;
   font-size: 14px;
   word-break: break-word;
+}
+
+/*
+ * 控件贴右：跨到行尾（第 2 列到最后一列），这样控件右缘与账号行「编辑 / 更换 / 修改」
+ * 落在同一条竖线上（20px 内边距处），而不是隔着一道列间距。
+ */
+.setting-row__value--end {
+  display: flex;
+  grid-column: 2 / -1;
+  justify-content: flex-end;
 }
 
 .setting-row__text--muted {

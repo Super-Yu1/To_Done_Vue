@@ -68,8 +68,11 @@ function toggle(next: TaskQuickFilter) {
         @click="toggle('overdue')"
       >
         <AppIcon name="alert" :size="14" />
-        逾期 <strong>{{ view.overdue }}</strong>
-      </button>
+        <!-- 窄屏只留图标（2026-10-26）：文字包一层，窄下来渐隐收宽，胶囊高度不变 -->
+        <span class="quick-pill__text" aria-hidden="false">
+          逾期 <strong>{{ view.overdue }}</strong>
+        </span>
+        </button>
 
       <button
         class="quick-pill quick-pill--today"
@@ -79,8 +82,10 @@ function toggle(next: TaskQuickFilter) {
         @click="toggle('dueToday')"
       >
         <AppIcon name="calendar" :size="14" />
-        今日到期 <strong>{{ view.dueToday }}</strong>
-      </button>
+        <span class="quick-pill__text">
+          今日到期 <strong>{{ view.dueToday }}</strong>
+        </span>
+        </button>
 
       <button
         class="quick-pill quick-pill--high"
@@ -90,8 +95,10 @@ function toggle(next: TaskQuickFilter) {
         @click="toggle('high')"
       >
         <AppIcon name="flag" :size="14" />
-        高优先级 <strong>{{ highPriority ?? 0 }}</strong>
-      </button>
+        <span class="quick-pill__text">
+          高优先级 <strong>{{ highPriority ?? 0 }}</strong>
+        </span>
+        </button>
     </div>
   </section>
 </template>
@@ -164,11 +171,26 @@ function toggle(next: TaskQuickFilter) {
   gap: 10px;
 }
 
+/*
+ * 三枚快捷筛选的文字（含数字）：窄屏收成图标。
+ * 与侧栏折叠**同一个断点（1150px）同一个时长（280ms）**，两处一起动，视觉上是一次协同缩放。
+ */
+.quick-pill__text {
+  overflow: hidden;
+  min-width: 0;
+  max-width: 160px;
+  white-space: nowrap;
+  transition: opacity 180ms var(--ease), max-width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+
 /* 快捷筛选胶囊：浅底同色字，点击切换选中态 */
 .quick-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* gap 可动画：窄屏收字时归零，与文字宽度一起收，图标不会偏（2026-10-26） */
+  transition: gap 280ms cubic-bezier(0.22, 1, 0.36, 1);
   height: 34px;
   padding: 0 12px;
   border: none;
@@ -219,14 +241,31 @@ function toggle(next: TaskQuickFilter) {
 }
 
 /* 窄窗口：允许换行，进度条独占一行 */
-@media (max-width: 900px) {
-  .summary {
-    flex-wrap: wrap;
-    gap: 12px;
+/*
+ * 2026-10-26：删除旧的「≤900px 把进度块与胶囊拆成两行」规则 —— 那正是顶栏高度从 64 跳到 105 的来源。
+ * 现在窄屏靠「胶囊只留图标」腾出空间，顶栏永远一行，高度恒定。
+ */
+
+@media (max-width: 1149px) {
+  .quick-pill__text {
+    max-width: 0;
+    opacity: 0;
   }
 
+  /* 只剩图标：gap 归零让图标精确居中，内边距收一档更紧凑 */
+  .quick-pill {
+    gap: 0;
+    justify-content: center;
+    padding: 0 10px;
+  }
+
+  /* 左侧进度块允许再压一点，保证三枚图标永远在同一行放得下 */
   .summary__progress {
-    flex-basis: 100%;
+    min-width: 120px;
+  }
+
+  .summary {
+    gap: 16px;
   }
 }
 </style>

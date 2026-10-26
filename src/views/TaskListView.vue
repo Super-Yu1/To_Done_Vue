@@ -5,7 +5,8 @@
  * 数据动作全在 store（patchTask / batch*），页面只负责状态与提示。
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { confirmDestructive } from '@/composables/usePreferences'
 import AppIcon from '@/components/AppIcon.vue'
 import BackToTop from '@/components/BackToTop.vue'
 import BatchActionBar from '@/components/BatchActionBar.vue'
@@ -23,7 +24,6 @@ const todo = useTodoStore()
 /** 任务弹窗（新建 / 详情 / 编辑都在这一个弹窗里，用 mode 区分） */
 const dialogVisible = ref(false)
 /** true = 只读详情（点任务行进来）；点右上角「编辑」切成可编辑 */
-const readonly = ref(false)
 const editingTask = ref<Task | null>(null)
 const submitting = ref(false)
 /** 配图上传进度（0~100）：有图在传时弹窗里显示进度条 */
@@ -127,27 +127,13 @@ function handleQueryChange() {
 
 function openCreate() {
   editingTask.value = null
-  readonly.value = false
   dialogVisible.value = true
 }
 
-/** 行尾铅笔：跳过只读详情，直接进可编辑（2026-10-17） */
+/** 点任务行：**直接进编辑**（2026-10-27 起不再有只读详情） */
 function openEdit(task: Task) {
   editingTask.value = task
-  readonly.value = false
   dialogVisible.value = true
-}
-
-/** 点任务行：打开弹窗的只读模式（先看详情，不直接进编辑） */
-function openDetail(task: Task) {
-  editingTask.value = task
-  readonly.value = true
-  dialogVisible.value = true
-}
-
-/** 详情右上角「编辑」：同一个弹窗就地切成可编辑（不关不重开） */
-function startEdit() {
-  readonly.value = false
 }
 
 async function handleSubmit(payload: TaskPayload, images: File[]) {
@@ -161,13 +147,8 @@ async function handleSubmit(payload: TaskPayload, images: File[]) {
       await todo.createTask(payload, images, onUploadProgress)
     }
     ElMessage.success(editing ? '已保存' : '已创建')
-    if (editing) {
-      // 保存后停在详情：用 store 重取后的对象刷新，再切回只读模式
-      editingTask.value = todo.tasks.find((item) => item.id === editing.id) ?? editing
-      readonly.value = true
-    } else {
-      dialogVisible.value = false
-    }
+    // 2026-10-27：保存后直接关闭（不再停在只读详情）
+    dialogVisible.value = false
   } catch {
     // 失败时保持弹窗打开（可编辑态），便于修改后重试
   } finally {
@@ -182,14 +163,6 @@ function handleToggleStatus(task: Task) {
 }
 
 /** 行内快捷改优先级 / 截止时间（E）：store 里是乐观更新 + 失败回滚，不整表刷新 */
-function handleQuickPriority(task: Task, priority: TaskPriority) {
-  void guard(() => todo.patchTask(task.id, { priority }))
-}
-
-function handleQuickDue(task: Task, dueDate: string | null) {
-  void guard(() => todo.patchTask(task.id, { dueDate }))
-}
-
 /** 快速录入（H）：新任务按创建时间倒序落到未完成组最上面，所以提示里点明「已置顶」 */
 async function handleQuickAdd(title: string) {
   quickAdding.value = true
@@ -209,14 +182,9 @@ async function handleRemove(task: Task) {
   const message = retention
     ? `将移入回收站，${retention} 天内可恢复。`
     : `将移入回收站，可在回收站里恢复。`
-  try {
-    await ElMessageBox.confirm(message, '删除任务', {
-      confirmButtonText: '移入回收站',
-      cancelButtonText: '取消',
-    })
-  } catch {
-    return
-  }
+  // 2026-10-27：改走「删除二次确认」偏好（个人中心·偏好里可关），与回收站的彻底删除同一套
+  const ok = await confirmDestructive(message, '删除任务', '移入回收站')
+  if (!ok) return
   await guard(() => todo.removeTask(task.id))
 }
 
@@ -306,14 +274,9 @@ async function handleBatchRemove() {
   const message = retention
     ? `将 ${targets.length} 条任务移入回收站，${retention} 天内可恢复。`
     : `将 ${targets.length} 条任务移入回收站，可在回收站里恢复。`
-  try {
-    await ElMessageBox.confirm(message, '批量删除', {
-      confirmButtonText: '移入回收站',
-      cancelButtonText: '取消',
-    })
-  } catch {
-    return
-  }
+  // 批量删除同样受「删除二次确认」开关控制（关掉后直接移入回收站）
+  const ok = await confirmDestructive(message, '批量删除', '移入回收站')
+  if (!ok) return
 
   batchBusy.value = true
   try {
@@ -365,10 +328,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </el-button>
       </template>
 
-      <!-- 批量操作条并到第二行右侧（选择模式才出现） -->
+      <!-- 批量操作条并到第二行右侧（选择模式才出现）；进入时从右往左滑入、退出时原路滑回 -->
       <template #tabs-actions>
-        <BatchActionBar
-          v-if="selectMode"
+        <Transition name="batch-slide">
+          <BatchActionBar
+            v-if="selectMode"
           :selected-count="selectedIds.length"
           :total-count="visibleTasks.length"
           :all-selected="allSelected"
@@ -379,7 +343,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           @remove="handleBatchRemove"
           @change-priority="handleBatchPriority"
           @toggle-all="toggleAll"
-        />
+          />
+        </Transition>
       </template>
     </FilterBar>
 
@@ -387,18 +352,19 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       :tasks="visibleTasks"
       :loading="todo.loading && visibleTasks.length === 0"
       :select-mode="selectMode"
-      :leaving-on-toggle="Boolean(activeFilter) || todo.query.status === 'TODO'"
+      :leaving-on-toggle="
+        Boolean(activeFilter) ||
+        Boolean(todo.query.onlyUnfinished) ||
+        Boolean(todo.query.status && todo.query.status !== 'DONE')
+      "
       :selected-ids="selectedIds"
       :empty-title="emptyTitle"
       :empty-description="emptyDescription"
       :empty-action-text="activeFilter ? '清空筛选' : '新建任务'"
       @load-more="guard(() => todo.loadMore())"
-      @open="openDetail"
-      @edit="openEdit"
+      @open="openEdit"
       @remove="handleRemove"
       @toggle-status="handleToggleStatus"
-      @change-priority="handleQuickPriority"
-      @change-due-date="handleQuickDue"
       @toggle-select="toggleSelect"
       @empty-action="handleEmptyAction"
     >
@@ -411,10 +377,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     <TaskFormDialog
       v-model:visible="dialogVisible"
       :task="editingTask"
-      :readonly="readonly"
       :submitting="submitting"
       :progress="uploadProgress"
-      @edit="startEdit"
       @submit="handleSubmit"
     />
 

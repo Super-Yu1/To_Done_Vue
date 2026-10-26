@@ -5,19 +5,68 @@
  * 主内容区上限 1720px 居中（2026-10-17 从 1280 放宽）—— 防「单行太长」靠行内布局，不靠这层硬卡。
  * 原来顶栏的账号下拉收进侧栏底部：身份一行（点进个人中心）+ 主题开关 + 退出登录。
  */
-import { computed, onMounted } from 'vue'
-import { RouterLink, RouterView, useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { RouterView, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import type { IconName } from '@/components/icons'
+import { usePreferences } from '@/composables/usePreferences'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todo'
 
 const auth = useAuthStore()
 const todo = useTodoStore()
 const router = useRouter()
+/** 侧栏折叠（2026-10-26）：底部第三个按钮在「折叠 / 展开」之间切换，状态存本地 */
+const { sidebarCollapsed, toggleSidebar, setSidebarCollapsed } = usePreferences()
+
+/**
+ * 窗口宽度跨过阈值时自动折叠 / 自动展开（2026-10-26，按反馈改为双向）。
+ * 阈值 1100px：272px 侧栏 + 内容区最小可用宽度（约 800px）之和。
+ *
+ * 关键点：只有「系统自动收起的」才在变宽时自动展开 —— 用一个标记区分，
+ * 否则用户在宽屏手动折叠后，随便拖一下窗口就会被强制展开。
+ */
+/*
+ * 2026-10-26 调到 1150：侧栏展开时，窗口 1100 附近列表宽约 716px，正好落进行布局的 720px 断点，
+ * 于是「侧栏还没折叠、任务先变高」。1150 能保证侧栏总是先收起来、列表始终 ≥ 720，
+ * 变高的时机被推到约 910px（那时侧栏早就折叠好了），顺序因此变成「先折叠、后变高」。
+ */
+const NARROW_SIDEBAR_MAX = 1150
+const autoCollapsed = ref(false)
+
+function syncSidebarForWidth() {
+  const narrow = window.innerWidth < NARROW_SIDEBAR_MAX
+  if (narrow && !sidebarCollapsed.value) {
+    setSidebarCollapsed(true)
+    autoCollapsed.value = true
+  } else if (!narrow && autoCollapsed.value) {
+    setSidebarCollapsed(false)
+    autoCollapsed.value = false
+  }
+}
+
+/** 手动点折叠按钮：用户的选择优先，清掉「自动收起」标记，之后不再被宽度左右 */
+function handleToggleSidebar() {
+  autoCollapsed.value = false
+  toggleSidebar()
+}
+
+/** 用户菜单（点头像 + 用户名向上弹出） */
+const userMenuVisible = ref(false)
+
+function goProfile() {
+  userMenuVisible.value = false
+  void router.push('/profile')
+}
+
+function handleHelp() {
+  userMenuVisible.value = false
+  // 帮助中心还没有页面（会记进前端清单），先给一条明确提示，不做假入口
+  ElMessage.info('帮助中心正在建设中，稍后上线')
+}
 
 /**
  * 导航项：「任务」带一个未完成条数徽标（2026-10-26）。
@@ -25,13 +74,31 @@ const router = useRouter()
  * 没有数据时是 `undefined`，AppSidebar 那边不渲染空胶囊。
  */
 const navItems = computed<{ to: string; label: string; icon: IconName; badge?: number }[]>(() => [
-  { to: '/tasks', label: '任务', icon: 'inbox', badge: todo.stats?.todo },
+  /*
+   * 徽标 = **未完成**（TODO + IN_PROGRESS），不是 `stats.todo`（那只算 TODO）。
+   * 2026-10-26 修：之前用 `stats.todo`，列表按「未完成 = 非 DONE」显示 2 条时，徽标还写着 1。
+   */
+  {
+    to: '/tasks',
+    label: '任务',
+    icon: 'inbox',
+    badge: todo.stats ? todo.stats.todo + todo.stats.inProgress : undefined,
+  },
   { to: '/trash', label: '回收站', icon: 'trash' },
-  { to: '/profile', label: '个人中心', icon: 'user' },
+  // 2026-10-26：个人中心从侧栏移出，改由左下角用户菜单进入
 ])
 
 const displayName = computed(() => auth.user?.name ?? '我的账号')
 const avatarText = computed(() => (auth.user?.name ?? '我').slice(0, 1))
+
+onMounted(() => {
+  syncSidebarForWidth()
+  window.addEventListener('resize', syncSidebarForWidth)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', syncSidebarForWidth)
+})
 
 onMounted(async () => {
   // 侧栏徽标要有数：进站时取一次统计（之后随任务操作自动刷新，见 stores/todo 的 refresh）
@@ -51,6 +118,7 @@ onMounted(async () => {
 })
 
 async function handleLogout() {
+  userMenuVisible.value = false
   try {
     await ElMessageBox.confirm('退出后需要重新登录。', '退出登录', {
       confirmButtonText: '退出',
@@ -65,31 +133,65 @@ async function handleLogout() {
 </script>
 
 <template>
-  <div class="app-layout">
-    <AppSidebar :items="navItems" brand-to="/tasks">
+  <div class="app-layout" :class="{ 'app-layout--collapsed': sidebarCollapsed }">
+    <AppSidebar :items="navItems" brand-to="/tasks" :collapsed="sidebarCollapsed">
       <template #settings>
-        <!-- 2026-10-17：用户 / 主题 / 退出并成一行 —— 用户占 50%，主题与退出各 25% -->
+        <!-- 2026-10-26：身份 / 主题 / 折叠并成一行；点头像用户名向上弹出用户菜单 -->
         <div class="side-row">
-          <RouterLink class="side-user" to="/profile">
-            <img
-              v-if="auth.user?.avatarUrl"
-              class="side-user__avatar"
-              :src="auth.user.avatarUrl"
-              alt=""
-            />
-            <span v-else class="side-user__avatar side-user__avatar--text">{{ avatarText }}</span>
-            <span class="side-user__name">{{ displayName }}</span>
-          </RouterLink>
+          <el-popover
+            v-model:visible="userMenuVisible"
+            placement="top"
+            trigger="click"
+            transition="el-zoom-in-top"
+            popper-class="user-menu"
+          >
+            <template #reference>
+              <button class="side-user" type="button" :title="displayName">
+                <img
+                  v-if="auth.user?.avatarUrl"
+                  class="side-user__avatar"
+                  :src="auth.user.avatarUrl"
+                  alt=""
+                />
+                <span v-else class="side-user__avatar side-user__avatar--text">{{ avatarText }}</span>
+                <span class="side-user__name">{{ displayName }}</span>
+              </button>
+            </template>
+
+            <div class="user-menu__list" role="menu">
+              <button class="user-menu__item" type="button" role="menuitem" @click="goProfile">
+                <AppIcon name="user" :size="15" />
+                <span>个人中心</span>
+              </button>
+              <button class="user-menu__item" type="button" role="menuitem" @click="handleHelp">
+                <AppIcon name="help" :size="15" />
+                <span>帮助中心</span>
+              </button>
+              <div class="user-menu__divider" role="separator"></div>
+              <button
+                class="user-menu__item user-menu__item--danger"
+                type="button"
+                role="menuitem"
+                @click="handleLogout"
+              >
+                <AppIcon name="logout" :size="15" />
+                <span>退出登录</span>
+              </button>
+            </div>
+          </el-popover>
 
           <ThemeToggle class="side-row__tool" />
+          <!-- 2026-10-26：折叠按钮加主题一致的悬浮说明（原生 title 太朴素，与主题开关也不统一） -->
+          <!-- 2026-10-27：与主题按钮同一套原生 title 提示（替代 EP 深色气泡） -->
           <button
             class="side-tool side-row__tool"
             type="button"
-            title="退出登录"
-            aria-label="退出登录"
-            @click="handleLogout"
+            :title="sidebarCollapsed ? '展开' : '折叠'"
+            :aria-label="sidebarCollapsed ? '展开侧栏' : '折叠侧栏'"
+            :aria-expanded="!sidebarCollapsed"
+            @click="handleToggleSidebar"
           >
-            <AppIcon name="logout" :size="16" />
+            <AppIcon :name="sidebarCollapsed ? 'expand' : 'collapse'" :size="16" />
           </button>
         </div>
       </template>
@@ -103,13 +205,38 @@ async function handleLogout() {
 
 <style scoped>
 /* 底部设置区：身份一行（点头像/用户名进个人中心）+ 主题与退出 */
+/* 2026-10-26：从 RouterLink 改成按钮（点它弹用户菜单），顺带做按钮样式重置 */
 .side-user {
   display: flex;
   align-items: center;
   gap: 9px;
+  width: 100%;
   padding: 6px 8px;
+  border: none;
   border-radius: var(--radius-md);
+  background-color: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease);
+}
+
+/* 折叠态：底部从三列改成竖排（76px 放不下三列），只留头像与两个图标 */
+.app-layout--collapsed .side-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-layout--collapsed .side-user {
+  justify-content: center;
+  padding: 6px;
+}
+
+.app-layout--collapsed .side-user__name {
+  display: none;
 }
 
 .side-user:hover {
@@ -176,19 +303,6 @@ async function handleLogout() {
   background-color: var(--color-surface);
 }
 
-/* 窄屏：设置区横排，身份与两个图标按钮挤在一行 */
-@media (max-width: 1024px) {
-  .side-user {
-    padding: 4px 6px;
-  }
+/* 2026-10-26：移除「窄屏隐藏用户名」的规则 —— 窄屏统一走侧栏自动折叠，折叠态本来就不显示名字 */
 
-  .side-user__name {
-    display: none;
-  }
-
-  .side-tools {
-    gap: 4px;
-    padding: 0;
-  }
-}
 </style>

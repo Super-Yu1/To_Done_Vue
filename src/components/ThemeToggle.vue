@@ -12,20 +12,27 @@ const { mode, isDark, toggleTheme } = useTheme()
 
 const isFollowingSystem = computed(() => mode.value === 'auto')
 const label = computed(() => (isDark.value ? '深色' : '浅色'))
-const tip = computed(() => (isFollowingSystem.value ? `${label.value}（跟随系统）` : label.value))
+/**
+ * 悬浮提示只写当前档位（2026-10-26）：原来「跟随系统」时写作「浅色（跟随系统）」，
+ * 按反馈收成「浅色」；是否跟随系统由个人中心的外观设置体现，不在这个两态按钮上解释。
+ */
+const tip = computed(() => label.value)
 </script>
 
 <template>
-  <el-tooltip :content="`主题：${tip}`" placement="bottom">
-    <button
-      class="theme-toggle"
-      type="button"
-      :aria-label="`切换主题，当前为${tip}`"
-      @click="toggleTheme"
-    >
-      <AppIcon :name="isDark ? 'moon' : 'sun'" />
-    </button>
-  </el-tooltip>
+  <!--
+    2026-10-27：悬浮提示改用原生 title —— 与任务行「标记为已完成」那种一致，
+    比 EP 的深色气泡更轻快、也不会有动画延迟；提示内容仍是当前档位本身。
+  -->
+  <button
+    class="theme-toggle"
+    type="button"
+    :title="tip"
+    :aria-label="`切换主题，当前为${tip}`"
+    @click="toggleTheme"
+  >
+    <AppIcon :name="isDark ? 'moon' : 'sun'" />
+  </button>
 </template>
 
 <style scoped>

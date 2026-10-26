@@ -1,9 +1,7 @@
 <script setup lang="ts">
 /**
- * 任务弹窗（UC-05 / 6.5 ⑦ / 8.8）—— **同一套字段，两种模式**：
- *   · 只读（`readonly`，点任务行进来的「任务详情」）：控件全部禁用、去掉字数统计与配图增删入口，
- *     右上角给「编辑」按钮；只读界面与编辑界面逐字段一致，避免两套排版各写一遍再走样。
- *   · 编辑 / 新建：正常填写并提交。
+ * 任务弹窗（UC-05 / 6.5 ⑦ / 8.8）—— **只有编辑与新建两种用途**（2026-10-27 去掉只读详情）：
+ * 点任务行即进编辑，字段正常填写并提交。
  * 状态只有未完成 / 已完成两态，且由列表上的勾选切换，所以表单里不放状态字段：
  * 新建固定为未完成，编辑时保持该任务原有状态不变。
  * 编辑时默认勾选「将时间更新为当前时间」（改的是 recordedAt）。
@@ -11,7 +9,6 @@
  */
 import { computed, reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import AppIcon from './AppIcon.vue'
 import { TASK_PRIORITY_OPTIONS } from '@/constants'
 import TaskImageField from './TaskImageField.vue'
 import type { Task, TaskPayload, TaskPriority } from '@/types'
@@ -21,14 +18,10 @@ const props = defineProps<{
   submitting?: boolean
   /** 上传进度 0~100：由调用方从 onUploadProgress 透传，>0 时才显示进度条 */
   progress?: number
-  /** 只读模式：渲染任务详情（同一套字段，只是不可编辑），点右上角「编辑」切回可编辑 */
-  readonly?: boolean
 }>()
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{
   submit: [payload: TaskPayload, images: File[]]
-  /** 只读模式下点右上角「编辑」：由调用方把 readonly 关掉即可，弹窗不关不重开 */
-  edit: []
 }>()
 
 const formRef = ref<FormInstance>()
@@ -55,14 +48,10 @@ const rules: FormRules = {
 }
 
 const isEdit = computed(() => !!props.task)
-const isReadonly = computed(() => props.readonly === true)
 
 /** 平铺的优先级胶囊：按「高 → 中 → 低」展示（2026-10-21 弹窗改版，下拉换成胶囊） */
 const PRIORITY_PILLS = [...TASK_PRIORITY_OPTIONS].reverse()
-const dialogTitle = computed(() => {
-  if (isReadonly.value) return '任务详情'
-  return isEdit.value ? '编辑任务' : '新建任务'
-})
+const dialogTitle = computed(() => (isEdit.value ? '编辑任务' : '新建任务'))
 
 /** 弹窗每次打开都按当前任务重置表单，避免带上一次的残留 */
 watch(visible, (opened) => {
@@ -118,21 +107,16 @@ async function handleSubmit() {
     align-center
     class="task-form-dialog"
   >
-    <!-- 头部：大标题；只读时右侧多一个「编辑」（与关闭按钮并排） -->
+    <!-- 头部：大标题（右上角关闭按钮由 el-dialog 自带） -->
     <template #header>
       <div class="task-form__header">
         <span class="task-form__title">{{ dialogTitle }}</span>
-        <el-button v-if="isReadonly" size="small" class="task-form__edit" @click="emit('edit')">
-          <AppIcon name="edit" :size="14" />
-          <span class="btn-text">编辑</span>
-        </el-button>
       </div>
     </template>
 
     <el-form
       ref="formRef"
       class="task-form"
-      :class="{ 'task-form--readonly': isReadonly }"
       :model="form"
       :rules="rules"
       label-position="top"
@@ -145,10 +129,9 @@ async function handleSubmit() {
             v-model="form.title"
             class="task-form__title-input"
             maxlength="100"
-            :disabled="isReadonly"
             placeholder="标题"
           />
-          <span v-if="!isReadonly && form.title.length > 80" class="task-form__counter">
+          <span v-if="form.title.length > 80" class="task-form__counter">
             {{ form.title.length }}/100
           </span>
         </div>
@@ -163,13 +146,9 @@ async function handleSubmit() {
           :rows="6"
           maxlength="500"
           resize="none"
-          :disabled="isReadonly"
           placeholder="补充说明（可选）"
         />
-        <span
-          v-if="!isReadonly && form.description.length > 400"
-          class="task-form__counter task-form__counter--desc"
-        >
+        <span v-if="form.description.length > 400" class="task-form__counter task-form__counter--desc">
           {{ form.description.length }}/500
         </span>
       </el-form-item>
@@ -190,7 +169,6 @@ async function handleSubmit() {
               type="button"
               role="radio"
               :aria-checked="form.priority === item.value"
-              :disabled="isReadonly"
               @click="form.priority = item.value"
             >
               {{ item.label }}
@@ -207,7 +185,6 @@ async function handleSubmit() {
             value-format="YYYY-MM-DDTHH:mm:ss"
             placeholder="选择日期"
             clearable
-            :disabled="isReadonly"
           />
         </div>
 
@@ -218,17 +195,16 @@ async function handleSubmit() {
             编辑同一个任务时 props.images 不变，光靠 props 重建清不掉上一次选的新文件。
           -->
           <TaskImageField
-            :key="`${task?.id ?? 'new'}-${visible}-${isReadonly}`"
+            :key="`${task?.id ?? 'new'}-${visible}`"
             v-model="images"
             :images="task?.images"
             :submitting="submitting"
-            :readonly="isReadonly"
           />
         </div>
 
-        <!-- 「将时间更新为当前时间」是编辑动作，详情里不出现 -->
+        <!-- 「将时间更新为当前时间」只在编辑时出现 -->
         <el-checkbox
-          v-if="isEdit && !isReadonly"
+          v-if="isEdit"
           v-model="form.refreshRecordedAt"
           class="task-form__refresh"
         >
@@ -248,22 +224,17 @@ async function handleSubmit() {
 
     <template #footer>
       <div class="task-form__footer">
-        <el-button v-if="isReadonly" class="task-form__cancel" @click="visible = false">
-          关闭
+        <el-button class="task-form__cancel" :disabled="submitting" @click="visible = false">
+          取消
         </el-button>
-        <template v-else>
-          <el-button class="task-form__cancel" :disabled="submitting" @click="visible = false">
-            取消
-          </el-button>
-          <el-button
-            class="task-form__save"
-            type="primary"
-            :loading="submitting"
-            @click="handleSubmit"
-          >
-            保存
-          </el-button>
-        </template>
+        <el-button
+          class="task-form__save"
+          type="primary"
+          :loading="submitting"
+          @click="handleSubmit"
+        >
+          保存
+        </el-button>
       </div>
     </template>
   </el-dialog>
@@ -466,8 +437,35 @@ async function handleSubmit() {
   box-shadow: inset 0 0 0 1px var(--color-border-strong);
 }
 
+/*
+ * 「将时间更新为当前时间」的勾选（2026-10-27）：改用强调蓝。
+ * 它原来跟随 EP 的 --el-color-primary（浅色主题是近黑、深色主题是近白），
+ * 勾没勾上全靠明暗差，深色下几乎分不清；蓝色与「新建任务 / 搜索聚焦环」同一支色。
+ */
 .task-form__refresh {
   align-self: flex-start;
+  --el-checkbox-checked-bg-color: var(--color-accent);
+  --el-checkbox-checked-input-border-color: var(--color-accent);
+  --el-checkbox-input-border-color-hover: var(--color-accent);
+  --el-checkbox-checked-text-color: var(--color-text);
+}
+
+.task-form__refresh :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.task-form__refresh :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {
+  border-color: #fff;
+}
+
+/*
+ * 键盘聚焦时给一圈淡蓝描边。
+ * 不能用 `.is-focus` —— EP 在鼠标点击后也会加这个类，会把未勾选的框一起涂蓝。
+ */
+.task-form__refresh
+  :deep(.el-checkbox__input .el-checkbox__original:focus-visible + .el-checkbox__inner) {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 /* 底部：取消（白底黑字）+ 保存（品牌主色，圆角），右对齐 */
@@ -511,14 +509,4 @@ async function handleSubmit() {
   margin-top: 12px;
 }
 
-/*
- * 只读模式：值用正文色读清楚 —— EP 的禁用灰（--el-disabled-text-color）是给「填不了的输入框」用的，
- * 详情要的是「不用填的已填值」，两者观感不同。
- */
-.task-form--readonly :deep(.is-disabled .el-input__inner),
-.task-form--readonly :deep(.is-disabled .el-textarea__inner),
-.task-form--readonly :deep(.is-disabled .el-select__placeholder) {
-  color: var(--color-text);
-  -webkit-text-fill-color: var(--color-text);
-}
 </style>

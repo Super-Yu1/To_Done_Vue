@@ -51,8 +51,12 @@ export const useTodoStore = defineStore('todo', () => {
     page: 1,
     size: PAGE_SIZE,
     keyword: '',
-    // 默认停在「未完成」（2026-10-18）：日常最常看的是还没做完的
-    status: 'TODO',
+    /*
+     * 默认停在「未完成」：2026-10-26 起用 `onlyUnfinished`（= 非 DONE，含 IN_PROGRESS），
+     * 不再用 `status='TODO'` —— 后者会把进行中的任务漏掉。
+     */
+    status: undefined,
+    onlyUnfinished: true,
     // 默认按截止时间近→远（2026-10-18 需求）：最急的排最上面
     sortBy: 'dueDate',
     sortDirection: 'asc',
@@ -180,7 +184,15 @@ export const useTodoStore = defineStore('todo', () => {
      *    其余场景（如「全部」）任务不离开列表：顺序以服务端为准，不再本地重排，
      *    等划线播完即可，下一次重取时它才按新状态落位。
      */
-    const leavingCurrentFilter = Boolean(query.status && query.status !== status)
+    /*
+     * 2026-10-27 修：「未完成」页签改用 onlyUnfinished 后，这里还只看 query.status，
+     * 于是打钩后不再移出列表（任务一直留在未完成里）。两种筛选都要覆盖：
+     *   · 只看未完成（onlyUnfinished）时，切成 DONE 就该离开；
+     *   · 单一状态页签时，新状态与页签不符就离开（含「已完成里取消完成」）。
+     */
+    const leavingCurrentFilter =
+      (Boolean(query.onlyUnfinished) && status === 'DONE') ||
+      Boolean(query.status && query.status !== status)
     const removedIndex = leavingCurrentFilter
       ? tasks.value.findIndex((item) => item.id === id)
       : -1
@@ -239,6 +251,7 @@ export const useTodoStore = defineStore('todo', () => {
    * 刷新会把无限滚动已加载的多页缩回第 1 页，等于把用户拽回列表顶部。
    * 失败即回滚（提示由 http 层给）。
    */
+  /** 局部更新（2026-10-27 起行内不再调用，保留作为通用动作，批量场景可直接用） */
   async function patchTask(id: string, patch: { priority?: TaskPriority; dueDate?: string | null }) {
     const previous = tasks.value.find((item) => item.id === id)
     if (!previous) return
