@@ -2,7 +2,7 @@
 /**
  * 前台布局（2026-10-16 改版）：**左侧边栏 + 主内容区**（原「极简顶栏 + 通栏内容」）。
  * 侧栏 = 品牌（logo + To_Done）、主导航（任务 / 回收站 / 个人中心）、底部设置区；
- * 主内容区上限 1280px 居中 —— 超宽屏上列表不再被拉成超长横条（原 A② 待办，本次一并落地）。
+ * 主内容区上限 1720px 居中（2026-10-17 从 1280 放宽）—— 防「单行太长」靠行内布局，不靠这层硬卡。
  * 原来顶栏的账号下拉收进侧栏底部：身份一行（点进个人中心）+ 主题开关 + 退出登录。
  */
 import { computed, onMounted } from 'vue'
@@ -13,20 +13,35 @@ import AppSidebar from '@/components/AppSidebar.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import type { IconName } from '@/components/icons'
 import { useAuthStore } from '@/stores/auth'
+import { useTodoStore } from '@/stores/todo'
 
 const auth = useAuthStore()
+const todo = useTodoStore()
 const router = useRouter()
 
-const navItems: { to: string; label: string; icon: IconName }[] = [
-  { to: '/tasks', label: '任务', icon: 'inbox' },
+/**
+ * 导航项：「任务」带一个未完成条数徽标（2026-10-26）。
+ * 数字取自 store 的 `stats`（与统计卡同一份，任务一改就跟着变）；
+ * 没有数据时是 `undefined`，AppSidebar 那边不渲染空胶囊。
+ */
+const navItems = computed<{ to: string; label: string; icon: IconName; badge?: number }[]>(() => [
+  { to: '/tasks', label: '任务', icon: 'inbox', badge: todo.stats?.todo },
   { to: '/trash', label: '回收站', icon: 'trash' },
   { to: '/profile', label: '个人中心', icon: 'user' },
-]
+])
 
 const displayName = computed(() => auth.user?.name ?? '我的账号')
 const avatarText = computed(() => (auth.user?.name ?? '我').slice(0, 1))
 
 onMounted(async () => {
+  // 侧栏徽标要有数：进站时取一次统计（之后随任务操作自动刷新，见 stores/todo 的 refresh）
+  if (!todo.stats) {
+    try {
+      await todo.fetchStats()
+    } catch {
+      // 取不到就不显示徽标，失败提示由 http 层统一给出
+    }
+  }
   if (!auth.isLoggedIn || auth.user) return
   try {
     await auth.fetchProfile()

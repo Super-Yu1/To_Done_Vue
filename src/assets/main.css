@@ -156,8 +156,14 @@
   --content-width: clamp(880px, 94vw, 1920px);
   /* 左侧边栏宽度（前台骨架用的就是它，见下方 .app-layout）；2026-10-17 按反馈从 224 加宽到 272 */
   --sidebar-width: 272px;
-  /* 悬浮侧栏离视口边缘的距离（2026-10-26）：侧栏改成浮起来的一块玻璃后，内容要跟着让出两倍间距 */
-  --sidebar-offset: 16px;
+  /*
+   * 外壳留白（2026-10-26）：横竖分开给 ——
+   * `--sidebar-offset` 是**左右**留白，同时也是两栏之间的间隙（浮岛左边缘与内容左边缘靠它对齐）；
+   * `--app-gutter-y` 是**上下**留白，比左右更大一档，页面才不会显得顶天立地。
+   * 两栏的顶边都从 `--app-gutter-y` 起，所以调这个数不会破坏左右对齐。
+   */
+  --sidebar-offset: 24px;
+  --app-gutter-y: 40px;
   color-scheme: light;
 }
 
@@ -541,24 +547,79 @@ img {
  * 不靠这一层硬卡宽度。
  * 后台 AdminLayout 有自己的骨架，不共用这一套。
  */
+/*
+ * 前台外壳（2026-10-26 重做）：**四周统一留白 + 两栏各自内部滚动**。
+ * 之前是「侧栏 position: fixed 贴边上、内容区靠 padding-left 让位」，两侧都紧贴浏览器边缘；
+ * 现在改成真正的应用骨架：
+ *   · 外层是 `height: 100vh` 的 flex 行，四周 padding 就是 `--sidebar-offset`（24px）；
+ *   · 侧栏与内容区都是 flex 子项、高度撑满（= 100vh − 48px，不用写死 calc），
+ *     内容超长时**各自内部滚动**（`overflow-y: auto`），整页不再滚；
+ *   · 两栏顶边都从外壳的 padding-top 起 —— 天然对齐，不需要再单独补 padding-top。
+ */
 .app-layout {
-  min-height: 100vh;
-  /* 侧栏是悬浮面板：左边让出「偏移 + 面板宽 + 间隙」，内容不会钻到玻璃底下 */
-  padding-left: calc(var(--sidebar-width) + var(--sidebar-offset) * 2);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sidebar-offset);
+  height: 100vh;
+  /* 上下 40 / 左右 24：纵向更透气，横向继续与浮岛共享同一条边线 */
+  padding: var(--app-gutter-y) var(--sidebar-offset);
+  overflow: hidden;
   /* 画布透明（2026-10-26）：底色交给 html 的弥散渐变，玻璃卡片才接得住那层光 */
   background-color: transparent;
 }
 
+/*
+ * 内容区：自己滚，`min-width: 0` 防止长内容把 flex 项撑破；
+ * 上限仍 1720px 并居中（超宽屏上列表不会变成一条超长横条）。
+ */
 .app-layout__main {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
   max-width: 1720px;
   margin: 0 auto;
+  overflow-y: auto;
+  /* 滚动时上下留一条与卡片同色的呼吸位，内容不会顶到切边 */
+  overscroll-behavior: contain;
+  /*
+   * 滚动条隐藏、滚动能力保留（与根滚动条同一套做法）：
+   * 玻璃卡片上压一根系统灰滚动条很难看，而且占位会随内容长短变、让内容宽度抖动。
+   * 鼠标滚轮 / 触控板 / 键盘（PageUp·Down、Home·End）照旧能滚。
+   */
+  scrollbar-width: none;
 }
 
-/* 窄屏：侧栏收回成顶部横条，主内容不再让位 */
+.app-layout__main::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* 内容区第一块（页面头 / 统计卡）自己不加顶部留白：它的上边缘就是外壳的 padding-top，与浮岛顶边严格相等 */
+.app-layout__main .page {
+  padding-top: 0;
+}
+
+/*
+ * 窄屏：侧栏收回成一条横条，整页回到正常的文档流滚动
+ * （手机上没有「两栏各自滚动」这回事，内滚动反而更难用）。
+ */
 @media (max-width: 1024px) {
   .app-layout {
-    padding-left: 0;
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    padding: var(--app-gutter-y) var(--sidebar-offset);
+    overflow: visible;
+  }
+
+  .app-layout__main {
+    height: auto;
+    max-width: none;
+    overflow-y: visible;
+  }
+
+  .app-layout__main .page {
+    padding-top: 0;
   }
 }
 

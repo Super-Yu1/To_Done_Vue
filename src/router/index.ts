@@ -136,7 +136,14 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior: () => ({ top: 0 }),
+  /**
+   * 切页归零。桌面骨架改成了「整页不滚、内容区自己滚」（`.app-layout__main` 上 overflow-y: auto），
+   * 光返回 `{ top: 0 }` 只滚窗口，内层容器会停在上一页的位置 —— 这里顺手把它也归零。
+   */
+  scrollBehavior: () => {
+    document.querySelector<HTMLElement>('.app-layout__main')?.scrollTo({ top: 0 })
+    return { top: 0 }
+  },
 })
 
 router.beforeEach((to) => {

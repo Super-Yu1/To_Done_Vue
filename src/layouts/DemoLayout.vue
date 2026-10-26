@@ -4,17 +4,31 @@
  * 差别只在品牌旁多一个「演示模式」徽章、底部设置区给的是主题开关 + 注册 / 登录按钮。
  * 不给后台入口 —— 后台不参与演示模式（见 8.6）。
  */
+import { computed } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import AppSidebar from '@/components/AppSidebar.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import type { IconName } from '@/components/icons'
+import { demoTasks } from '@/mock/demoState'
 
-/** 「任务」用 exact：/demo 是另外两个入口的前缀，否则它在任何演示页都会高亮 */
-const navItems: { to: string; label: string; icon: IconName; exact?: boolean }[] = [
-  { to: '/demo', label: '任务', icon: 'inbox', exact: true },
-  { to: '/demo/trash', label: '回收站', icon: 'trash' },
-  { to: '/demo/profile', label: '个人中心', icon: 'user' },
-]
+/**
+ * 「任务」用 exact：/demo 是另外两个入口的前缀，否则它在任何演示页都会高亮。
+ * 徽标取演示数据里未完成的条数（`demoTasks` 是模块级共享内存态，与演示页是同一份，
+ * 在页面上勾掉一条，这里的数字会立刻跟着变）。
+ */
+const navItems = computed<{ to: string; label: string; icon: IconName; exact?: boolean; badge?: number }[]>(
+  () => [
+    {
+      to: '/demo',
+      label: '任务',
+      icon: 'inbox',
+      exact: true,
+      badge: demoTasks.value.filter((task) => task.status !== 'DONE').length,
+    },
+    { to: '/demo/trash', label: '回收站', icon: 'trash' },
+    { to: '/demo/profile', label: '个人中心', icon: 'user' },
+  ],
+)
 </script>
 
 <template>

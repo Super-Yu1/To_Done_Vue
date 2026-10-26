@@ -16,7 +16,8 @@ import type { IconName } from './icons'
 import AppIcon from './AppIcon.vue'
 
 const props = defineProps<{
-  items: { to: string; label: string; icon: IconName; exact?: boolean }[]
+  /** 主导航项；`badge` 给数字徽标（如「任务」的未完成条数），没有就不渲染 */
+  items: { to: string; label: string; icon: IconName; exact?: boolean; badge?: number }[]
   brandTo: string
   /** 品牌后面的小徽章（演示模式） */
   brandSuffix?: string
@@ -139,8 +140,10 @@ onUnmounted(() => {
         :class="{ 'sidebar__link--exact': item.exact }"
         :to="item.to"
       >
-        <AppIcon :name="item.icon" :size="16" />
-        {{ item.label }}
+        <AppIcon class="sidebar__link-icon" :name="item.icon" :size="20" />
+        <span class="sidebar__link-text">{{ item.label }}</span>
+        <!-- 数字徽标：0 与「没有数据」都不渲染，避免挂一个空胶囊 -->
+        <span v-if="item.badge" class="sidebar__count" aria-hidden="true">{{ item.badge }}</span>
       </RouterLink>
     </nav>
 
@@ -152,25 +155,32 @@ onUnmounted(() => {
 
 <style scoped>
 /*
- * 悬浮的液态玻璃面板（2026-10-26）：
- * 不再贴着视口左边与上下沿，而是四周各让 16px 浮起来 ——
- * 半透明白 + 24px 模糊 + 24px 大圆角 + 一线白边 + 一层几乎看不见的落影。
+ * 悬浮的液态玻璃面板（2026-10-26）：半透明白 + 24px 模糊 + 24px 大圆角 + 一线白边 + 一层淡落影。
+ * 它是外壳的 **flex 子项**（不再是 `position: fixed` 贴边）：四周留白由外壳的 padding 给，
+ * 高度用 `align-self: stretch` 撑满外壳内容高（= 100vh − 2×24px，不用写死 calc），
+ * 内容多了自己内部滚动，不带动整页。
  */
 .sidebar {
-  position: fixed;
-  top: var(--sidebar-offset);
-  left: var(--sidebar-offset);
-  bottom: var(--sidebar-offset);
-  z-index: 20;
+  position: relative;
+  align-self: stretch;
+  flex: none;
   display: flex;
   flex-direction: column;
   width: var(--sidebar-width);
+  overflow-y: auto;
+  /* 内容过多时能滚，但别在玻璃面板上压一根系统灰滚动条（与内容区同一套做法） */
+  scrollbar-width: none;
   padding: 20px 14px 16px;
   border: 1px solid var(--glass-panel-border);
   border-radius: 24px;
   background-color: var(--glass-panel-bg);
   backdrop-filter: var(--glass-panel-blur);
   box-shadow: var(--glass-panel-shadow);
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .sidebar__top {
@@ -192,8 +202,9 @@ onUnmounted(() => {
   height: 26px;
 }
 
+/* 品牌要压得住下面的导航：导航 16px，这里 17px / 600 */
 .sidebar__name {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.2px;
 }
@@ -207,11 +218,12 @@ onUnmounted(() => {
   color: var(--color-text-2);
 }
 
+/* space-y-2（8px）：三项之间留出呼吸，不像一排列表项那样挤成一条 */
 .sidebar__nav {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 8px;
 }
 
 /*
@@ -236,17 +248,48 @@ onUnmounted(() => {
     opacity var(--dur-base) var(--ease);
 }
 
+/*
+ * 主导航项（2026-10-26 放大）：字号 16px（text-base）、图标 20px（w-5）、
+ * 图标与文字 12px（gap-3）、上下 12px（py-3）—— 左侧不再显得空，点击区域也更从容。
+ */
 .sidebar__link {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 12px;
   border-radius: var(--radius-md);
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text-2);
   transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+.sidebar__link-icon {
+  flex: none;
+}
+
+.sidebar__link-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 数字徽标：贴在链接右端，品牌色的极淡底 + 品牌色字；表格式数字不抖动 */
+.sidebar__count {
+  flex: none;
+  min-width: 22px;
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--color-brand) 14%, transparent);
+  color: var(--color-brand);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  text-align: center;
 }
 
 /* 未选中项的悬停底：品牌色的极淡一层，不抢浮块的「已选中」视觉 */
@@ -271,26 +314,31 @@ onUnmounted(() => {
   background-color: transparent;
 }
 
-/* 底部设置区：贴底、与导航用一条发丝线隔开 */
+/*
+ * 底部设置区：`margin-top: auto` 把它压到最底，与上面的导航之间用一条发丝分割线分开
+ * （2026-10-26 明确成「一条线」而不是靠留白）—— 导航三项与「主题 / 退出」是两种东西，不该连成一片。
+ */
 .sidebar__settings {
   display: grid;
   gap: 8px;
   margin-top: auto;
-  padding-top: 14px;
+  padding-top: 16px;
   border-top: 1px solid var(--color-border);
 }
 
 /* 窄屏：整条收回成顶部横条（品牌左、导航中、设置右） */
 @media (max-width: 1024px) {
-  /* 窄屏：同一条玻璃只横过来，四周留出同样的 16px 悬浮间隙 */
+  /* 窄屏：同一条玻璃横过来；四周留白交给外壳，这里只补与下方内容的间距 */
   .sidebar {
     position: static;
+    align-self: auto;
     flex-direction: row;
     align-items: center;
     gap: 14px;
     width: auto;
     height: auto;
-    margin: var(--sidebar-offset);
+    margin: 0 0 var(--sidebar-offset);
+    overflow: visible;
     padding: 10px clamp(16px, 2.5vw, 40px);
     border-radius: 20px;
   }
@@ -301,7 +349,7 @@ onUnmounted(() => {
 
   .sidebar__nav {
     flex-direction: row;
-    gap: 4px;
+    gap: 6px;
   }
 
   /* 横排没有「上下滑动」这回事：浮块隐藏，选中项回到链接自身白底 */
@@ -309,8 +357,20 @@ onUnmounted(() => {
     display: none;
   }
 
+  /* 横条里收一档：字号 15px、图标 18px、内边距 8×10，避免一行塞不下 */
   .sidebar__link {
-    padding: 7px 10px;
+    gap: 9px;
+    padding: 8px 10px;
+    font-size: 15px;
+  }
+
+  .sidebar__link-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .sidebar__name {
+    font-size: 16px;
   }
 
   .sidebar__link.router-link-active:not(.sidebar__link--exact),

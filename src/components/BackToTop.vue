@@ -13,21 +13,43 @@ const SHOW_AFTER = 400
 
 const visible = ref(false)
 
+/**
+ * 滚的是谁：桌面骨架里滚的是内容区自己（`.app-layout__main`，外壳 `overflow: hidden`、
+ * 整页不滚），窄屏折行后才滚窗口 —— 这里取「真的能滚的那个」，两种骨架都成立。
+ */
+function activeScroller(): HTMLElement | null {
+  const el = document.querySelector<HTMLElement>('.app-layout__main')
+  return el && el.scrollHeight > el.clientHeight + 1 ? el : null
+}
+
+function currentTop(): number {
+  const el = activeScroller()
+  return el ? el.scrollTop : window.scrollY
+}
+
 function onScroll() {
-  visible.value = window.scrollY > SHOW_AFTER
+  visible.value = currentTop() > SHOW_AFTER
 }
 
 function scrollToTop() {
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' })
+  const behavior: ScrollBehavior = reduced ? 'auto' : 'smooth'
+  const el = activeScroller()
+  if (el) el.scrollTo({ top: 0, behavior })
+  else window.scrollTo({ top: 0, behavior })
 }
 
 onMounted(() => {
   onScroll() // 带着滚动位置进这个页面时，先对齐一次状态
+  // scroll 不冒泡，但**捕获阶段**能从任意后代收到 —— 内滚动容器与窗口一次覆盖
+  document.addEventListener('scroll', onScroll, { passive: true, capture: true })
   window.addEventListener('scroll', onScroll, { passive: true })
 })
 
-onUnmounted(() => window.removeEventListener('scroll', onScroll))
+onUnmounted(() => {
+  document.removeEventListener('scroll', onScroll, { capture: true })
+  window.removeEventListener('scroll', onScroll)
+})
 </script>
 
 <template>
