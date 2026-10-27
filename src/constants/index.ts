@@ -33,9 +33,51 @@ export const AVATAR_OUTPUT_SIZE = 512
 export const EMAIL_CODE_LENGTH = 6
 export const EMAIL_CODE_RESEND_SECONDS = 60
 
+/**
+ * 登录图形码的触发规则（2026-10-28 需求变更）：同一邮箱**连续输错 2 次密码**，
+ * 从第 3 次尝试起才要求图形码；登录成功即清零。
+ *
+ * 计数只存本地（`utils/loginAttempts`，按邮箱分开），因为前端要**提前**决定这次点「登录」
+ * 是直接提交还是先弹窗；真正的判定在后端 —— 两边窗口都是 30 分钟（见 `docs/后端修改说明.md`）。
+ */
+export const LOGIN_FAILURE_KEY = 'todone_login_failures'
+export const LOGIN_CAPTCHA_AFTER_FAILURES = 2
+export const LOGIN_FAILURE_TTL_MS = 30 * 60 * 1000
+
 /** 密码规则（6.5 ③）：最短 8 位，且必须同时包含字母与数字 */
 export const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
 export const PASSWORD_HINT = '至少 8 位，且同时包含字母与数字'
+
+/**
+ * 登录页的欢迎语（2026-10-27，文案由用户定稿）：进页面随机取一条，每次进来换一句。
+ * 原来是「用邮箱登录」—— 只是把标题又重复了一遍；换成有人味儿的一句话。
+ * 最长一条 23 字，13px 字号在 496px 的卡片里一行放得下（1024 档内宽 ~415 也不折行）。
+ */
+export const LOGIN_WELCOME_LINES = [
+  '脑子清空了，心就静了。',
+  '把烦恼留在回收站，把行动写在今天。',
+  '准备好迎接新的一天了吗？慢慢来，比较快。',
+  '今天的主线任务是什么？写下来，剩下的交给时间。',
+  '每划掉一笔，都在给生活做减法。',
+  '这里只属于你，安心写下待办。',
+  '清单上的事，做完一件少一件！',
+  '把时间花在真正重要的事情上。',
+  '把小事做完，日子就轻了。',
+  '专注一点，进度就快一点。',
+  '保持节奏，高效行动！',
+  '新的一天，从划掉第一件开始！',
+  '好久不见，你的清单已经准备好了。',
+  '万事开头难，写完这件就赚了。',
+  '少一点待办，多一点生活。',
+  '把今天安排好，剩下的时间留给生活。',
+  '不必完美，先写下来再说。',
+  '做不完也没关系，重要的是已经在路上。',
+] as const
+
+/** 随机取一条欢迎语（`as const` 的元组下标 0 一定存在，兜底只为满足 noUncheckedIndexedAccess） */
+export function pickLoginWelcome(): string {
+  return LOGIN_WELCOME_LINES[Math.floor(Math.random() * LOGIN_WELCOME_LINES.length)] ?? LOGIN_WELCOME_LINES[0]
+}
 
 export interface Option<T> {
   value: T

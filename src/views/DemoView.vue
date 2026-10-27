@@ -332,41 +332,37 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </el-button>
       </template>
 
-      <!-- 第二行中间：演示环境提示（红色感叹号 + 浅红底，提醒「刷新会重置」），登录出口就长在这条提示里 -->
-      <template #tabs-center>
-        <p
-          class="demo-hint"
-          title="当前为演示环境 —— 新建、修改只存在内存里，刷新页面就会重置。"
-        >
-          <AppIcon class="demo-hint__icon" name="alert" :size="13" />
-          <span class="demo-hint__text">
-            当前为演示环境 —— 新建、修改只存在内存里，刷新页面就会重置。
-          </span>
-          <!-- 提示只讲「不会保存」，右端这句才是把数据留下来的路 -->
-          <RouterLink class="demo-hint__login" to="/login">去登录</RouterLink>
-        </p>
-      </template>
-
-      <!-- 批量操作条并到第二行右侧（选择模式才出现） -->
+      <!-- 批量操作条落在工具栏右端（选择模式才出现），进出场由 Transition 负责 -->
       <template #tabs-actions>
         <Transition name="batch-slide">
           <BatchActionBar
-          v-if="selectMode"
-          :selected-count="selectedIds.length"
-          :total-count="visibleTasks.length"
-          :all-selected="allSelected"
-          :busy="batchBusy"
-          :status="query.status"
-          :only-unfinished="Boolean(query.onlyUnfinished)"
-          @complete="handleBatchStatus('DONE')"
-          @uncomplete="handleBatchStatus('TODO')"
-          @remove="handleBatchRemove"
-          @change-priority="handleBatchPriority"
-          @toggle-all="toggleAll"
+            v-if="selectMode"
+            :selected-count="selectedIds.length"
+            :total-count="visibleTasks.length"
+            :all-selected="allSelected"
+            :busy="batchBusy"
+            :status="query.status"
+            :only-unfinished="Boolean(query.onlyUnfinished)"
+            @complete="handleBatchStatus('DONE')"
+            @uncomplete="handleBatchStatus('TODO')"
+            @remove="handleBatchRemove"
+            @change-priority="handleBatchPriority"
+            @toggle-all="toggleAll"
           />
         </Transition>
       </template>
     </FilterBar>
+
+    <!--
+      演示环境提示（2026-10-27 三改）：从工具栏里搬出来，收成一条细玻璃条贴在列表上方 ——
+      工具栏只放控件；这条只讲「不会保存」，右端直接长着「去登录」。
+    -->
+    <p class="demo-banner" role="note">
+      <AppIcon class="demo-banner__icon" name="alert" :size="14" />
+      <span class="demo-banner__label">演示环境</span>
+      <span class="demo-banner__text">改动只存在内存里，刷新页面就会还原</span>
+      <RouterLink class="demo-banner__login" to="/login">去登录</RouterLink>
+    </p>
 
     <!-- 列表外面这层只管两件事：给气泡引导当定位参照、给彩蛋粒子当活动范围 -->
     <div class="demo-list">
@@ -417,12 +413,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
-/* 页面内的纵向节奏（2026-10-18）：与真实任务页一致，统一 24px */
+/* 页面内的纵向节奏（2026-10-27 三改）：收到 18px —— 概览、工具栏、列表读成一叠，而不是三块孤岛 */
 .page {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
 }
 
 .demo-list {
@@ -430,32 +426,32 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 
 /*
- * 气泡引导：深底浅字的小气泡，指向第一行的勾选圈（左侧那个小三角是它的「嘴」）。
+ * 气泡引导（2026-10-27 三改）：从「压在第一行标题上」改成**列表上方的一条提示**。
+ * 悬浮气泡虽然指得准，但会盖住标题；这条只占一条自己高度，下沿的小三角指向勾选圈。
  * 用正文色当底、页面底色当字色，深浅主题都成立，不用新增色值。
  */
 .guide {
-  position: absolute;
-  top: 6px;
-  left: 52px;
-  z-index: 6;
-  display: flex;
+  position: relative;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px 6px 10px;
+  margin-bottom: 10px;
+  padding: 7px 8px 7px 12px;
   border-radius: var(--radius-md);
   background-color: var(--color-text);
   color: var(--color-bg);
   font-size: 12px;
   line-height: 1.5;
-  box-shadow: var(--shadow-dialog);
+  box-shadow: 0 8px 20px -12px rgb(0 0 0 / 35%);
   animation: guide-in var(--dur-base) var(--ease);
 }
 
-.guide::before {
+/* 小三角指向第一行的勾选圈（圈心在面板 x=40，三角落在 34–42 之间） */
+.guide::after {
   content: '';
   position: absolute;
-  left: -4px;
-  top: 15px;
+  left: 34px;
+  bottom: -4px;
   width: 8px;
   height: 8px;
   background-color: var(--color-text);
@@ -492,76 +488,80 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 
 /*
- * 演示环境提示条：红色感叹号 + 浅红胶囊底，提醒「刷新会重置」；
- * 右端直接长着「去登录」—— 同一条红底、同一个红字，不再另起一颗按钮。
+ * 演示环境提示（2026-10-27 三改）：一条 38px 的细玻璃条，琥珀色（提醒语义，不是危险语义）——
+ * 左边一枚感叹号 +「演示环境」，中间一句「刷新会还原」，右端直接长着「去登录」。
+ * 它贴在列表上方，看见列表的同时就看见这条，不会像横幅那样压住首屏。
  */
-.demo-hint {
-  display: inline-flex;
-  flex: 0 1 auto;
+.demo-banner {
+  display: flex;
   align-items: center;
-  gap: 7px;
-  min-width: 0;
-  max-width: 100%;
-  height: 30px;
-  /* 右端给登录留 6px 内边距（它自己还带 6px），和左端 12px 对齐视觉重量 */
-  padding: 0 6px 0 12px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-danger-bg);
-  color: var(--color-danger-text);
-  /* 比原来的 12px 大一档，和正文的 14px 对齐 */
-  font-size: 14px;
+  gap: 8px;
+  min-height: 38px;
+  padding: 6px 8px 6px 13px;
+  border: 1px solid color-mix(in srgb, #d98324 22%, transparent);
+  border-radius: 14px;
+  background-color: color-mix(in srgb, #d98324 9%, var(--glass-panel-bg));
+  backdrop-filter: var(--glass-card-blur);
+  color: #8a560d;
+  font-size: 12.5px;
   line-height: 1;
-  white-space: nowrap;
 }
 
-.demo-hint__icon {
+.demo-banner__icon {
   flex: none;
+  opacity: 0.85;
 }
 
-.demo-hint__text {
+.demo-banner__label {
+  flex: none;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.demo-banner__text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  color: color-mix(in srgb, currentColor 78%, transparent);
 }
 
-/*
- * 提示条里的登录出口：一条竖细线把它和「刷新会重置」分开，加粗区分于正文；
- * 悬停浮一层同色浅底，说明这句能按。窄屏时先省略提示语，它保持原宽不缩。
- */
-.demo-hint__login {
+/* 登录出口：一条竖细线隔开，悬停浮一层同色浅底，说明这句能按 */
+.demo-banner__login {
   display: inline-flex;
   flex: none;
   align-items: center;
-  /* 24px 是点按的最小舒服尺寸，30px 的长条里上下各留 3px */
-  height: 24px;
-  padding: 0 6px;
+  height: 26px;
+  margin-left: 2px;
+  padding: 0 9px;
   border-radius: var(--radius-pill);
   color: inherit;
   font-weight: 600;
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
-  text-underline-offset: 3px;
-  transition: background-color var(--dur-fast) var(--ease),
-    text-decoration-color var(--dur-fast) var(--ease);
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease);
 }
 
-.demo-hint__login::before {
+.demo-banner__login::before {
   content: '';
   width: 1px;
   height: 12px;
-  margin-right: 7px;
+  margin-right: 9px;
   background-color: currentColor;
-  opacity: 0.3;
+  opacity: 0.28;
 }
 
-.demo-hint__login:hover {
+.demo-banner__login:hover {
   background-color: color-mix(in srgb, currentColor 12%, transparent);
-  text-decoration-color: currentColor;
 }
 
-.demo-hint__login:focus-visible {
-  outline: 2px solid var(--color-danger);
+.demo-banner__login:focus-visible {
+  outline: 2px solid currentColor;
   outline-offset: 1px;
+}
+
+html.dark .demo-banner {
+  color: #f5c069;
+  border-color: color-mix(in srgb, #f5c069 24%, transparent);
+  background-color: color-mix(in srgb, #f5c069 10%, var(--glass-panel-bg));
 }
 </style>

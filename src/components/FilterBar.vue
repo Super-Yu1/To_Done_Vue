@@ -1,9 +1,11 @@
 <script setup lang="ts">
 /**
- * 筛选与动作（2026-10-18 按设计稿改为双行工具栏）：
- * ① 上方：灰色长搜索框（占满剩余宽度）+ 页面主操作（新建任务）；
- * ② 下方：左侧状态分段控件，右侧「排序 ▾」与「批量选择」文字按钮（选择模式下换成批量操作条 + 退出选择）。
- * 排序仍是「字段 + 方向」两件独立的事，只是收进同一个极简下拉面板里：
+ * 筛选与动作（2026-10-27 三改为一条工具栏）：
+ * 搜索井 → 状态分段控件 → 排序 / 批量选择 → 页面主操作，全在同一条玻璃条上。
+ * 原来「搜索 + 新建」和「页签 + 工具」分两行，是因为演示页中间要塞一条提示；
+ * 提示已经上移到页首，这里就收成一行 —— 首屏的纵向空间留给任务本身。
+ *
+ * 排序仍是「字段 + 方向」两件独立的事，只是收进同一个下拉面板里：
  * 字段决定按什么排，方向决定正序 / 倒序；空字段 = 不传参、沿用后端固定规则。
  * query 由调用方持有（真实页来自 todo store、演示页来自本地内存态），按 8.3 直接改它的字段。
  */
@@ -180,24 +182,20 @@ onUnmounted(() => {
 
 <template>
   <div class="filter-bar">
-    <!-- 第一行：搜索占满剩余宽度，右侧只留页面主操作（新建任务） -->
     <div class="filter-bar__row">
-      <el-input v-model="query.keyword" class="filter-bar__search" placeholder="搜索标题或描述" clearable>
+      <!-- 搜索：贴在最左，占满剩余宽度；它是一口「凹进去的井」，不是又一层白玻璃 -->
+      <el-input
+        v-model="query.keyword"
+        class="filter-bar__search"
+        placeholder="搜索标题或描述"
+        clearable
+      >
         <template #prefix>
           <AppIcon name="search" />
         </template>
       </el-input>
 
-      <div v-if="$slots.actions" class="filter-bar__actions">
-        <slot name="actions" />
-      </div>
-    </div>
-
-    <!-- 第二行：左状态切换；右侧排序、批量选择与批量操作条 -->
-    <div
-      class="filter-bar__row filter-bar__row--tabs"
-      :class="{ 'filter-bar__row--tabs-center': $slots['tabs-center'] }"
-    >
+      <!-- 状态分段控件 -->
       <div ref="tabsRef" class="filter-bar__tabs" role="tablist" aria-label="任务状态">
         <!-- 白色滑块：位置 / 宽高由 JS 量当前页签得出，切页签时滑过去 -->
         <span
@@ -222,195 +220,126 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <!-- 中间插槽：演示页把「演示环境」提示放在状态切换与右侧工具之间 -->
-      <div v-if="$slots['tabs-center']" class="filter-bar__center">
-        <slot name="tabs-center" />
-      </div>
-
       <div class="filter-bar__tools">
-        <div v-if="$slots['tabs-actions']" class="filter-bar__tabs-actions">
-          <slot name="tabs-actions" />
-        </div>
-
         <el-popover
-          v-if="!visualSelectMode"
-          v-model:visible="sortOpen"
-          trigger="click"
-          placement="bottom"
-          :width="176"
-          popper-class="todone-sort-pop"
-        >
-          <template #reference>
-            <button class="filter-bar__ghost" type="button" :aria-expanded="sortOpen">
-              排序
-              <span class="filter-bar__caret" aria-hidden="true">▾</span>
-            </button>
-          </template>
+        v-if="!visualSelectMode"
+        v-model:visible="sortOpen"
+        trigger="click"
+        placement="bottom"
+        :width="176"
+        popper-class="todone-sort-pop"
+      >
+        <template #reference>
+          <button class="filter-bar__ghost" type="button" :aria-expanded="sortOpen">
+            排序
+            <span class="filter-bar__caret" aria-hidden="true">▾</span>
+          </button>
+        </template>
 
-          <div class="sort-panel" role="menu" aria-label="排序方式">
-            <p class="sort-panel__title">排序方式</p>
+        <div class="sort-panel" role="menu" aria-label="排序方式">
+          <p class="sort-panel__title">排序方式</p>
+          <button
+            v-for="option in SORT_OPTIONS"
+            :key="option.value"
+            class="sort-panel__item"
+            :class="{ 'sort-panel__item--active': query.sortBy === option.value }"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="query.sortBy === option.value"
+            @click="pickSort(option.value)"
+          >
+            {{ option.label }}
+            <AppIcon v-if="query.sortBy === option.value" name="check" :size="14" />
+          </button>
+
+          <div class="sort-panel__divider" aria-hidden="true" />
+
+          <div class="sort-panel__dir" role="group" aria-label="排序方向">
             <button
-              v-for="option in SORT_OPTIONS"
-              :key="option.value"
-              class="sort-panel__item"
-              :class="{ 'sort-panel__item--active': query.sortBy === option.value }"
+              class="sort-panel__dir-btn"
+              :class="{ 'sort-panel__dir-btn--active': isAsc }"
               type="button"
-              role="menuitemradio"
-              :aria-checked="query.sortBy === option.value"
-              @click="pickSort(option.value)"
+              @click="setDirection('asc')"
             >
-              {{ option.label }}
-              <AppIcon v-if="query.sortBy === option.value" name="check" :size="14" />
+              正序 <span aria-hidden="true">↑</span>
             </button>
-
-            <div class="sort-panel__divider" aria-hidden="true" />
-
-            <div class="sort-panel__dir" role="group" aria-label="排序方向">
-              <button
-                class="sort-panel__dir-btn"
-                :class="{ 'sort-panel__dir-btn--active': isAsc }"
-                type="button"
-                @click="setDirection('asc')"
-              >
-                正序 <span aria-hidden="true">↑</span>
-              </button>
-              <button
-                class="sort-panel__dir-btn"
-                :class="{ 'sort-panel__dir-btn--active': !isAsc }"
-                type="button"
-                @click="setDirection('desc')"
-              >
-                倒序 <span aria-hidden="true">↓</span>
-              </button>
-            </div>
+            <button
+              class="sort-panel__dir-btn"
+              :class="{ 'sort-panel__dir-btn--active': !isAsc }"
+              type="button"
+              @click="setDirection('desc')"
+            >
+              倒序 <span aria-hidden="true">↓</span>
+            </button>
           </div>
-        </el-popover>
+        </div>
+      </el-popover>
 
         <button class="filter-bar__ghost" type="button" @click="emit('toggle-select')">
           {{ visualSelectMode ? '退出选择' : '批量选择' }}
         </button>
       </div>
+
+      <div v-if="$slots.actions" class="filter-bar__actions">
+        <slot name="actions" />
+      </div>
+    </div>
+
+    <!--
+      批量操作条（2026-10-27 三改）：从工具栏里独立出来占一行 ——
+      选择模式下它有一整条宽度可用，不会把搜索和主按钮挤到折行。
+    -->
+    <div v-if="$slots['tabs-actions']" class="filter-bar__tabs-actions">
+      <slot name="tabs-actions" />
     </div>
   </div>
 </template>
 
 <style scoped>
 /*
- * 筛选区整块收进一张玻璃卡（2026-10-26）：搜索框与状态切换落在这块微透明面板上，
- * 与统计栏、任务卡同一套填色 / 描边 / 模糊，页面上不再有「直接漂在渐变上」的控件。
+ * 工具栏（2026-10-27 三改）：一条玻璃横条，所有控件都站在同一基线上。
+ * 比顶部概览更薄、更轻（同一档填色，影只给到卡片级），
+ * 于是页面上出现「概览 → 工具 → 内容」三层高度，不再是一摞同重的白卡。
  */
 .filter-bar {
-  display: grid;
-  /* 单列显式写成 minmax(0, 1fr)：内容再宽也只在这条轨道里省略，不会把卡片撑出屏幕 */
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-  padding: 14px 16px 16px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-card);
-  background-color: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
+  /* 按容器宽度降级（与任务行的 @container 同一套思路）：窄侧栏 + 窄窗口时不看视口看这一条自己 */
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--glass-panel-border);
+  border-radius: 20px;
+  background-color: var(--glass-panel-bg);
+  backdrop-filter: var(--glass-panel-blur);
   box-shadow: var(--shadow-card);
 }
 
+/* 常驻的一行控件：搜索 / 分段 / 工具 / 主操作 */
 .filter-bar__row {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-}
-
-/* 默认（无中间插槽，如真实任务页）：tabs 靠左、工具靠右 */
-.filter-bar__row--tabs {
-  justify-content: space-between;
-  gap: 12px;
-}
-
-/*
- * 带中间插槽（演示页）才切成三列：左 tabs、中提示、右工具。
- * 左右各 1fr，提示列按内容宽度，整行中心与提示中心重合（2026-10-18）。
- */
-.filter-bar__row--tabs-center {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-}
-
-.filter-bar__tabs {
-  justify-self: start;
-}
-
-.filter-bar__tools {
-  justify-self: end;
-}
-
-/* 中间提示：在整行正中，窄屏回退到「剩余空间居中 + 省略」 */
-.filter-bar__center {
-  display: flex;
-  justify-content: center;
-  min-width: 0;
-  overflow: hidden;
+  gap: 10px 12px;
 }
 
 /*
- * 三列版要求整行放得下「状态切换 + 提示 + 工具」：再窄下去中间列会按内容顶宽，
- * 把状态切换挤成两行（提示右侧加了登录入口后更容易碰到）。
- * 所以提前回退到「剩余空间居中 + 省略」的两段式布局。
- */
-@media (max-width: 1400px) {
-  .filter-bar__row--tabs-center {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-  }
-
-  /*
-   * 剩余空间只给中间：工具列按内容宽度站住（基础样式里的 flex:1 会和提示平分，
-   * 提示就白缩了一大截；允许收缩又会让「排序 / 批量选择」自己折行）。
-   * 多带一层选择器压过基础样式，真的放不下时整行再换行。
-   */
-  .filter-bar__row--tabs-center .filter-bar__center {
-    flex: 1;
-  }
-
-  .filter-bar__row--tabs-center .filter-bar__tools {
-    flex: none;
-  }
-}
-
-/*
- * 再窄一档（≤760）：中间那条演示提示已经压到只剩「当…」，硬挤不如让它独占一行；
- * 状态切换与右侧工具留在第一行，提示整条落到第二行左对齐。
- */
-@media (max-width: 760px) {
-  .filter-bar__row--tabs-center .filter-bar__center {
-    order: 3;
-    flex: 1 1 100%;
-    justify-content: flex-start;
-  }
-
-  .filter-bar__row--tabs-center .filter-bar__tools {
-    order: 2;
-    margin-left: auto;
-  }
-}
-
-/*
- * 搜索框（2026-10-26）：胶囊形、半透明白 + 10px 模糊，去掉原来的灰底方框；
- * 聚焦时描边转苹果蓝，外面再罩一圈很淡的蓝光。
+ * 搜索井（2026-10-27）：胶囊形、凹进玻璃里 ——
+ * 底色比面板更深一档（墨色兑水）+ 一道内阴影，聚焦时整口井提亮成白色并套上苹果蓝环。
  */
 .filter-bar__search {
-  flex: 1;
-  min-width: 240px;
+  flex: 1 1 240px;
+  min-width: 160px;
 }
 
 .filter-bar__search :deep(.el-input__wrapper) {
-  height: 44px;
-  padding: 1px 18px;
+  height: 42px;
+  padding: 1px 16px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background-color: var(--color-field-bg);
   backdrop-filter: blur(10px);
-  box-shadow: inset 0 0 0 1px var(--color-field-border);
+  box-shadow: inset 0 0 0 1px var(--color-field-border), inset 0 1px 3px rgba(17, 24, 39, 0.06);
   transition: background-color var(--dur-fast) var(--ease), box-shadow var(--dur-base) var(--ease);
 }
 
@@ -423,7 +352,7 @@ onUnmounted(() => {
   box-shadow:
     inset 0 0 0 1.5px var(--color-accent),
     0 0 0 4px color-mix(in srgb, var(--color-accent) 14%, transparent),
-    0 0 16px color-mix(in srgb, var(--color-accent) 24%, transparent);
+    0 0 18px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 .filter-bar__search :deep(.el-input__prefix) {
@@ -440,54 +369,54 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
-/* 主操作区：按钮统一 44px 高 / 14px 圆角；「新建任务」的苹果蓝与按压反馈单独写在下面 */
+/* 主操作区：按钮 42px 高 / 13px 圆角，与搜索井同一条基线 */
 .filter-bar__actions {
   display: flex;
   flex: none;
   align-items: center;
   gap: 8px;
+  margin-left: 2px;
 }
 
 .filter-bar__actions :deep(.el-button) {
-  height: 44px;
+  height: 42px;
   margin-left: 0;
-  padding: 0 22px;
-  border-radius: 14px;
+  padding: 0 20px;
+  border-radius: var(--radius-control);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 550;
 }
 
 /*
- * 「新建任务」（2026-10-26）：苹果蓝实底、12px 圆角、带一层蓝色柔光投影；
- * 悬停提亮一档，按下缩到 0.96 —— 触感来自位移，不靠变色。
+ * 「新建任务」（2026-10-28 C 方案）：纯色填充 + 一层内高光，**不再带外发光** ——
+ * 页面深度交给面板，按钮只靠填充和描边表达层级；悬停提亮，按下缩到 0.96。
  */
 .filter-bar__actions :deep(.el-button--primary) {
   --el-button-bg-color: var(--color-accent);
-  --el-button-border-color: var(--color-accent);
+  --el-button-border-color: transparent;
   --el-button-text-color: #fff;
   --el-button-hover-bg-color: var(--color-accent-hover);
-  --el-button-hover-border-color: var(--color-accent-hover);
+  --el-button-hover-border-color: transparent;
   --el-button-hover-text-color: #fff;
   --el-button-active-bg-color: var(--color-accent-active);
-  --el-button-active-border-color: var(--color-accent-active);
-  border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(0, 122, 255, 0.4);
-  transition:
-    background-color var(--dur-fast) var(--ease),
-    box-shadow var(--dur-fast) var(--ease),
-    transform 120ms var(--ease);
+  --el-button-active-border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: background-color var(--dur-fast) var(--ease), transform 120ms var(--ease);
 }
 
 .filter-bar__actions :deep(.el-button--primary:hover) {
-  box-shadow: 0 6px 18px rgba(0, 122, 255, 0.46);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
 }
 
 .filter-bar__actions :deep(.el-button--primary:active) {
   transform: scale(0.96);
-  box-shadow: 0 3px 10px rgba(0, 122, 255, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
-/* 分段控件：浅灰容器 + 会在页签之间滑动的白色滑块（2026-10-27） */
+/*
+ * 分段控件（2026-10-27 按苹果口径）：轨道只是一层极淡的中性底，
+ * 真正的「选中」由滑块的白色 + 微影表达；深色主题换成浅灰半透（见 main.css 的 --seg-*）。
+ */
 .filter-bar__tabs {
   position: relative;
   display: flex;
@@ -496,7 +425,7 @@ onUnmounted(() => {
   gap: 2px;
   padding: 4px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-bg-soft);
+  background-color: var(--seg-track-bg);
 }
 
 /*
@@ -510,8 +439,8 @@ onUnmounted(() => {
   left: 0;
   z-index: 0;
   border-radius: var(--radius-pill);
-  background-color: var(--color-surface);
-  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.06);
+  background-color: var(--seg-thumb-bg);
+  box-shadow: var(--seg-thumb-shadow);
   pointer-events: none;
 }
 
@@ -527,7 +456,7 @@ onUnmounted(() => {
   position: relative;
   z-index: 1;
   height: 32px;
-  padding: 0 18px;
+  padding: 0 16px;
   border: none;
   border-radius: var(--radius-pill);
   background-color: transparent;
@@ -557,31 +486,37 @@ onUnmounted(() => {
 
 .filter-bar__tools {
   display: flex;
-  flex: 1;
+  flex: none;
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 2px;
+  margin-left: auto;
 }
 
 /*
  * 批量操作条从这里滑进滑出（2026-10-27）。
  * 用 grid 的单行做「占位」过渡：退出时把 `1fr` 收到 `0fr`，高度是**连续收**的 ——
- * 否则操作条滑走后整块空间瞬塌，下面的列表会突然上跳（看着就是闪一下）。
+ * 否则操作条滑走后整块空间瞬塌，工具栏会突然变矮（看着就是闪一下）。
  * overflow: hidden 顺便裁掉横向滑动探出的那一截。
  */
 .filter-bar__tabs-actions {
   display: grid;
   grid-template-rows: 1fr;
+  justify-items: end;
   align-items: center;
   gap: 8px;
-  margin-right: 6px;
   overflow: hidden;
   /* 先让操作条滑出去（0~110ms），这块空间再收（110~310ms），两者不互相「吃掉」 */
   transition: grid-template-rows 200ms cubic-bezier(0.4, 0, 0.2, 1) 110ms;
 }
 
-/* 文字按钮（排序 / 批量选择）：无框无底，悬停才浮一层浅灰 */
+/* 不在选择模式时插槽里没有节点：整行收掉，连 gap 都不占 */
+.filter-bar__tabs-actions:empty {
+  display: none;
+}
+
+/* 文字按钮（排序 / 批量选择）：无框无底，悬停才浮一层微光 */
 .filter-bar__ghost {
   display: inline-flex;
   flex: none;
@@ -590,19 +525,24 @@ onUnmounted(() => {
   height: 32px;
   padding: 0 10px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background-color: transparent;
   color: var(--color-text-2);
   font-size: 13px;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease),
+    transform 120ms var(--ease);
 }
 
 .filter-bar__ghost:hover {
   color: var(--color-text);
-  background-color: var(--color-bg-soft);
+  background-color: var(--control-hover);
+}
+
+.filter-bar__ghost:active {
+  transform: scale(0.97);
 }
 
 .filter-bar__ghost:focus-visible {
@@ -614,6 +554,26 @@ onUnmounted(() => {
   font-size: 10px;
   line-height: 1;
   color: var(--color-text-3);
+}
+
+/*
+ * 工具栏自己变窄（窄侧栏 + 约 1024 的窗口）：主操作收成一枚加号方钮。
+ * 文字让位而不是整行折行 —— 折行后按钮会孤零零落到第二行，比少一行字难看得多。
+ */
+@container (max-width: 760px) {
+  /* 搜索的 flex-basis 也要跟着收：换行是按 basis 算的，只缩按钮仍会挤到第二行 */
+  .filter-bar__search {
+    flex-basis: 150px;
+  }
+
+  .filter-bar__actions :deep(.btn-text) {
+    display: none;
+  }
+
+  .filter-bar__actions :deep(.el-button) {
+    width: 42px;
+    padding: 0;
+  }
 }
 
 /* ---------- 排序面板 ---------- */
@@ -699,7 +659,7 @@ onUnmounted(() => {
 /* 排序面板是 teleport 出去的气泡，外层壳的留白与描边只能写成全局样式 */
 .todone-sort-pop.el-popover {
   padding: 8px;
-  /* 玻璃面板（2026-10-26）：与全站浮层同一档填色与描边 */
+  /* 玻璃浮层：与全站浮层同一档填色与描边 */
   border: 1px solid var(--glass-border);
   background-color: var(--glass-bg-strong);
   backdrop-filter: var(--glass-blur);

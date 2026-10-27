@@ -19,6 +19,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { ElImageViewer, ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
+import AppTooltip from './AppTooltip.vue'
 import { TASK_MAX_IMAGES, UPLOAD_MAX_BYTES } from '@/constants'
 import { ImageRejectedError, assertUploadable, compressImage } from '@/utils/image'
 import type { TaskImage } from '@/types'
@@ -210,7 +211,7 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
           跟全站的圆角气泡完全不搭（2026-10-27 按反馈改）；`teleported` 默认开，
           所以在弹窗里也不会被裁掉。
         -->
-        <el-tooltip content="移除" placement="top" :show-after="250" :hide-after="0">
+        <AppTooltip content="移除" placement="top" :hide-after="0">
           <button
             class="images__remove"
             type="button"
@@ -220,7 +221,7 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
           >
             <AppIcon name="close" :size="12" />
           </button>
-        </el-tooltip>
+        </AppTooltip>
       </li>
     </ul>
 
@@ -374,17 +375,18 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
   width: 20px;
   height: 20px;
   padding: 0;
-  border: none;
+  /* 不投影（C 方案）：白片 + 一圈发丝墨边，压在照片上也能读出来 */
+  border: 1px solid rgba(17, 24, 39, 0.12);
   border-radius: var(--radius-pill);
   background-color: rgba(255, 255, 255, 0.94);
   color: var(--color-danger);
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
 
 .images__remove:hover:not(:disabled) {
+  border-color: transparent;
   background-color: var(--color-danger);
   color: #fff;
 }

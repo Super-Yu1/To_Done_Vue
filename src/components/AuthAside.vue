@@ -14,6 +14,7 @@
  */
 import { computed, onUnmounted, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
+import AppTooltip from './AppTooltip.vue'
 import ConfettiLayer from './ConfettiLayer.vue'
 import { TASK_PRIORITY_CLASS, TASK_PRIORITY_LABEL } from '@/constants'
 import { readStrikeMs, sleep } from '@/utils/timing'
@@ -35,7 +36,7 @@ const props = withDefaults(
     doneTip?: string
   }>(),
   {
-    sub: '写下 · 划掉 · 专注 · 清空',
+    sub: '记录 · 规划 · 执行 · 清空',
     tip: '点击圆圈试试，全部划掉有惊喜哦。',
     doneTip: '太棒了！你已经掌握了划掉任务的快乐。',
   },
@@ -94,11 +95,12 @@ const tipText = computed(() => {
  * 三条都必须是本产品真实成立的事：不写「云端同步」这类没有的能力，
  * 也不提「管理员」（用户可见的界面上不暴露后台的存在，2026-10-16 定）。
  * 采用「小圆环 + 勾」的图标而不是裸勾号 —— 勾号单独放着显得单薄。
+ * 句尾不加句号（2026-10-27 定）：三条并排时更像标签，加了句号反而显得在念报告。
  */
 const features = [
-  '免登录先逛：演示模式，即刻体验完整功能。',
-  '专属空间：你的清单与记录，仅你可见。',
-  '误删不怕：任务先入回收站，随时可以恢复。',
+  '免登录先逛：演示模式，即刻体验全部功能',
+  '专属空间：你的清单与记录，仅你可见',
+  '高效整理：支持多重划分，批量操作更省心',
 ]
 
 /* ---------- 彩蛋 ---------- */
@@ -174,13 +176,14 @@ async function togglePreview(task: PreviewTask) {
 
     <!--
       品牌组合：图标（44px，是顶栏那颗的两倍）+ 名字 + 副标语。
-      它属于「左栏内容」这一整块 —— 跟着内容一起垂直居中，与下方所有元素同一条左边缘。
+      它跟着内容一起垂直居中；左边缘**不与标题同线**，而是右移 25px 去对齐下面每一行的勾选圈
+      （logo 与勾选圈落在同一条垂直线上，见 `--aside-check-rail`）。
     -->
     <div class="aside__brand">
       <img class="aside__brand-logo" src="/logo.svg" alt="" width="44" height="44" />
       <div class="aside__brand-text">
         <p class="aside__brand-name">To_Done</p>
-        <p class="aside__brand-slogan">极简待办 · 保持专注</p>
+        <p class="aside__brand-slogan">极简待办 · 高效生活</p>
       </div>
     </div>
 
@@ -203,7 +206,7 @@ async function togglePreview(task: PreviewTask) {
         class="sample-row"
         :class="{ 'sample-row--done': item.done }"
       >
-        <el-tooltip
+        <AppTooltip
           :content="item.done ? '标记为未完成' : '标记为已完成'"
           placement="top"
         >
@@ -219,7 +222,7 @@ async function togglePreview(task: PreviewTask) {
               <AppIcon name="check" :size="13" />
             </span>
           </button>
-        </el-tooltip>
+        </AppTooltip>
         <span class="sample-row__title">{{ item.title }}</span>
         <span class="prio" :class="TASK_PRIORITY_CLASS[item.priority]">
           <span
@@ -261,16 +264,30 @@ async function togglePreview(task: PreviewTask) {
 .aside {
   position: relative;
   width: 100%;
+  /*
+   * 「勾选圈轨」的横向位置 = 行边框 1 + 行内边距 22 +（34 命中区 − 28 圆环）/ 2 = 26px。
+   * 行内边距若改了（现在是 22px，各断点只收纵向），这里要跟着改。
+   */
+  --aside-check-rail: 26px;
+  /*
+   * logo.svg 是 1024 的方形画布，里头那颗蓝圆直径 660.9（占画布 0.645），
+   * 44px 尺寸下四周各留 ~7.8px 透明边。眼睛认的是蓝圆而不是画布，
+   * 所以品牌块的内边距得把这段留白扣掉，蓝圆才和勾选圈真正落在同一条垂直线上。
+   */
+  --aside-brand-inset: 7.8px;
 }
 
 /*
  * 品牌组合：图标 44px（顶栏那颗的两倍）+ 名字 + 副标语一字排开。
  * 名字用正文色 + 700，是这一栏里除主张外最重的一块；副标语压到 12px 浅灰，只做层次不抢戏。
+ * 左内边距把品牌块推到「勾选圈轨」上，再扣掉 logo 画布自带的 7.8px 透明边 ——
+ * 落线的是 logo 里那颗蓝圆，不是 44px 的外框（`26 − 7.8 = 18.2px`）。
  */
 .aside__brand {
   display: flex;
   align-items: center;
   gap: 14px;
+  padding-left: calc(var(--aside-check-rail) - var(--aside-brand-inset));
 }
 
 .aside__brand-logo {

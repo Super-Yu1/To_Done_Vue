@@ -7,6 +7,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 
 const props = defineProps<{
   name: string
@@ -83,7 +84,7 @@ function handleChange(event: Event) {
 <template>
   <div class="identity-card">
     <div class="identity">
-      <el-tooltip :content="avatarUrl ? '查看头像大图' : '上传头像'" placement="top">
+      <AppTooltip :content="avatarUrl ? '查看头像大图' : '上传头像'" placement="top">
         <button
           class="identity__avatar"
           :class="{ 'identity__avatar--preview': avatarUrl }"
@@ -97,7 +98,7 @@ function handleChange(event: Event) {
             <AppIcon :name="avatarUrl ? 'zoom' : 'camera'" :size="18" />
           </span>
         </button>
-      </el-tooltip>
+      </AppTooltip>
 
       <div class="identity__info">
         <p class="identity__name">{{ name }}</p>

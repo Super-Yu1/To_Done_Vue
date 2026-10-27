@@ -389,13 +389,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <style scoped>
 /*
- * 页面内的纵向节奏（2026-10-18 设计稿）：24px。
- * 页头「任务」大标题已移除 —— 顶部第一屏就是四张统计卡（侧边栏已标明当前页），
- * 统计卡 → 工具栏 → 列表之间留出统一的呼吸位。
+ * 页面内的纵向节奏（2026-10-27 三改）：18px。
+ * 页头仍不设「任务」大标题 —— 概览卡里的那句「还有 N 件事没划掉」就是这一页的标题；
+ * 概览 → 工具栏 → 列表读成一叠，间距统一，节奏才像一块，而不是三张互不相干的卡。
  */
 .page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
 }
 </style>

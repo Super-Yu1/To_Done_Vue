@@ -542,7 +542,7 @@ async function handleSubmit() {
 
 .task-form__due :deep(.el-input__wrapper) {
   height: 36px;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background-color: var(--color-surface);
   box-shadow: none;
 }
@@ -593,7 +593,7 @@ async function handleSubmit() {
   height: 36px;
   padding: 0 18px;
   border: 1px solid var(--color-border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background-color: var(--color-surface);
   color: var(--color-text);
 }
@@ -607,7 +607,7 @@ async function handleSubmit() {
   height: 36px;
   padding: 0 22px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background-color: var(--color-primary-bg);
   color: var(--color-primary-fg);
 }

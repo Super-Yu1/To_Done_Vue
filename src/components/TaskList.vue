@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
- * 任务列表：一行一任务（2026-10-09 定单列，2026-10-15 行内改为信息左聚簇）。
- * 行距 8px 紧贴、行内留白 16×20，整列读起来是一条连续的圆角带，而不是一叠孤立的卡片。
- * 首屏骨架屏与真实行同半径、同列宽，避免加载完成后跳变；触底加载下一页；增删用 TransitionGroup 平滑让位。
- * 批量选择（F）由调用方给 selectMode / selectedIds，本组件只负责渲染与转发。
- * 列表尾部留一个 #footer 插槽：快速输入（H）挂在真实行与触底哨兵之间。
+ * 任务列表（2026-10-27 四改：回到「一行一卡」）：
+ * 每行是一块独立玻璃卡，卡与卡之间留 10px —— 一列卡各自浮在渐变上；
+ * 悬停上浮、勾选完成原地缩小淡出，仍是 TransitionGroup 负责（420ms）。
+ * 行骨架与真实卡同栅格（40px 前置位 / 正文 / 236px 元信息），加载完成不跳版。
+ * 尾部 #footer 插槽（快速录入）落在最后一张卡之后，自己也是一张卡。
  */
 import { onMounted, onUnmounted, ref } from 'vue'
 import TaskItem from './TaskItem.vue'
 import EmptyState from './EmptyState.vue'
+import ListMoreHint from './ListMoreHint.vue'
 import type { Task } from '@/types'
 
 withDefaults(
@@ -16,7 +17,7 @@ withDefaults(
     tasks: Task[]
     /** 首屏加载中：渲染骨架屏 */
     loading?: boolean
-    /** 触底加载中：渲染行内 loading，避免重复触发 */
+    /** 触底加载中：显示底部提示（与回收站共用 ListMoreHint；默认关闭，页面传 :loading-more 才启用） */
     loadingMore?: boolean
     /** 批量选择模式：前置位换方形多选框、行内快捷入口禁用 */
     selectMode?: boolean
@@ -71,7 +72,7 @@ onUnmounted(() => observer?.disconnect())
 
 <template>
   <div class="task-list">
-    <div v-if="loading" class="task-list__rows">
+    <div v-if="loading" class="task-list__skeletons" aria-busy="true">
       <div
         v-for="index in SKELETON_COUNT"
         :key="index"
@@ -86,13 +87,14 @@ onUnmounted(() => observer?.disconnect())
       </div>
     </div>
 
-    <EmptyState
-      v-else-if="tasks.length === 0"
-      :title="emptyTitle"
-      :description="emptyDescription"
-      :action-text="emptyActionText"
-      @action="emit('empty-action')"
-    />
+    <div v-else-if="tasks.length === 0" class="task-list__empty">
+      <EmptyState
+        :title="emptyTitle"
+        :description="emptyDescription"
+        :action-text="emptyActionText"
+        @action="emit('empty-action')"
+      />
+    </div>
 
     <TransitionGroup v-else name="row" tag="div" class="task-list__rows">
       <TaskItem
@@ -109,8 +111,9 @@ onUnmounted(() => observer?.disconnect())
       />
     </TransitionGroup>
 
-    <p v-if="loadingMore" class="task-list__more-loading">正在加载…</p>
     <slot v-if="!loading" name="footer" />
+
+    <ListMoreHint :loading="loadingMore" />
     <div ref="sentinel" class="task-list__sentinel" aria-hidden="true"></div>
   </div>
 </template>
@@ -118,37 +121,48 @@ onUnmounted(() => observer?.disconnect())
 <style scoped>
 .task-list {
   container-type: inline-size;
+  display: flex;
+  flex-direction: column;
 }
 
-.task-list__rows {
-  /* 给 leave 的绝对定位元素当参照：离开的行脱离文档流后，下方行立即补位 */
+/* 卡与卡之间 10px：一列卡各自成块，间距靠空气而不是分隔线 */
+.task-list__rows,
+.task-list__skeletons {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
-/* 骨架行的列宽与内边距跟真实行保持一致，避免加载完成后跳变（跟 .task-row 同步改） */
-.task-list__skeleton {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 236px;
-  align-items: center;
-  gap: 16px;
-  padding: 18px 20px;
-  /* 与真实行同一层玻璃（2026-10-26）：20px 圆角、0.8 白反光边、12px 模糊 */
+/* 空状态也住在一张卡里，与有任务时是同一张脸 */
+.task-list__empty {
   border: 1px solid var(--glass-card-border);
   border-radius: var(--radius-lg);
   background-color: var(--glass-card-bg);
   backdrop-filter: var(--glass-card-blur);
-  box-shadow: var(--shadow-card), var(--glass-card-sheen);
+  box-shadow: var(--shadow-card);
+}
+
+/* 骨架卡的列宽与内边距跟真实卡一致，避免加载完成后跳变（跟 .task-row 同步改） */
+.task-list__skeleton {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 236px;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 20px;
+  border: 1px solid var(--glass-card-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--glass-card-bg);
+  backdrop-filter: var(--glass-card-blur);
+  box-shadow: var(--shadow-card);
 }
 
 .task-list__skeleton-check {
-  width: 24px;
-  height: 24px;
-  margin: 0 8px;
+  width: 22px;
+  height: 22px;
+  margin: 0 9px;
   border-radius: 50%;
-  background-color: var(--color-hover);
+  background-color: color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 
 .task-list__skeleton-body {
@@ -160,7 +174,7 @@ onUnmounted(() => observer?.disconnect())
 .task-list__skeleton-line {
   height: 12px;
   border-radius: var(--radius-sm);
-  background-color: var(--color-hover);
+  background-color: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
 .task-list__skeleton-line--title {
@@ -168,17 +182,10 @@ onUnmounted(() => observer?.disconnect())
   height: 15px;
 }
 
-/* 与真实行的元信息行同高同位置（标题下方、左对齐、约占三分之一） */
+/* 与真实卡的元信息行同高同位置（标题下方、左对齐、约占三分之一） */
 .task-list__skeleton-line--meta {
   width: 32%;
   height: 16px;
-}
-
-.task-list__more-loading {
-  padding: 12px 0 4px;
-  font-size: 12px;
-  color: var(--color-text-2);
-  text-align: center;
 }
 
 .task-list__sentinel {
@@ -187,8 +194,8 @@ onUnmounted(() => observer?.disconnect())
 
 /*
  * 行进退场与让位：只动 transform 与 opacity（8.7 动效）。
- * 选择器带上 .task-list__rows：卡片的悬停过渡是 `transition: all`，同权重时会被它抢走，
- * 这几条得压过 .task-row，420ms 的补位节奏才不会被改成 300ms。
+ * 选择器带上 .task-list__rows：卡片自己也写了 transition（悬停四件套），
+ * 这几条得压过 .task-row，420ms 的补位节奏才不会被换成 300ms 的悬停曲线。
  */
 .task-list__rows .row-enter-active {
   transition: opacity var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
@@ -196,8 +203,8 @@ onUnmounted(() => observer?.disconnect())
 
 .task-list__rows .row-leave-active {
   /*
-   * 离开的行脱离文档流（位置仍取它原来的 static position）：
-   * 勾选完成的退场动画播完后行已透明，这里不让它继续占位，下方行马上平滑补上。
+   * 离开的卡脱离文档流（位置仍取它原来的 static position）：
+   * 勾选完成的退场动画播完后卡已透明，这里不让它继续占位，下方卡马上平滑补上。
    */
   position: absolute;
   width: 100%;

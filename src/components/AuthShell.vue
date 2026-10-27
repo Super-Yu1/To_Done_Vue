@@ -256,6 +256,15 @@ defineProps<{ title: string; subtitle?: string }>()
   margin-top: 24px;
 }
 
+/*
+ * 校验红字：Element Plus 默认 `left: 0`，贴着输入框左边缘、像顶着墙；
+ * 让到 12px（正好是输入框的内边距），红字与框里的正文同一个起点。
+ * 四个认证页（登录 / 注册 / 找回密码 / 后台登录）共用这一条，红字位置保持一致。
+ */
+.auth-shell :deep(.el-form-item__error) {
+  left: 12px;
+}
+
 /* ---------- 分栏版式的排版尺度 ---------- */
 
 /* 页面尺度大了，14px 的正文在大留白里会显得小；只作用在分栏分支，窄表单不受影响 */
@@ -422,6 +431,7 @@ defineProps<{ title: string; subtitle?: string }>()
     padding: 72px clamp(24px, 4vw, 56px) 80px;
   }
 }
+
 
 /* ---------- 折行 ---------- */
 

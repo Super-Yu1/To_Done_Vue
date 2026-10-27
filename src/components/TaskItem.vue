@@ -11,6 +11,7 @@
  */
 import { computed, onUnmounted, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
+import AppTooltip from './AppTooltip.vue'
 import { TASK_PRIORITY_LABEL } from '@/constants'
 import { formatDateTime, formatDueDay, isOverdue } from '@/utils/date'
 import type { Task } from '@/types'
@@ -110,7 +111,7 @@ function handleRowClick() {
       <AppIcon v-if="selected" name="check" :size="14" />
     </span>
 
-    <el-tooltip
+    <AppTooltip
       v-else
       :content="isDone || leaving ? '标记为未完成' : '标记为已完成'"
       placement="top"
@@ -126,13 +127,11 @@ function handleRowClick() {
           <AppIcon name="check" :size="14" />
         </span>
       </button>
-    </el-tooltip>
+    </AppTooltip>
 
     <div class="task-row__body">
-      <!-- 标题锁单行后可能被省略：用气泡兜住全文（2026-10-27 从原生 title 换成 EP 气泡，延迟稍长一点免得刷屏） -->
-      <el-tooltip :content="task.title" placement="top" :show-after="400">
-        <h3 class="task-row__title">{{ task.title }}</h3>
-      </el-tooltip>
+      <!-- 标题不再挂气泡（2026-10-28）：悬停整行会弹一条与正文重复的标题，噪声大于收益 -->
+      <h3 class="task-row__title">{{ task.title }}</h3>
       <!--
         描述是可选字段，但这一行**始终渲染**并占一行高度：
         否则没填描述的任务会矮一截，长列表里行的节奏忽高忽低。
@@ -166,7 +165,7 @@ function handleRowClick() {
 
       <div v-if="!selectMode" class="task-row__actions">
         <!-- 2026-10-27：铅笔去掉，点整行即编辑；这里只留删除 -->
-        <el-tooltip content="删除" placement="top">
+        <AppTooltip content="删除" placement="top">
           <button
             class="task-row__action task-row__action--danger"
             type="button"
@@ -175,7 +174,7 @@ function handleRowClick() {
           >
             <AppIcon name="trash" />
           </button>
-        </el-tooltip>
+        </AppTooltip>
       </div>
     </div>
   </article>
@@ -183,31 +182,43 @@ function handleRowClick() {
 
 <style scoped>
 /*
- * 任务卡是一层更薄的玻璃（2026-10-26）：20px 大圆角、0.8 白的反光边，
- * 卡内顶部再叠一条往下淡出的柔光（`--glass-card-sheen`），边缘才像被光擦过。
+ * 任务卡（2026-10-27 四改：回到「一行一卡」）：
+ * 每行是一块独立的玻璃（20px 圆角 + 26px 模糊 + 0.5 白 + 高光边），
+ * 悬停整体上浮 2px、影更深 —— 一列卡在渐变上各自浮着，层级靠「一张张卡」读，而不是分组里的发丝线。
+ * 行高仍是 73px（padding 15 / 20、前置位 40px 放 22px 勾选圈），换皮不换骨架。
  */
 .task-row {
+  position: relative;
   display: grid;
-  /* 前置位 40px（命中区）放 24px 圆形框；正文一列；右侧元信息 + 固定宽度的操作列 */
+  /* 前置位 40px（命中区）放 22px 圆形框；正文一列；右侧元信息 + 固定宽度的操作列 */
   grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
-  padding: 18px 20px;
+  gap: 14px;
+  padding: 15px 20px;
   border: 1px solid var(--glass-card-border);
   border-radius: var(--radius-lg);
   background-color: var(--glass-card-bg);
   backdrop-filter: var(--glass-card-blur);
-  box-shadow: var(--shadow-card), var(--glass-card-sheen);
+  box-shadow: var(--shadow-card);
   cursor: pointer;
-  /* 悬停三件事（底色 / 投影 / 位移）走同一条缓出曲线，卡片才像「被拿起来」而不是跳一下 */
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: background-color var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease),
+    box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
 }
 
-.task-row:hover,
+/* 悬停 = 上浮 2px + 影更深 + 高光边更亮：三件事一起动，卡才像被拿起来 */
+.task-row:hover {
+  border-color: var(--glass-card-border-hover);
+  background-color: var(--glass-card-bg-hover);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+/* 键盘焦点与悬停同一姿态，再套一圈苹果蓝，键盘用户才看得出当前在哪 */
 .task-row:focus-visible,
 .task-row:has(:focus-visible) {
-  background-color: var(--glass-card-bg-hover);
-  box-shadow: var(--shadow-card-hover), var(--glass-card-sheen);
+  outline: none;
+  border-color: var(--glass-card-border-hover);
+  box-shadow: var(--shadow-card-hover), 0 0 0 2px color-mix(in srgb, var(--color-accent) 45%, transparent);
   transform: translateY(-2px);
 }
 
@@ -235,15 +246,16 @@ function handleRowClick() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   /* 圆形复选框：细一圈浅灰描边，悬停才染上品牌色 */
-  border: 1.5px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--color-text) 20%, transparent);
   border-radius: 50%;
   background-color: transparent;
   color: transparent;
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
-    background-color var(--dur-fast) var(--ease), box-shadow var(--dur-base) var(--ease);
+    background-color var(--dur-fast) var(--ease), box-shadow var(--dur-base) var(--ease),
+    transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* 卡片悬停：勾选圈先透一层很淡的光，提示这一列是「点一下就完成」的入口 */
@@ -252,13 +264,14 @@ function handleRowClick() {
   box-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 16%, transparent);
 }
 
-/* 直接悬停勾选圈：品牌色描边 + 淡蓝底 + 一圈微光（外扩光环 + 柔光） */
+/* 直接悬停勾选圈：品牌色描边 + 淡蓝底 + 一圈微光，并轻轻放大（弹性曲线，像被指尖顶了一下） */
 .task-row__check:hover .task-row__check-box {
   border-color: var(--color-brand);
   background-color: var(--color-brand-soft);
   color: var(--color-brand);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brand) 10%, transparent),
     0 0 16px color-mix(in srgb, var(--color-brand) 34%, transparent);
+  transform: scale(1.08);
 }
 
 .task-row__check:active .task-row__check-box {
@@ -293,7 +306,7 @@ function handleRowClick() {
   min-width: 0;
 }
 
-/* 标题是这一行唯一的「重音」：16px / 600 */
+/* 标题是这一行唯一的「重音」：15px / 600 / 微收字距 */
 .task-row__title {
   /* 2026-10-26：标题也锁单行 —— 极窄窗口下换行会让行高从 84 变成 107，行高必须恒定才彻底平滑 */
   display: -webkit-box;
@@ -301,9 +314,10 @@ function handleRowClick() {
   line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.4;
+  letter-spacing: -0.008em;
   color: var(--color-text);
   word-break: break-word;
   /*
@@ -325,9 +339,9 @@ function handleRowClick() {
   -webkit-box-orient: vertical;
   overflow: hidden;
   /* 占位高度 = 一行正文：没填描述的任务也占着这一行，行高才一致 */
-  min-height: 21px;
-  margin-top: 3px;
-  font-size: 13px;
+  min-height: 20px;
+  margin-top: 2px;
+  font-size: 12.5px;
   line-height: 1.6;
   color: var(--color-text-2);
   word-break: break-word;
@@ -354,21 +368,31 @@ function handleRowClick() {
 }
 
 /*
- * 优先级胶囊（2026-10-26）：底色取同色 10% 透明，文字在档位色上再往正文色压一档，
- * 浅底上才够清楚；99px 圆角与复选框、徽章同一档，形状语言不另起一套。
+ * 优先级（2026-10-27 三改）：从「描边胶囊」收成**圆点 + 文字**的一小块浅底 ——
+ * 分组列表里每行都挂一枚描边胶囊，边太多、太吵；去掉描边后它退回「标记」这一层，
+ * 靠色相（红 / 橙 / 蓝灰）和一枚 4px 圆点区分三档。
  */
 .task-row__prio {
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 9px;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
   border: none;
   border-radius: 99px;
-  background-color: color-mix(in srgb, currentColor 10%, transparent);
-  font-size: 12px;
+  background-color: color-mix(in srgb, currentColor 11%, transparent);
+  font-size: 11.5px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
+}
+
+.task-row__prio::before {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: currentColor;
 }
 
 /* 2026-10-27：胶囊只用于展示，不再有可点手感（修改统一走编辑弹窗） */
@@ -398,7 +422,7 @@ function handleRowClick() {
   background-color: transparent;
   /* 日期比描述更轻：纯文本、浅灰，只靠时钟图标和字号压住重量 */
   color: var(--color-text-3);
-  font-size: 12px;
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   line-height: 1.6;
   white-space: nowrap;
@@ -473,7 +497,7 @@ function handleRowClick() {
   height: 29px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background-color: transparent;
   color: var(--color-text-3);
   cursor: pointer;
@@ -482,7 +506,7 @@ function handleRowClick() {
 
 .task-row__action:hover {
   color: var(--color-text);
-  background-color: var(--color-bg-soft);
+  background-color: var(--control-hover);
 }
 
 .task-row__action--danger:hover {
@@ -496,10 +520,13 @@ function handleRowClick() {
   background-size: 100% 1px;
 }
 
-.task-row--done .task-row__check-box {
-  border-color: var(--color-brand);
+.task-row--done .task-row__check-box,
+.task-row--leaving .task-row__check-box {
+  border-color: transparent;
   background-color: var(--color-brand);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 62%);
   color: var(--color-brand-fg);
+  box-shadow: 0 3px 9px -4px color-mix(in srgb, var(--color-brand) 75%, transparent);
 }
 
 .task-row--done .task-row__description,
@@ -525,12 +552,6 @@ function handleRowClick() {
 .task-row--leaving .task-row__description,
 .task-row--leaving .task-row__due {
   color: var(--color-text-3);
-}
-
-.task-row--leaving .task-row__check-box {
-  border-color: var(--color-brand);
-  background-color: var(--color-brand);
-  color: var(--color-brand-fg);
 }
 
 /* 窄容器：右侧元信息换到正文下方，左元信息、右操作 */

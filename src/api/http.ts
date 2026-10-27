@@ -99,11 +99,35 @@ http.interceptors.response.use(
 )
 
 /**
+ * 业务码窄化：请求层把 code 挂在 `Error.businessCode` 上（见上面拦截器），
+ * 调用方要区分失败类型时都走这几个函数，不用到处写 any。
+ */
+function businessCodeOf(error: unknown): number | undefined {
+  return (error as { businessCode?: number } | null)?.businessCode
+}
+
+/**
  * 图形验证码错误（4001）：那张码的机会用完了，可以原地再要一张，不必让用户从头填整张表单。
- * 请求层把业务码挂在 `Error.businessCode` 上，这里做一次窄化，调用方就不用到处写 any。
  */
 export function isCaptchaError(error: unknown): boolean {
-  return (error as { businessCode?: number } | null)?.businessCode === 4001
+  return businessCodeOf(error) === 4001
+}
+
+/**
+ * 邮箱或密码错（1003）：登录页拿它累加「连续错两次就要图形码」的次数。
+ * 冻结（1006）/ 注销（1007）不算 —— 那是账号状态问题，不是密码输错。
+ */
+export function isCredentialError(error: unknown): boolean {
+  return businessCodeOf(error) === 1003
+}
+
+/**
+ * 后端要求先过图形码（4008，2026-10-28 新增，见 `docs/后端修改说明.md`）：
+ * 本地计数没跟上时（换了浏览器 / 清了缓存 / 后端把计数窗口算得更久）用它把弹窗补上，
+ * 用户不至于卡在「点登录只报错、却看不到要输码」。
+ */
+export function isCaptchaRequiredError(error: unknown): boolean {
+  return businessCodeOf(error) === 4008
 }
 
 /** 业务侧拿到的直接是 data（8.4） */

@@ -96,4 +96,66 @@ const emit = defineEmits<{
   color: var(--color-text);
 }
 
+/*
+ * 批量按钮与工具栏同一条语言（2026-10-27 三改）：
+ * 30px 高、9px 圆角、半透明白底 —— 不再是 Element Plus 默认的小号灰框按钮。
+ */
+.batch-bar :deep(.el-button) {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius-control-sm);
+  font-size: 12.5px;
+  font-weight: 500;
+  --el-button-bg-color: rgba(255, 255, 255, 0.5);
+  --el-button-border-color: rgba(255, 255, 255, 0.7);
+  --el-button-text-color: var(--color-text);
+  --el-button-hover-bg-color: rgba(255, 255, 255, 0.82);
+  --el-button-hover-border-color: rgba(255, 255, 255, 0.95);
+  --el-button-hover-text-color: var(--color-text);
+  transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    transform 120ms var(--ease);
+}
+
+.batch-bar :deep(.el-button:active) {
+  transform: scale(0.97);
+}
+
+/* 「全选」是纯文字动作，不要白底 */
+.batch-bar :deep(.el-button.is-text) {
+  --el-button-bg-color: transparent;
+  --el-button-border-color: transparent;
+  --el-button-hover-bg-color: rgba(255, 255, 255, 0.55);
+}
+
+/* 删除：保留红色，但换成浅红玻璃，不抢其他按钮 */
+.batch-bar :deep(.el-button--danger.is-plain) {
+  --el-button-bg-color: color-mix(in srgb, var(--color-danger) 8%, transparent);
+  --el-button-border-color: color-mix(in srgb, var(--color-danger) 26%, transparent);
+  --el-button-text-color: var(--color-danger);
+  --el-button-hover-bg-color: color-mix(in srgb, var(--color-danger) 14%, transparent);
+  --el-button-hover-border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+  --el-button-hover-text-color: var(--color-danger);
+}
+
+.batch-bar :deep(.el-button.is-disabled),
+.batch-bar :deep(.el-button.is-disabled:hover) {
+  opacity: 0.45;
+}
+
+/* 深色：白玻璃换成 8% 白，文字回到白色，半透明白底在暗背景上会炸开 */
+html.dark .batch-bar :deep(.el-button) {
+  --el-button-bg-color: rgba(255, 255, 255, 0.08);
+  --el-button-border-color: rgba(255, 255, 255, 0.12);
+  --el-button-text-color: var(--color-text);
+  --el-button-hover-bg-color: rgba(255, 255, 255, 0.14);
+  --el-button-hover-border-color: rgba(255, 255, 255, 0.2);
+  --el-button-hover-text-color: var(--color-text);
+}
+
+html.dark .batch-bar :deep(.el-button.is-text) {
+  --el-button-bg-color: transparent;
+  --el-button-border-color: transparent;
+  --el-button-hover-bg-color: rgba(255, 255, 255, 0.1);
+}
+
 </style>

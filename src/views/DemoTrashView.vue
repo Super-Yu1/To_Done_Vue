@@ -3,10 +3,11 @@
  * 演示模式 · 回收站（8.6）：列表与本尊共用 TrashList，数据来自与任务页共享的内存态。
  * 恢复 / 彻底删除 / 清空都是真的生效，但只存在内存里，刷新即还原。
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import BackToTop from '@/components/BackToTop.vue'
 import TrashList from '@/components/TrashList.vue'
+import { PAGE_SIZE } from '@/constants'
 import { useDemoTrash } from '@/composables/useDemoTrash'
 import type { TrashTask } from '@/types'
 
@@ -15,10 +16,10 @@ const clearing = ref(false)
 
 const MEMORY_HINT = '（演示模式：仅内存，刷新还原）'
 
-/* ---------- 搜索（2026-10-18）：演示态在内存列表上过滤 ---------- */
+/* ---------- 搜索 + 分页（与真实页同一套：先在内存里过滤，再 20 条/页切片） ---------- */
 const keyword = ref('')
 
-const visibleTasks = computed(() => {
+const filteredTasks = computed(() => {
   const key = keyword.value.trim().toLowerCase()
   if (!key) return tasks.value
   return tasks.value.filter(
@@ -27,6 +28,21 @@ const visibleTasks = computed(() => {
       (task.description ?? '').toLowerCase().includes(key),
   )
 })
+
+/** 演示态没有网络，但分页口径与真实页一致：一次只放出 page × 20 条 */
+const page = ref(1)
+const visibleTasks = computed(() => filteredTasks.value.slice(0, page.value * PAGE_SIZE))
+const hasMore = computed(() => visibleTasks.value.length < filteredTasks.value.length)
+
+/** 换关键词 / 清空后回到第 1 页 */
+watch(keyword, () => {
+  page.value = 1
+})
+
+/** 触底：直接把下一页切出来（哨兵与真实页共用，在 TrashList 里） */
+function loadMore() {
+  if (hasMore.value) page.value += 1
+}
 
 /* ---------- 批量恢复（2026-10-18）---------- */
 
@@ -149,6 +165,7 @@ async function handleClear() {
     <TrashList
       v-model:keyword="keyword"
       :tasks="visibleTasks"
+      :total="total"
       :clearing="clearing"
       :clear-disabled="total === 0"
       :select-mode="selectMode"
@@ -163,6 +180,7 @@ async function handleClear() {
       @toggle-all="toggleAll"
       @batch-restore="handleBatchRestore"
       @batch-purge="handleBatchPurge"
+      @load-more="loadMore"
     />
 
     <BackToTop />

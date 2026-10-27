@@ -11,6 +11,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { InputInstance } from 'element-plus'
 import AppIcon from './AppIcon.vue'
+import AppTooltip from './AppTooltip.vue'
 import { getCaptcha } from '@/api/verify'
 import { createDemoCaptcha } from '@/mock/demoCaptcha'
 
@@ -97,7 +98,7 @@ defineExpose({ refresh, focus })
         @keydown.enter.prevent="handleEnter"
       />
 
-      <el-tooltip content="看不清？点击换一张" placement="top">
+      <AppTooltip content="看不清？点击换一张" placement="top">
         <button
           class="captcha-field__image"
           type="button"
@@ -111,7 +112,7 @@ defineExpose({ refresh, focus })
             <AppIcon name="refresh" :size="12" />
           </span>
         </button>
-      </el-tooltip>
+      </AppTooltip>
     </div>
 
     <p v-if="error" class="captcha-field__error" role="alert">{{ error }}</p>

@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /**
- * 回收站行（2026-10-18 与任务页骨架对齐）：
- * 最左侧是 40px 前置位 —— 普通模式放 24px 圆形垃圾桶按钮（点击 = 彻底删除），
- * 批量模式同位置换成圆形复选框；与任务页的 Checkbox 大小、位置完全一致。
+ * 回收站行（2026-10-27 五改：与任务卡同一套玻璃壳）：
+ * 最左侧仍是那枚 40px 前置位里的圆形「彻底删除」按钮（22px，与任务页勾选圈同尺寸同位置），
+ * 批量模式同位置换成圆形复选框。
  *
  * 右侧是「剩余 N 天 + 删除时间」，靠右对齐；时间右侧保留一个恢复图标按钮。
  * 彻底删除的二次确认在调用方（TrashView / DemoTrashView）里做。
  */
 import { computed } from 'vue'
 import AppIcon from './AppIcon.vue'
+import AppTooltip from './AppTooltip.vue'
 import { formatDueLabel } from '@/utils/date'
 import type { TrashTask } from '@/types'
 
@@ -47,7 +48,7 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
     @click="handleRowClick"
   >
     <!-- 前置位：普通模式是「彻底删除」圆形按钮；批量模式换成同尺寸复选框 -->
-    <el-tooltip v-if="!selectMode" content="彻底删除" placement="top">
+    <AppTooltip v-if="!selectMode" content="彻底删除" placement="top">
       <button
         class="trash-row__purge"
         type="button"
@@ -56,7 +57,7 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
       >
         <AppIcon name="trash" :size="13" />
       </button>
-    </el-tooltip>
+    </AppTooltip>
 
     <span
       v-else
@@ -91,7 +92,7 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
         </p>
       </div>
 
-      <el-tooltip v-if="!selectMode" content="恢复" placement="top">
+      <AppTooltip v-if="!selectMode" content="恢复" placement="top">
         <button
           class="trash-row__restore"
           type="button"
@@ -100,39 +101,41 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
         >
           <AppIcon name="restore" :size="15" />
         </button>
-      </el-tooltip>
+      </AppTooltip>
     </div>
   </article>
 </template>
 
 <style scoped>
-/* 与任务页同一套骨架：40px 前置位 + 正文 + 右侧元信息；无描边、16px 圆角 */
+/*
+ * 与任务卡同一套玻璃壳（2026-10-27 五改）：
+ * 20px 圆角 + 0.5 白 + 26px 模糊 + 高光边 + 卡片影；卡高 75px（padding 15/20），
+ * 栅格仍是 40px 前置位 + 正文 + 右侧 236px —— 与任务页逐项对齐。
+ */
 .trash-row {
+  position: relative;
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
-  padding: 18px 20px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-card);
-  background-color: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
+  gap: 14px;
+  padding: 15px 20px;
+  border: 1px solid var(--glass-card-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--glass-card-bg);
+  backdrop-filter: var(--glass-card-blur);
   box-shadow: var(--shadow-card);
-  transition: box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease),
-    background-color var(--dur-fast) var(--ease);
+  transition: background-color var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease),
+    box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
 }
 
-/* 整行悬停：玻璃擦亮一档 + 轻浮起（不换成实底灰，否则整行会从玻璃里「掉」出来） */
-/*
- * 2026-10-26：焦点驱动改成「只认键盘焦点」。原来用 :focus-within，
- * 鼠标点过行内的恢复 / 彻底删除后，确认框一关焦点还回按钮，整行就一直浮着。
- */
+/* 悬停 / 键盘焦点：上浮 2px + 影更深 + 高光边更亮，与任务卡同一姿态 */
 .trash-row:hover,
 .trash-row:focus-visible,
 .trash-row:has(:focus-visible) {
-  background-color: var(--glass-bg-hover);
+  border-color: var(--glass-card-border-hover);
+  background-color: var(--glass-card-bg-hover);
   box-shadow: var(--shadow-card-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 /* 批量模式：整行可点；选中行的品牌浅蓝底优先于 hover */
@@ -146,31 +149,41 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
 }
 
 /*
- * 左侧彻底删除按钮：与任务页复选框同尺寸、同位置（24px 圆形 + 8px 外边距）。
- * 默认浅灰；悬停转淡红底 + 深红图标，提示「这是删除」。
+ * 左侧彻底删除按钮：与任务页勾选圈同尺寸（22px）、同位置（40px 前置位居中）。
+ * 默认浅灰描边；悬停转淡红底 + 深红图标，提示「这是删除」。
  */
 .trash-row__purge {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin: 0 8px;
+  justify-self: center;
+  width: 22px;
+  height: 22px;
   padding: 0;
-  /* 与任务页复选框完全同款：1.5px、文字色 18% 的浅灰描边 */
-  border: 1.5px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  /* 与任务页复选框完全同款：1.5px、文字色 20% 的浅灰描边 */
+  border: 1.5px solid color-mix(in srgb, var(--color-text) 20%, transparent);
   border-radius: 50%;
   background-color: transparent;
   color: var(--color-text-3);
   cursor: pointer;
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
-    background-color var(--dur-fast) var(--ease);
+    background-color var(--dur-fast) var(--ease), transform 120ms var(--ease);
 }
 
 .trash-row__purge:hover {
   border-color: var(--color-danger);
   background-color: var(--color-danger-soft);
   color: var(--color-danger-text);
+  transform: scale(1.06);
+}
+
+.trash-row__purge:active {
+  transform: scale(0.94);
+}
+
+.trash-row__purge:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /* 批量选择：同尺寸圆形复选框，选中态品牌蓝 */
@@ -178,32 +191,45 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin: 0 8px;
-  border: 1.5px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  justify-self: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid color-mix(in srgb, var(--color-text) 20%, transparent);
   border-radius: 50%;
-  background-color: var(--color-surface);
+  background-color: transparent;
   color: transparent;
   transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
 
 .trash-row__box--on {
-  border-color: var(--color-brand);
+  border-color: transparent;
   background-color: var(--color-brand);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 62%);
   color: var(--color-brand-fg);
+  box-shadow: 0 3px 9px -4px color-mix(in srgb, var(--color-brand) 75%, transparent);
+}
+
+.trash-row__box:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .trash-row__body {
   min-width: 0;
 }
 
-/* 与任务页成对：标题 16px/600、描述 13px 单行占位 */
+/* 与任务卡成对：15px / 600 / 微收字距 */
 .trash-row__title {
-  font-size: 16px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.4;
+  letter-spacing: -0.008em;
   color: var(--color-text);
   word-break: break-word;
 }
@@ -215,15 +241,15 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   -webkit-box-orient: vertical;
   overflow: hidden;
   /* 固定占位：没填描述也留这一行，所有卡片高度一致 */
-  min-height: 21px;
-  margin-top: 3px;
-  font-size: 13px;
+  min-height: 20px;
+  margin-top: 2px;
+  font-size: 12.5px;
   line-height: 1.6;
   color: var(--color-text-2);
   word-break: break-word;
 }
 
-/* 右侧宽度与任务页元信息列一致，所有行的右边缘在同一条线上 */
+/* 右侧宽度与任务卡元信息列一致，所有行的右边缘在同一条线上 */
 .trash-row__side {
   display: flex;
   flex: none;
@@ -240,19 +266,20 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   gap: 10px;
 }
 
-/* 剩余天数胶囊：浅灰底，图标跟随文字色；≤7 天转橙色 */
+/* 剩余天数：与任务卡优先级标记同档（20px 高 / 11.5px），≤7 天转橙 */
 .trash-row__pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 22px;
+  height: 20px;
   padding: 0 8px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-bg-soft);
+  background-color: color-mix(in srgb, var(--color-text) 7%, transparent);
   color: var(--color-text-2);
-  font-size: 12px;
+  font-size: 11.5px;
   line-height: 1;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .trash-row__pill--soon {
@@ -261,17 +288,18 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   font-weight: 600;
 }
 
+/* 删除时间比描述更轻，与任务卡的截止日期同档 */
 .trash-row__deleted {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-3);
   white-space: nowrap;
 }
 
-/* 右侧恢复：常驻浅灰图标，悬停转成功色 */
+/* 右侧恢复：常驻浅灰图标，悬停转成功色 + 一层白玻璃 */
 .trash-row__restore {
   display: flex;
   flex: none;
@@ -281,7 +309,7 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   height: 30px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control-sm);
   background-color: transparent;
   color: var(--color-text-3);
   cursor: pointer;
@@ -290,25 +318,11 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
 
 .trash-row__restore:hover {
   color: var(--color-status-done);
-  background-color: var(--color-bg-soft);
+  background-color: var(--control-hover);
 }
 
-/* 窄容器：右侧元信息换到正文下方，左元信息、右恢复 */
-@container (max-width: 720px) {
-  .trash-row {
-    grid-template-columns: 40px minmax(0, 1fr);
-    gap: 12px;
-  }
-
-  .trash-row__side {
-    grid-column: 2;
-    width: 100%;
-    min-width: 0;
-    justify-content: space-between;
-  }
-
-  .trash-row__meta {
-    justify-content: flex-start;
-  }
+.trash-row__restore:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 </style>

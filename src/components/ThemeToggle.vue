@@ -6,6 +6,7 @@
  */
 import { computed } from 'vue'
 import AppIcon from './AppIcon.vue'
+import AppTooltip from './AppTooltip.vue'
 import { useTheme } from '@/composables/useTheme'
 
 const { mode, isDark, toggleTheme } = useTheme()
@@ -24,7 +25,7 @@ const tip = computed(() => label.value)
     2026-10-27：悬浮提示统一成 EP 气泡（全局样式已换成白卡，见 main.css 的 `.el-popper.is-dark`），
     不再用原生 `title` —— 那是系统画的长方形，与全站不搭。提示内容仍是当前档位本身。
   -->
-  <el-tooltip :content="tip" placement="top">
+  <AppTooltip :content="tip" placement="top">
     <button
       class="theme-toggle"
       type="button"
@@ -33,7 +34,7 @@ const tip = computed(() => label.value)
     >
       <AppIcon :name="isDark ? 'moon' : 'sun'" />
     </button>
-  </el-tooltip>
+  </AppTooltip>
 </template>
 
 <style scoped>
@@ -45,16 +46,21 @@ const tip = computed(() => label.value)
   height: 32px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   color: var(--color-text-2);
   background: transparent;
   cursor: pointer;
-  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease),
+    transform 120ms var(--ease);
 }
 
+/* 与相邻的折叠按钮同一层白色玻璃（2026-10-28 C 方案）：不再用旧的 6% 墨色灰纱 */
 .theme-toggle:hover {
   color: var(--color-text);
-  /* 用正文色的低透明度：白底、浅灰底上都能看出这一层，不依赖单一底色 */
-  background-color: color-mix(in srgb, var(--color-text) 6%, transparent);
+  background-color: var(--control-hover);
+}
+
+.theme-toggle:active {
+  transform: scale(0.97);
 }
 </style>

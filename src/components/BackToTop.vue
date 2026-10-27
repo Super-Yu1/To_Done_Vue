@@ -7,6 +7,7 @@
  */
 import { onMounted, onUnmounted, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
+import AppTooltip from './AppTooltip.vue'
 
 /** 出现门槛：页面往下滚过这么多像素才浮出来，避免刚滚动就抢视线 */
 const SHOW_AFTER = 400
@@ -53,7 +54,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <el-tooltip content="回到顶部" placement="top">
+  <AppTooltip content="回到顶部" placement="top">
     <button
       class="back-to-top"
       :class="{ 'is-visible': visible }"
@@ -65,7 +66,7 @@ onUnmounted(() => {
     >
       <AppIcon name="up" :size="17" />
     </button>
-  </el-tooltip>
+  </AppTooltip>
 </template>
 
 <style scoped>
@@ -102,6 +103,8 @@ onUnmounted(() => {
   border-radius: var(--radius-pill);
   background-color: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
+  /* 它是浮在内容之上的控件：全站唯一保留投影的按钮（C 方案的例外） */
+  box-shadow: var(--shadow-card);
   color: var(--color-text-2);
   cursor: pointer;
 

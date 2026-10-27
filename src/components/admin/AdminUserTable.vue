@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** 用户表格（8.9）：头像 · 邮箱 · 手机号 · 用户名 · 任务数 · 图片数 · 状态 · 注册时间 · 操作 */
 import { computed } from 'vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import { formatDateTime } from '@/utils/date'
 import type { AdminUser, UserStatus } from '@/types'
 
@@ -62,7 +63,7 @@ const isEmpty = computed(() => !props.loading && props.users.length === 0)
 
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tooltip :content="statusDetail(row)" placement="top">
+          <AppTooltip :content="statusDetail(row)" placement="top">
             <span
               class="status"
               :class="{
@@ -72,7 +73,7 @@ const isEmpty = computed(() => !props.loading && props.users.length === 0)
             >
               {{ STATUS_LABEL[statusOf(row)] }}
             </span>
-          </el-tooltip>
+          </AppTooltip>
         </template>
       </el-table-column>
 

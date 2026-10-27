@@ -25,7 +25,7 @@ watch(
   () => {
     window.clearTimeout(keywordTimer)
     keywordTimer = window.setTimeout(
-      () => guard(() => trash.fetchTrash(1)),
+      () => guard(() => trash.fetchTrash()),
       SEARCH_DEBOUNCE_MS,
     )
   },
@@ -121,7 +121,7 @@ async function guard(action: () => Promise<unknown>) {
   }
 }
 
-onMounted(() => guard(() => trash.fetchTrash(1)))
+onMounted(() => guard(() => trash.fetchTrash()))
 
 async function handleRestore(task: TrashTask) {
   await guard(() => trash.restore(task.id))
@@ -181,6 +181,8 @@ async function handleClear() {
     <TrashList
       v-model:keyword="trash.query.keyword"
       :tasks="trash.tasks"
+      :total="trash.total"
+      :loading="trash.loading && trash.tasks.length === 0"
       :clearing="clearing"
       :clear-disabled="trash.total === 0"
       :select-mode="selectMode"
@@ -195,6 +197,7 @@ async function handleClear() {
       @toggle-all="toggleAll"
       @batch-restore="handleBatchRestore"
       @batch-purge="handleBatchPurge"
+      @load-more="guard(() => trash.loadMore())"
     />
 
     <BackToTop />

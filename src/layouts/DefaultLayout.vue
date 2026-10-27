@@ -10,6 +10,7 @@ import { RouterView, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import type { IconName } from '@/components/icons'
 import { usePreferences } from '@/composables/usePreferences'
@@ -186,7 +187,7 @@ async function handleLogout() {
 
           <ThemeToggle class="side-row__tool" />
           <!-- 2026-10-27：悬浮说明用 EP 气泡（全局白卡样式，见 main.css 的 `.el-popper.is-dark`） -->
-          <el-tooltip :content="sidebarCollapsed ? '展开' : '折叠'" placement="top">
+          <AppTooltip :content="sidebarCollapsed ? '展开' : '折叠'" placement="top">
             <button
               class="side-tool side-row__tool"
               type="button"
@@ -196,7 +197,7 @@ async function handleLogout() {
             >
               <AppIcon :name="sidebarCollapsed ? 'expand' : 'collapse'" :size="16" />
             </button>
-          </el-tooltip>
+          </AppTooltip>
         </div>
       </template>
     </AppSidebar>
@@ -217,13 +218,13 @@ async function handleLogout() {
   width: 100%;
   padding: 6px 8px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background-color: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease);
+  transition: background-color var(--dur-fast) var(--ease), transform 120ms var(--ease);
 }
 
 /* 折叠态：底部从三列改成竖排（76px 放不下三列），只留头像与两个图标 */
@@ -244,7 +245,7 @@ async function handleLogout() {
 }
 
 .side-user:hover {
-  background-color: var(--color-surface);
+  background-color: var(--control-hover);
 }
 
 .side-user__avatar {
@@ -295,16 +296,23 @@ async function handleLogout() {
   height: 32px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-control);
   background-color: transparent;
   color: var(--color-text-2);
   cursor: pointer;
-  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease),
+    transform 120ms var(--ease);
 }
 
 .side-tool:hover {
-  color: var(--color-danger);
-  background-color: var(--color-surface);
+  color: var(--color-text);
+  background-color: var(--control-hover);
+}
+
+/* 按下就缩一下：反馈发生在 pointer-down，不等 click（2026-10-27 三改） */
+.side-tool:active,
+.side-user:active {
+  transform: scale(0.97);
 }
 
 /* 2026-10-26：移除「窄屏隐藏用户名」的规则 —— 窄屏统一走侧栏自动折叠，折叠态本来就不显示名字 */

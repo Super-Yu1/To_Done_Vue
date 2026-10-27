@@ -125,6 +125,8 @@ onUnmounted(() => {
       <span v-if="brandSuffix" class="sidebar__badge">{{ brandSuffix }}</span>
     </div>
 
+    <p class="sidebar__section" aria-hidden="true">工作台</p>
+
     <nav ref="navRef" class="sidebar__nav" aria-label="主导航">
       <!-- 选中态的白色浮块：位置由 JS 量当前链接得出，切页时滑过去 -->
       <span
@@ -177,9 +179,9 @@ onUnmounted(() => {
   overflow-y: auto;
   /* 内容过多时能滚，但别在玻璃面板上压一根系统灰滚动条（与内容区同一套做法） */
   scrollbar-width: none;
-  padding: 20px 14px 16px;
+  padding: 18px 14px 14px;
   border: 1px solid var(--glass-panel-border);
-  border-radius: 24px;
+  border-radius: var(--radius-panel);
   background-color: var(--glass-panel-bg);
   backdrop-filter: var(--glass-panel-blur);
   box-shadow: var(--glass-panel-shadow);
@@ -192,7 +194,8 @@ onUnmounted(() => {
   padding-right: 10px;
 }
 
-/* 折叠后彻底不占位的：徽标与选中浮块 */
+/* 折叠后彻底不占位的：分组标题、徽标与选中浮块 */
+.sidebar--collapsed .sidebar__section,
 .sidebar--collapsed .sidebar__badge,
 .sidebar--collapsed .sidebar__count,
 .sidebar--collapsed .sidebar__indicator {
@@ -234,6 +237,17 @@ onUnmounted(() => {
   width: 100%;
 }
 
+/* 折叠态没有浮块可依赖：选中项自己铺一层白玻璃（特异性压过基础规则的 transparent） */
+.sidebar--collapsed .sidebar__link.router-link-active:not(.sidebar__link--exact),
+.sidebar--collapsed .sidebar__link--exact.router-link-exact-active {
+  background-color: rgba(255, 255, 255, 0.72);
+}
+
+html.dark .sidebar--collapsed .sidebar__link.router-link-active:not(.sidebar__link--exact),
+html.dark .sidebar--collapsed .sidebar__link--exact.router-link-exact-active {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
 .sidebar::-webkit-scrollbar {
   width: 0;
   height: 0;
@@ -243,26 +257,37 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 8px 20px;
+  padding: 4px 10px 24px;
 }
 
 .sidebar__brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
 }
 
 .sidebar__logo {
   display: block;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
+  /* 品牌圆在玻璃上会显得发灰，给它一层极淡的白光托一下 */
+  filter: drop-shadow(0 2px 6px rgba(47, 75, 255, 0.18));
 }
 
-/* 品牌要压得住下面的导航：导航 16px，这里 17px / 600 */
+/* 品牌要压得住下面的导航：字号只比导航大一档，靠字重和收紧的字距拉层级 */
 .sidebar__name {
   font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+/* 分组小标题：Apple 侧栏的分区标签，11px / 600 / 拉开字距，只做分组不抢视线 */
+.sidebar__section {
+  padding: 0 12px 8px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.08em;
+  color: var(--color-text-3);
 }
 
 /* 演示模式徽章与优先级胶囊同属「胶囊」这一档 */
@@ -274,16 +299,18 @@ onUnmounted(() => {
   color: var(--color-text-2);
 }
 
-/* space-y-2（8px）：三项之间留出呼吸，不像一排列表项那样挤成一条 */
+/* 紧凑成一组：4px 间距让几个入口读成「一块控件」，而不是一条条列表 */
 .sidebar__nav {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 /*
- * 浮块：选中项的半透明高亮，12px 圆角，与链接同形。
+ * 选中浮块（2026-10-27 三改）：不再染品牌色，改成一枚**白色玻璃小块** ——
+ * 8% 白 + 一圈内高光 + 一层薄影，像一块被光擦过的塑料片浮在面板上；
+ * 品牌色只留给图标和计数，选中态才不会糊成一片浅蓝。
  * 位置、宽高由 inline style 给出；首帧不加过渡（--ready 才打开）。
  */
 .sidebar__indicator {
@@ -291,9 +318,17 @@ onUnmounted(() => {
   top: 0;
   left: 0;
   z-index: 0;
-  border-radius: 12px;
-  background-color: color-mix(in srgb, var(--color-brand) 14%, transparent);
+  border-radius: var(--radius-control);
+  background-color: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 6px 16px -10px rgba(24, 36, 74, 0.45);
   pointer-events: none;
+}
+
+html.dark .sidebar__indicator {
+  background-color: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 6px 16px -10px rgba(0, 0, 0, 0.7);
 }
 
 .sidebar__indicator--ready {
@@ -305,20 +340,26 @@ onUnmounted(() => {
 }
 
 /*
- * 主导航项（2026-10-26 放大）：字号 16px（text-base）、图标 20px（w-5）、
- * 图标与文字 12px（gap-3）、上下 12px（py-3）—— 左侧不再显得空，点击区域也更从容。
+ * 主导航项（2026-10-27 三改）：定高 44px，15px 字号、19px 图标 ——
+ * 比之前 16px/48px 收一档，整块侧栏才像 macOS 的 source list，而不是一份大号菜单。
+ * 按下即变色（pointer-down），不等 click。
  */
 .sidebar__link {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: var(--radius-md);
-  font-size: 16px;
+  gap: 11px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  font-size: 15px;
   color: var(--color-text-2);
   transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+.sidebar__link:active {
+  transform: scale(0.985);
 }
 
 .sidebar__link-icon {
@@ -348,21 +389,31 @@ onUnmounted(() => {
   text-align: center;
 }
 
-/* 未选中项的悬停底：品牌色的极淡一层，不抢浮块的「已选中」视觉 */
+/* 未选中项的悬停底：一层很淡的白光，不抢浮块的「已选中」视觉 */
 .sidebar__link:hover {
   color: var(--color-text);
-  background-color: color-mix(in srgb, var(--color-brand) 6%, transparent);
+  background-color: rgba(255, 255, 255, 0.34);
+}
+
+html.dark .sidebar__link:hover {
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 /*
- * 高亮当前页：底色交给浮块（品牌浅蓝），文字转品牌色。
+ * 高亮当前页：底色交给白色浮块，文字回到正文色、图标转品牌色 ——
+ * 选中项在整列里「更黑」而不是「更蓝」，与 Apple 侧栏的读法一致。
  * 演示模式的「任务」用 exact（/demo 是另外两个入口的前缀）。
  */
 .sidebar__link.router-link-active:not(.sidebar__link--exact),
 .sidebar__link--exact.router-link-exact-active {
-  color: var(--color-brand);
-  font-weight: 600;
+  color: var(--color-text);
+  font-weight: 650;
   background-color: transparent;
+}
+
+.sidebar__link.router-link-active .sidebar__link-icon,
+.sidebar__link--exact.router-link-exact-active .sidebar__link-icon {
+  color: var(--color-brand);
 }
 
 .sidebar__link.router-link-active:hover:not(.sidebar__link--exact),
@@ -373,13 +424,14 @@ onUnmounted(() => {
 /*
  * 底部设置区：`margin-top: auto` 把它压到最底，与上面的导航之间用一条发丝分割线分开
  * （2026-10-26 明确成「一条线」而不是靠留白）—— 导航三项与「主题 / 退出」是两种东西，不该连成一片。
+ * 玻璃上的分割线用墨色兑水（白色线在玻璃上看不见）。
  */
 .sidebar__settings {
   display: grid;
   gap: 8px;
   margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid var(--color-border);
+  padding-top: 14px;
+  border-top: 1px solid var(--separator);
 }
 
 /* 窄屏：整条收回成顶部横条（品牌左、导航中、设置右） */
