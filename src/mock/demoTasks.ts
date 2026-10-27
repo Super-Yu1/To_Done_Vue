@@ -56,7 +56,7 @@ const SEEDS: DemoSeed[] = [
   },
   {
     title: '整理图片压缩方案',
-    description: '长边压到 1920、质量 0.85，GIF 不压；确认 WebP 的兼容边界。',
+    description: '长边超 3840 或超 3MB 才重绘、质量 0.95；GIF 直接不收。',
     status: 'DONE',
     priority: 'MEDIUM',
     dueInDays: -2,

@@ -357,6 +357,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           :all-selected="allSelected"
           :busy="batchBusy"
           :status="query.status"
+          :only-unfinished="Boolean(query.onlyUnfinished)"
           @complete="handleBatchStatus('DONE')"
           @uncomplete="handleBatchStatus('TODO')"
           @remove="handleBatchRemove"

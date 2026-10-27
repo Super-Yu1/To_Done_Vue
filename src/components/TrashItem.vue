@@ -47,16 +47,16 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
     @click="handleRowClick"
   >
     <!-- 前置位：普通模式是「彻底删除」圆形按钮；批量模式换成同尺寸复选框 -->
-    <button
-      v-if="!selectMode"
-      class="trash-row__purge"
-      type="button"
-      :aria-label="`彻底删除：${task.title}`"
-      title="彻底删除"
-      @click.stop="emit('purge', task)"
-    >
-      <AppIcon name="trash" :size="13" />
-    </button>
+    <el-tooltip v-if="!selectMode" content="彻底删除" placement="top">
+      <button
+        class="trash-row__purge"
+        type="button"
+        :aria-label="`彻底删除：${task.title}`"
+        @click.stop="emit('purge', task)"
+      >
+        <AppIcon name="trash" :size="13" />
+      </button>
+    </el-tooltip>
 
     <span
       v-else
@@ -91,16 +91,16 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
         </p>
       </div>
 
-      <button
-        v-if="!selectMode"
-        class="trash-row__restore"
-        type="button"
-        :aria-label="`恢复：${task.title}`"
-        title="恢复"
-        @click.stop="emit('restore', task)"
-      >
-        <AppIcon name="restore" :size="15" />
-      </button>
+      <el-tooltip v-if="!selectMode" content="恢复" placement="top">
+        <button
+          class="trash-row__restore"
+          type="button"
+          :aria-label="`恢复：${task.title}`"
+          @click.stop="emit('restore', task)"
+        >
+          <AppIcon name="restore" :size="15" />
+        </button>
+      </el-tooltip>
     </div>
   </article>
 </template>

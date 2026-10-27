@@ -18,6 +18,11 @@ defineProps<{
    * 未完成里只给「标记完成」、已完成里只给「取消完成」，全部（undefined）两个都给。
    */
   status?: TaskStatus
+  /**
+   * 「未完成」页签（2026-10-27）：这一档的 status 是空的（用 onlyUnfinished 表达「非 DONE」），
+   * 只看 status 会把它当成「全部」，于是漏出「取消完成」—— 必须再带一个标记。
+   */
+  onlyUnfinished?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -44,7 +49,7 @@ const emit = defineEmits<{
       标记完成
     </el-button>
     <el-button
-      v-if="status !== 'TODO'"
+      v-if="!onlyUnfinished && status !== 'TODO'"
       size="small"
       :disabled="!selectedCount || busy"
       @click="emit('uncomplete')"

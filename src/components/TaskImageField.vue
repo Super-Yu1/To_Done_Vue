@@ -6,12 +6,21 @@
  * 对外用一个对象交代清楚两件事（对应接口契约）：
  *   - order：有序数组，已有图填它的 id，新选的图填占位符 'NEW'（按出现次序对应 images 段）；
  *   - files：新选的图（每个 'NEW' 一个），顺序与 order 里 'NEW' 的出现次序一致。
+ *
+ * 点开看大图（2026-10-27 按方案 A 加）：缩略图同时是**拖动排序的抓取区**，两者靠位移阈值区分 ——
+ * `mousedown` 记坐标，`click` 时位移 > 4px 就当「这是一次拖动」不做预览（原生拖拽成功后浏览器本来就
+ * 不派 click，这条只挡「几乎没动就松手」那种误触）。三处配套细节：
+ *   ① 内层 `<img>` 必须 `draggable="false"` —— 否则浏览器会拖那张图、抢走外层 `<li>` 的 dragstart，
+ *      排序会静默失效（这就是不用 `el-image` 做缩略图的原因）；
+ *   ② 删除按钮的 click 要 `.stop`，否则点删除会顺带弹一次大图；
+ *   ③ 预览层用 `ElImageViewer`（`teleported`），否则会被 el-dialog 的层叠上下文压住。
+ * 预览列表包含全部槽位（新选的图有 objectURL，同样能看）。
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElImageViewer, ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import { TASK_MAX_IMAGES, UPLOAD_MAX_BYTES } from '@/constants'
-import { ImageTooLargeError, assertUploadable, compressImage } from '@/utils/image'
+import { ImageRejectedError, assertUploadable, compressImage } from '@/utils/image'
 import type { TaskImage } from '@/types'
 
 interface Slot {
@@ -28,8 +37,6 @@ interface Slot {
 const props = defineProps<{
   images?: TaskImage[]
   submitting?: boolean
-  /** 只读（详情模式）：只铺缩略图，不给添加 / 拖动 / 删除的入口，点图可放大看 */
-  readonly?: boolean
 }>()
 const model = defineModel<{ order: string[]; files: File[] }>({ required: true })
 
@@ -37,11 +44,40 @@ const slots = ref<Slot[]>([])
 const inputRef = ref<HTMLInputElement | null>(null)
 const dragKey = ref('')
 
+/** 判定「点击」的位移阈值：超过它就算拖动意图，不弹预览 */
+const CLICK_MOVE_TOLERANCE = 4
 
-/** 只读时点图放大的预览列表：只含已有图（新选的图还没上传，没有可预览的直链） */
-const previewList = computed(() =>
-  slots.value.filter((slot) => slot.ref !== 'NEW').map((slot) => slot.preview),
-)
+/* ---------- 看大图 ---------- */
+
+const previewVisible = ref(false)
+const previewIndex = ref(0)
+/** 按下时的坐标：用来区分「点击」与「拖动」 */
+let pressPoint: { x: number; y: number } | null = null
+
+/** 预览列表 = 全部槽位（已有图是直链，新选的图是 objectURL，都能看） */
+const previewList = computed(() => slots.value.map((slot) => slot.preview))
+
+function onPress(event: MouseEvent) {
+  pressPoint = { x: event.clientX, y: event.clientY }
+}
+
+function openPreview(slot: Slot, event?: MouseEvent) {
+  if (event && pressPoint) {
+    const moved = Math.hypot(event.clientX - pressPoint.x, event.clientY - pressPoint.y)
+    if (moved > CLICK_MOVE_TOLERANCE) return
+  }
+  pressPoint = null
+  const index = slots.value.findIndex((item) => item.key === slot.key)
+  if (index < 0 || !previewList.value.length) return
+  previewIndex.value = index
+  previewVisible.value = true
+}
+
+/** 键盘打开：只有焦点在缩略图本身时才响应（焦点在删除按钮上时交给那个按钮） */
+function onKeyPreview(slot: Slot, event: KeyboardEvent) {
+  if (event.target !== event.currentTarget) return
+  openPreview(slot)
+}
 
 /** 已有图（编辑时）同步成槽位；新选的图不动 */
 watch(
@@ -107,7 +143,7 @@ async function addFiles(picked: File[]) {
     try {
       assertUploadable(file)
     } catch (error) {
-      ElMessage.error(error instanceof ImageTooLargeError ? error.message : '图片无法上传')
+      ElMessage.error(error instanceof ImageRejectedError ? error.message : '图片无法上传')
       continue
     }
     try {
@@ -146,45 +182,50 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
 </script>
 
 <template>
-  <div class="images" :class="{ 'images--readonly': readonly }">
+  <div class="images">
     <ul v-if="slots.length" class="images__list">
       <li
         v-for="slot in slots"
         :key="slot.key"
         class="images__item"
-        :draggable="!submitting && !readonly"
-        :title="readonly ? '点击放大' : slot.ref === 'NEW' ? '新选择的图片（保存时上传）' : '已有图片'"
+        :draggable="!submitting"
+        role="button"
+        tabindex="0"
+        aria-label="查看大图（拖动可调整顺序）"
+        @mousedown="onPress"
+        @click="openPreview(slot, $event)"
+        @keydown.enter.prevent="onKeyPreview(slot, $event)"
+        @keydown.space.prevent="onKeyPreview(slot, $event)"
         @dragstart="onDragStart(slot)"
+        @dragend="dragKey = ''"
         @dragover.prevent
         @drop.prevent="onDrop(slot)"
       >
-        <!-- 只读：缩略图可点开放大看（已有图是预签名直链） -->
-        <el-image
-          v-if="readonly && slot.ref !== 'NEW'"
-          class="images__thumb"
-          :src="slot.preview"
-          :preview-src-list="previewList"
-          :initial-index="previewList.indexOf(slot.preview)"
-          fit="cover"
-          preview-teleported
-        />
-        <img v-else class="images__thumb" :src="slot.preview" alt="" draggable="false" />
+        <!-- 缩略图：`draggable=false` 是硬要求 —— 否则浏览器会拖这张图、抢走外层 li 的 dragstart -->
+        <img class="images__thumb" :src="slot.preview" alt="" draggable="false" />
         <span v-if="slot.ref === 'NEW'" class="images__badge">新</span>
-        <button
-          v-if="!readonly"
-          class="images__remove"
-          type="button"
-          :aria-label="'移除这张配图'"
-          :disabled="submitting"
-          @click="removeSlot(slot)"
-        >
-          <AppIcon name="trash" :size="14" />
-        </button>
+
+        <!--
+          提示用 Element Plus 的气泡，不用原生 `title` —— 后者是系统画的长方形，
+          跟全站的圆角气泡完全不搭（2026-10-27 按反馈改）；`teleported` 默认开，
+          所以在弹窗里也不会被裁掉。
+        -->
+        <el-tooltip content="移除" placement="top" :show-after="250" :hide-after="0">
+          <button
+            class="images__remove"
+            type="button"
+            aria-label="移除这张配图"
+            :disabled="submitting"
+            @click.stop="removeSlot(slot)"
+          >
+            <AppIcon name="close" :size="12" />
+          </button>
+        </el-tooltip>
       </li>
     </ul>
 
     <!-- 2026-10-21：上传入口改成虚线框 + 大号「＋」，下方只留一行极简提示 -->
-    <div v-if="!readonly" class="images__add-wrap">
+    <div class="images__add-wrap">
       <button
         class="images__add"
         type="button"
@@ -196,17 +237,28 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
         >
         <span class="images__add-plus" aria-hidden="true">＋</span>
       </button>
-      <p class="images__add-hint">支持 JPG/PNG/GIF，最多 {{ TASK_MAX_IMAGES }} 张</p>
+      <p class="images__add-hint">
+        点击看大图 · 拖动调整顺序 · 支持 JPG/PNG/WEBP，最多 {{ TASK_MAX_IMAGES }} 张
+      </p>
     </div>
 
     <input
-      v-if="!readonly"
       ref="inputRef"
       class="images__input"
       type="file"
-      accept="image/*"
+      accept="image/jpeg,image/png,image/webp"
       multiple
       @change="handleChange"
+    />
+
+    <!-- 大图预览：teleported 是硬要求，否则会被 el-dialog 的层叠上下文压住 -->
+    <el-image-viewer
+      v-if="previewVisible"
+      :url-list="previewList"
+      :initial-index="previewIndex"
+      teleported
+      hide-on-click-modal
+      @close="previewVisible = false"
     />
   </div>
 </template>
@@ -272,6 +324,7 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
   color: var(--color-text-3);
 }
 
+/* 缩略图块：拖动抓取区 + 点击看大图，两个语义靠光标与悬停角标提示 */
 .images__item {
   position: relative;
   width: 84px;
@@ -282,18 +335,13 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
   cursor: grab;
 }
 
-/* 只读：不能拖（没有排序这回事了），点图是放大看 */
-.images--readonly .images__item {
-  cursor: zoom-in;
-}
-
-.images--readonly .images__thumb {
-  display: block;
-  width: 100%;
-  height: 100%;
+.images__item:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
 }
 
 .images__thumb {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -310,28 +358,51 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
   font-size: 11px;
 }
 
+/*
+ * 删除：**右上角的红色 ×**（2026-10-27 按反馈，原来的垃圾桶在下、放大镜在上）。
+ * 底下垫一片近白的小圆片：照片底色千差万别，红叉直接压上去会遇到红墙、暗夜看不见；
+ * 悬停反色成「红底白叉」，点按意图更明确。
+ * 只在真有 hover 的设备上收起 —— 平板是触屏，收起来等于点不到。
+ */
 .images__remove {
   position: absolute;
-  right: 2px;
-  bottom: 2px;
+  top: 3px;
+  right: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-mask);
-  color: #fff;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.94);
+  color: var(--color-danger);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
 }
 
-.images__item:hover .images__remove,
-.images__item:focus-within .images__remove {
-  opacity: 1;
+.images__remove:hover:not(:disabled) {
+  background-color: var(--color-danger);
+  color: #fff;
+}
+
+.images__remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (hover: hover) {
+  .images__remove {
+    opacity: 0;
+  }
+
+  .images__item:hover .images__remove,
+  .images__item:focus-within .images__remove {
+    opacity: 1;
+  }
 }
 
 .images__footer {
@@ -339,7 +410,6 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
   align-items: center;
   gap: 10px;
 }
-
 
 .images__input {
   display: none;

@@ -146,7 +146,11 @@ async function handleLogout() {
             popper-class="user-menu"
           >
             <template #reference>
-              <button class="side-user" type="button" :title="displayName">
+              <!--
+                2026-10-27：**不再挂任何悬浮提示** —— 名字本来就在按钮里写着，
+                再弹一次是重复；而且这枚按钮点开就是用户菜单，不需要靠气泡解释。
+              -->
+              <button class="side-user" type="button">
                 <img
                   v-if="auth.user?.avatarUrl"
                   class="side-user__avatar"
@@ -181,18 +185,18 @@ async function handleLogout() {
           </el-popover>
 
           <ThemeToggle class="side-row__tool" />
-          <!-- 2026-10-26：折叠按钮加主题一致的悬浮说明（原生 title 太朴素，与主题开关也不统一） -->
-          <!-- 2026-10-27：与主题按钮同一套原生 title 提示（替代 EP 深色气泡） -->
-          <button
-            class="side-tool side-row__tool"
-            type="button"
-            :title="sidebarCollapsed ? '展开' : '折叠'"
-            :aria-label="sidebarCollapsed ? '展开侧栏' : '折叠侧栏'"
-            :aria-expanded="!sidebarCollapsed"
-            @click="handleToggleSidebar"
-          >
-            <AppIcon :name="sidebarCollapsed ? 'expand' : 'collapse'" :size="16" />
-          </button>
+          <!-- 2026-10-27：悬浮说明用 EP 气泡（全局白卡样式，见 main.css 的 `.el-popper.is-dark`） -->
+          <el-tooltip :content="sidebarCollapsed ? '展开' : '折叠'" placement="top">
+            <button
+              class="side-tool side-row__tool"
+              type="button"
+              :aria-label="sidebarCollapsed ? '展开侧栏' : '折叠侧栏'"
+              :aria-expanded="!sidebarCollapsed"
+              @click="handleToggleSidebar"
+            >
+              <AppIcon :name="sidebarCollapsed ? 'expand' : 'collapse'" :size="16" />
+            </button>
+          </el-tooltip>
         </div>
       </template>
     </AppSidebar>

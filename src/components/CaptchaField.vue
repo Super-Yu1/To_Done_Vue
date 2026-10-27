@@ -97,20 +97,21 @@ defineExpose({ refresh, focus })
         @keydown.enter.prevent="handleEnter"
       />
 
-      <button
-        class="captcha-field__image"
-        type="button"
-        title="看不清？点击换一张"
-        :disabled="loading"
-        @click="refresh"
-      >
-        <img v-if="imageSrc" :src="imageSrc" alt="图形验证码" />
-        <span v-else class="captcha-field__empty">点击获取</span>
-        <!-- 常驻刷新角标：不提示的话，用户想不到这张图能点 -->
-        <span class="captcha-field__renew" aria-hidden="true">
-          <AppIcon name="refresh" :size="12" />
-        </span>
-      </button>
+      <el-tooltip content="看不清？点击换一张" placement="top">
+        <button
+          class="captcha-field__image"
+          type="button"
+          :disabled="loading"
+          @click="refresh"
+        >
+          <img v-if="imageSrc" :src="imageSrc" alt="图形验证码" />
+          <span v-else class="captcha-field__empty">点击获取</span>
+          <!-- 常驻刷新角标：不提示的话，用户想不到这张图能点 -->
+          <span class="captcha-field__renew" aria-hidden="true">
+            <AppIcon name="refresh" :size="12" />
+          </span>
+        </button>
+      </el-tooltip>
     </div>
 
     <p v-if="error" class="captcha-field__error" role="alert">{{ error }}</p>

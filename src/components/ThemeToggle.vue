@@ -21,18 +21,19 @@ const tip = computed(() => label.value)
 
 <template>
   <!--
-    2026-10-27：悬浮提示改用原生 title —— 与任务行「标记为已完成」那种一致，
-    比 EP 的深色气泡更轻快、也不会有动画延迟；提示内容仍是当前档位本身。
+    2026-10-27：悬浮提示统一成 EP 气泡（全局样式已换成白卡，见 main.css 的 `.el-popper.is-dark`），
+    不再用原生 `title` —— 那是系统画的长方形，与全站不搭。提示内容仍是当前档位本身。
   -->
-  <button
-    class="theme-toggle"
-    type="button"
-    :title="tip"
-    :aria-label="`切换主题，当前为${tip}`"
-    @click="toggleTheme"
-  >
-    <AppIcon :name="isDark ? 'moon' : 'sun'" />
-  </button>
+  <el-tooltip :content="tip" placement="top">
+    <button
+      class="theme-toggle"
+      type="button"
+      :aria-label="`切换主题，当前为${tip}`"
+      @click="toggleTheme"
+    >
+      <AppIcon :name="isDark ? 'moon' : 'sun'" />
+    </button>
+  </el-tooltip>
 </template>
 
 <style scoped>

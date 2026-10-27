@@ -7,7 +7,7 @@
  * 字段决定按什么排，方向决定正序 / 倒序；空字段 = 不传参、沿用后端固定规则。
  * query 由调用方持有（真实页来自 todo store、演示页来自本地内存态），按 8.3 直接改它的字段。
  */
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
 import { SEARCH_DEBOUNCE_MS } from '@/constants'
 import type { TaskQuery } from '@/types'
@@ -113,7 +113,69 @@ watch(
   },
 )
 
-onUnmounted(() => window.clearTimeout(debounceTimer))
+/* ---------- 分段控件的白色滑块（2026-10-27） ---------- */
+
+/**
+ * 选中态的「白底 + 阴影」不再挂在按钮上，而是交给一块独立滑块：
+ * 切页签时它在三个按钮之间**滑过去**（transform 过渡），比原地闪现更像一个控件。
+ * 位置 / 宽高靠量当前按钮的 `offset*` 得出 —— 与侧栏导航的浮块是同一套做法。
+ */
+const tabsRef = ref<HTMLElement | null>(null)
+/** 按钮元素按渲染顺序收集；普通数组即可，不参与响应式 */
+const tabEls: HTMLElement[] = []
+const indicator = reactive({ left: 0, top: 0, width: 0, height: 0, visible: false })
+/** 首帧先摆好位置再打开过渡，避免从 (0,0) 滑进来 */
+const indicatorReady = ref(false)
+
+function setTabRef(el: unknown, index: number) {
+  if (el instanceof HTMLElement) tabEls[index] = el
+}
+
+async function updateIndicator() {
+  // 等 active 类落到 DOM 上再量（字重 400 → 600 会改变按钮宽度）
+  await nextTick()
+  const index = tabs.findIndex((tab) => tab.value === activeTab.value)
+  const el = tabEls[index]
+  if (!el) {
+    indicator.visible = false
+    return
+  }
+  indicator.left = el.offsetLeft
+  indicator.top = el.offsetTop
+  indicator.width = el.offsetWidth
+  indicator.height = el.offsetHeight
+  indicator.visible = true
+  if (!indicatorReady.value) {
+    requestAnimationFrame(() => {
+      indicatorReady.value = true
+    })
+  }
+}
+
+const indicatorStyle = computed(() => ({
+  transform: `translate(${indicator.left}px, ${indicator.top}px)`,
+  width: `${indicator.width}px`,
+  height: `${indicator.height}px`,
+  opacity: indicator.visible ? 1 : 0,
+}))
+
+watch(activeTab, () => void updateIndicator())
+
+let tabsObserver: ResizeObserver | undefined
+
+onMounted(() => {
+  // 容器尺寸变了（换行、字体加载、窗口缩放）也要重新量
+  if (tabsRef.value) {
+    tabsObserver = new ResizeObserver(() => void updateIndicator())
+    tabsObserver.observe(tabsRef.value)
+  }
+  void updateIndicator()
+})
+
+onUnmounted(() => {
+  window.clearTimeout(debounceTimer)
+  tabsObserver?.disconnect()
+})
 </script>
 
 <template>
@@ -136,10 +198,19 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
       class="filter-bar__row filter-bar__row--tabs"
       :class="{ 'filter-bar__row--tabs-center': $slots['tabs-center'] }"
     >
-      <div class="filter-bar__tabs" role="tablist" aria-label="任务状态">
+      <div ref="tabsRef" class="filter-bar__tabs" role="tablist" aria-label="任务状态">
+        <!-- 白色滑块：位置 / 宽高由 JS 量当前页签得出，切页签时滑过去 -->
+        <span
+          class="filter-bar__tab-indicator"
+          :class="{ 'filter-bar__tab-indicator--ready': indicatorReady }"
+          :style="indicatorStyle"
+          aria-hidden="true"
+        />
+
         <button
-          v-for="tab in tabs"
+          v-for="(tab, index) in tabs"
           :key="tab.value"
+          :ref="(el) => setTabRef(el, index)"
           class="filter-bar__tab"
           :class="{ 'filter-bar__tab--active': activeTab === tab.value }"
           type="button"
@@ -165,8 +236,8 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
           v-if="!visualSelectMode"
           v-model:visible="sortOpen"
           trigger="click"
-          placement="bottom-end"
-          :width="216"
+          placement="bottom"
+          :width="176"
           popper-class="todone-sort-pop"
         >
           <template #reference>
@@ -416,8 +487,9 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   box-shadow: 0 3px 10px rgba(0, 122, 255, 0.35);
 }
 
-/* 分段控件：浅灰容器 + 选中项白底微阴影 */
+/* 分段控件：浅灰容器 + 会在页签之间滑动的白色滑块（2026-10-27） */
 .filter-bar__tabs {
+  position: relative;
   display: flex;
   flex: none;
   align-items: center;
@@ -427,7 +499,33 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   background-color: var(--color-bg-soft);
 }
 
+/*
+ * 白色滑块：位置 / 宽高由 JS 给出（量当前页签的 offset*），切页签时滑过去。
+ * 首帧不加过渡（`--ready` 才打开），否则会从 (0,0) 滑进来；
+ * 「减少动效」下 `--dur-base` 归零，等于直接落位。
+ */
+.filter-bar__tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.06);
+  pointer-events: none;
+}
+
+.filter-bar__tab-indicator--ready {
+  transition:
+    transform var(--dur-base) var(--ease),
+    width var(--dur-base) var(--ease),
+    height var(--dur-base) var(--ease),
+    opacity var(--dur-fast) var(--ease);
+}
+
 .filter-bar__tab {
+  position: relative;
+  z-index: 1;
   height: 32px;
   padding: 0 18px;
   border: none;
@@ -436,21 +534,20 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
   color: var(--color-text-2);
   font-size: 13px;
   line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
-    box-shadow var(--dur-fast) var(--ease);
+  /* 白底与阴影交给滑块，按钮自己只管文字颜色 */
+  transition: color var(--dur-fast) var(--ease);
 }
 
 .filter-bar__tab:hover {
   color: var(--color-text);
 }
 
-/* 选中项：白底轻阴影 + 品牌色文字，轻盈但一眼可辨 */
+/* 选中项：文字转品牌色 + 加粗（白底由滑块提供，这里不要再写 background / box-shadow） */
 .filter-bar__tab--active {
-  background-color: var(--color-surface);
   color: var(--color-brand);
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(17, 24, 39, 0.06);
 }
 
 .filter-bar__tab:focus-visible {
@@ -573,12 +670,13 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 }
 
 .sort-panel__dir-btn {
-  height: 30px;
+  height: 26px;
+  padding: 0 4px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background-color: transparent;
   color: var(--color-text-2);
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
     color var(--dur-fast) var(--ease);

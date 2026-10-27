@@ -26,7 +26,7 @@ export const SEARCH_DEBOUNCE_MS = 300
 /** 文件与图片（附录 D） */
 export const TASK_MAX_IMAGES = 9
 export const UPLOAD_MAX_BYTES = 10 * 1024 * 1024
-export const UPLOAD_ALLOWED_EXT = ['jpg', 'jpeg', 'png', 'webp', 'gif']
+export const UPLOAD_ALLOWED_EXT = ['jpg', 'jpeg', 'png', 'webp']
 export const AVATAR_OUTPUT_SIZE = 512
 
 /** 验证码（3.2） */

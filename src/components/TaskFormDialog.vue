@@ -7,7 +7,7 @@
  * 编辑时默认勾选「将时间更新为当前时间」（改的是 recordedAt）。
  * 只负责收集表单，提交交给调用方：真实页落库、演示页弹「演示模式不保存」。
  */
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { TASK_PRIORITY_OPTIONS } from '@/constants'
 import TaskImageField from './TaskImageField.vue'
@@ -52,6 +52,80 @@ const isEdit = computed(() => !!props.task)
 /** 平铺的优先级胶囊：按「高 → 中 → 低」展示（2026-10-21 弹窗改版，下拉换成胶囊） */
 const PRIORITY_PILLS = [...TASK_PRIORITY_OPTIONS].reverse()
 const dialogTitle = computed(() => (isEdit.value ? '编辑任务' : '新建任务'))
+
+/* ---------- 优先级胶囊的滑动指示块（2026-10-27） ---------- */
+
+/**
+ * 选中态的实底不再画在按钮上，而是一块独立滑块：切档位时它在三个胶囊之间滑过去，
+ * **底色也跟着档位过渡**（高红 / 中橙 / 低灰）。
+ * 做法与筛选栏的分段控件、侧栏导航的浮块一致：量当前按钮的 `offset*`，写成 transform + 宽高。
+ */
+const priosRef = ref<HTMLElement | null>(null)
+/** 按钮元素按渲染顺序收集；普通数组即可，不参与响应式 */
+const prioEls: HTMLElement[] = []
+const prioIndicator = reactive({ left: 0, top: 0, width: 0, height: 0, visible: false })
+/** 首帧先摆好位置再打开过渡，避免从 (0,0) 滑进来 */
+const prioReady = ref(false)
+
+/** 滑块的底色跟着当前档位走（沿用三档的 fg 令牌） */
+const activePrioColor = computed(() => `var(--color-priority-${form.priority.toLowerCase()}-fg)`)
+
+function setPrioRef(el: unknown, index: number) {
+  if (el instanceof HTMLElement) prioEls[index] = el
+}
+
+async function updatePrioIndicator() {
+  // 等 active 类落到 DOM 上再量（字重 500 → 600 会改变按钮宽度）
+  await nextTick()
+  const index = PRIORITY_PILLS.findIndex((item) => item.value === form.priority)
+  const el = prioEls[index]
+  if (!el) {
+    prioIndicator.visible = false
+    return
+  }
+  prioIndicator.left = el.offsetLeft
+  prioIndicator.top = el.offsetTop
+  prioIndicator.width = el.offsetWidth
+  prioIndicator.height = el.offsetHeight
+  prioIndicator.visible = true
+  if (!prioReady.value) {
+    requestAnimationFrame(() => {
+      prioReady.value = true
+    })
+  }
+}
+
+const prioIndicatorStyle = computed(() => ({
+  transform: `translate(${prioIndicator.left}px, ${prioIndicator.top}px)`,
+  width: `${prioIndicator.width}px`,
+  height: `${prioIndicator.height}px`,
+  backgroundColor: activePrioColor.value,
+  opacity: prioIndicator.visible ? 1 : 0,
+}))
+
+watch(() => form.priority, () => void updatePrioIndicator())
+
+/**
+ * 弹窗打开时重量一次：关闭状态下这块是 `display: none`，`offset*` 全是 0，
+ * 直接沿用会看到滑块从左上角滑进来。
+ */
+watch(visible, async (opened) => {
+  if (!opened) return
+  prioReady.value = false
+  await nextTick()
+  await updatePrioIndicator()
+})
+
+let priosObserver: ResizeObserver | undefined
+
+onMounted(() => {
+  if (priosRef.value) {
+    priosObserver = new ResizeObserver(() => void updatePrioIndicator())
+    priosObserver.observe(priosRef.value)
+  }
+})
+
+onUnmounted(() => priosObserver?.disconnect())
 
 /** 弹窗每次打开都按当前任务重置表单，避免带上一次的残留 */
 watch(visible, (opened) => {
@@ -157,10 +231,19 @@ async function handleSubmit() {
       <div class="task-form__panel">
         <div class="task-form__row">
           <span class="task-form__label">优先级</span>
-          <div class="task-form__prios" role="radiogroup" aria-label="优先级">
+          <div ref="priosRef" class="task-form__prios" role="radiogroup" aria-label="优先级">
+            <!-- 实底滑块：位置 / 宽高 / 底色由 JS 给出，切档位时滑过去（与筛选栏的分段控件同一套） -->
+            <span
+              class="task-form__prio-indicator"
+              :class="{ 'task-form__prio-indicator--ready': prioReady }"
+              :style="prioIndicatorStyle"
+              aria-hidden="true"
+            />
+
             <button
-              v-for="item in PRIORITY_PILLS"
+              v-for="(item, index) in PRIORITY_PILLS"
               :key="item.value"
+              :ref="(el) => setPrioRef(el, index)"
               class="task-form__prio"
               :class="[
                 `task-form__prio--${item.value.toLowerCase()}`,
@@ -359,12 +442,39 @@ async function handleSubmit() {
 
 /* 优先级胶囊：高红 / 中橙 / 低蓝灰，选中时是实底 —— 与任务行上的优先级同一套令牌 */
 .task-form__prios {
+  position: relative;
   display: flex;
   gap: 8px;
 }
 
-/* 胶囊：未选中只有「本色文字 + 透明底」，选中才实底白字（2026-10-21 定稿，去掉未选中描边） */
+/*
+ * 选中态的实底滑块（2026-10-27）：位置 / 宽高 / 底色都由 JS 给出，
+ * 切档位时它在三个胶囊之间滑过去，**底色同时过渡**（红 → 橙 → 灰）。
+ * 首帧不加过渡（`--ready` 才打开），否则会从 (0,0) 滑进来。
+ */
+.task-form__prio-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+}
+
+.task-form__prio-indicator--ready {
+  transition:
+    transform var(--dur-base) var(--ease),
+    width var(--dur-base) var(--ease),
+    height var(--dur-base) var(--ease),
+    background-color var(--dur-base) var(--ease),
+    opacity var(--dur-fast) var(--ease),
+    filter var(--dur-fast) var(--ease);
+}
+
+/* 胶囊：未选中只有「本色文字 + 透明底」，选中只把文字转白（实底由滑块提供） */
 .task-form__prio {
+  position: relative;
+  z-index: 1;
   height: 30px;
   padding: 0 16px;
   border: none;
@@ -373,6 +483,7 @@ async function handleSubmit() {
   color: var(--color-text-2);
   font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
@@ -394,30 +505,33 @@ async function handleSubmit() {
   color: var(--color-priority-low-fg);
 }
 
-.task-form__prio--high:hover:not(:disabled) {
+/*
+ * 悬停反馈（2026-10-27 按 A+B 方案修）：
+ * 浅底只给**未选中**的胶囊 —— 之前选中项也被这条抢走了底色，实底变浅底、白字却没变，
+ * 白字压在 `-bg` 上对比度只有约 1.1:1，等于看不见（hover 规则 (0,3,0) 压过了选中规则 (0,2,0)）。
+ */
+.task-form__prio--high:not(.task-form__prio--on):hover:not(:disabled) {
   background-color: var(--color-priority-high-bg);
 }
 
-.task-form__prio--medium:hover:not(:disabled) {
+.task-form__prio--medium:not(.task-form__prio--on):hover:not(:disabled) {
   background-color: var(--color-priority-medium-bg);
 }
 
-.task-form__prio--low:hover:not(:disabled) {
+.task-form__prio--low:not(.task-form__prio--on):hover:not(:disabled) {
   background-color: var(--color-priority-low-bg);
 }
 
-.task-form__prio--on.task-form__prio--high {
-  background-color: var(--color-priority-high-fg);
-  color: #fff;
+/*
+ * 选中项 hover：实底由滑块提供，所以压暗要压在**滑块**上（2026-10-27）。
+ * `:has()` 选中「正在悬停选中项」的那块容器，再给它里面的滑块加一层 brightness。
+ */
+.task-form__prios:has(.task-form__prio--on:hover) .task-form__prio-indicator {
+  filter: brightness(0.93);
 }
 
-.task-form__prio--on.task-form__prio--medium {
-  background-color: var(--color-priority-medium-fg);
-  color: #fff;
-}
-
-.task-form__prio--on.task-form__prio--low {
-  background-color: var(--color-priority-low-fg);
+/* 选中项：只把文字转白（实底与阴影都在滑块上，这里不要再写 background） */
+.task-form__prio--on {
   color: #fff;
 }
 

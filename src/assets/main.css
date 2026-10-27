@@ -856,6 +856,38 @@ img {
 }
 
 /*
+ * 悬浮提示（2026-10-27 定稿）：EP 默认的**深色**气泡换掉，全站统一成「白卡」——
+ * 白底 + 深字 + 14px 圆角 + 一圈发丝边 + 一层柔和投影，与全站卡片同一套语言。
+ * 只作用于 tooltip：EP 的 `.is-dark` 只用在 tooltip 上，下拉 / 选择器 / 日期面板是 `.is-light`
+ * （走上面那套玻璃，不受影响）。深色主题下 `--color-surface` 是深卡片，所以「白卡」会自动变「深卡」。
+ */
+.el-popper.is-dark {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px -8px rgb(0 0 0 / 12%), 0 2px 8px -2px rgb(0 0 0 / 6%);
+  /*
+   * 气泡只是「看一眼」的提示（2026-10-27 按反馈）：
+   * 鼠标一离开按钮就该消失 —— 让它整体不接收指针事件，指针自然「穿过」气泡，
+   * 于是 EP 那套「悬停在气泡上就留驻」的逻辑拿不到事件，气泡随按钮的 mouseleave 一起收。
+   * 副作用是好的：气泡永远不会挡住底下的按钮（连点两下也不会被吃掉一下）。
+   *
+   * ⚠ 只对 `.is-dark`（= tooltip）这么做；**不要**写成 `.el-popper.el-tooltip` ——
+   * EP 的日期面板本身也带 `el-tooltip` 类，那样会把它按成「看得见、点不动」（已踩过）。
+   */
+  pointer-events: none;
+}
+
+.el-popper.is-dark .el-popper__arrow::before {
+  border-color: var(--color-border);
+  background-color: var(--color-surface);
+}
+
+/*
  * 侧栏折叠（2026-10-26）：不需要给主区补 padding —— 侧栏是玻璃外壳的 flex 子项，
  * 收窄到 76px 后主区会自动补位；这里只是给外壳挂一个标记类，方便以后做别的折叠态样式。
  */

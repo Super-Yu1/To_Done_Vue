@@ -203,19 +203,23 @@ async function togglePreview(task: PreviewTask) {
         class="sample-row"
         :class="{ 'sample-row--done': item.done }"
       >
-        <button
-          class="sample-row__check"
-          type="button"
-          :aria-pressed="item.done"
-          :aria-label="`${item.done ? '标记为未完成' : '标记为已完成'}：${item.title}`"
-          :title="item.done ? '标记为未完成' : '标记为已完成'"
-          @mousedown.prevent
-          @click="togglePreview(item)"
+        <el-tooltip
+          :content="item.done ? '标记为未完成' : '标记为已完成'"
+          placement="top"
         >
-          <span class="sample-row__check-ring">
-            <AppIcon name="check" :size="13" />
-          </span>
-        </button>
+          <button
+            class="sample-row__check"
+            type="button"
+            :aria-pressed="item.done"
+            :aria-label="`${item.done ? '标记为未完成' : '标记为已完成'}：${item.title}`"
+            @mousedown.prevent
+            @click="togglePreview(item)"
+          >
+            <span class="sample-row__check-ring">
+              <AppIcon name="check" :size="13" />
+            </span>
+          </button>
+        </el-tooltip>
         <span class="sample-row__title">{{ item.title }}</span>
         <span class="prio" :class="TASK_PRIORITY_CLASS[item.priority]">
           <span

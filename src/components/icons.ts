@@ -33,6 +33,8 @@ export type IconName =
   | 'flag'
   /* 头像预览（2026-10-18）：放大镜 + */
   | 'zoom'
+  /* 配图删除（2026-10-27）：右上角的红色 × */
+  | 'close'
 
 export const ICON_PATHS: Record<IconName, string[]> = {
   monitor: ['M3 4h18v12H3z', 'M8 20h8', 'M12 16v4'],
@@ -90,4 +92,6 @@ export const ICON_PATHS: Record<IconName, string[]> = {
   flag: ['M5 21V4', 'M5 4h11l-1.6 4L16 12H5'],
   /* 放大镜 +：头像「点击看大图」的悬停提示 */
   zoom: ['M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12z', 'M15.6 15.6 20 20', 'M11 8.5v5', 'M8.5 11h5'],
+  /* 两条交叉的线：配图删除按钮（比垃圾桶更轻、更贴「×」的直觉） */
+  close: ['M6 6l12 12', 'M18 6L6 18'],
 }

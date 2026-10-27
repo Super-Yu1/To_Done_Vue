@@ -53,18 +53,19 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <button
-    class="back-to-top"
-    :class="{ 'is-visible': visible }"
-    type="button"
-    aria-label="回到顶部"
-    title="回到顶部"
-    :aria-hidden="!visible"
-    :tabindex="visible ? 0 : -1"
-    @click="scrollToTop"
-  >
-    <AppIcon name="up" :size="17" />
-  </button>
+  <el-tooltip content="回到顶部" placement="top">
+    <button
+      class="back-to-top"
+      :class="{ 'is-visible': visible }"
+      type="button"
+      aria-label="回到顶部"
+      :aria-hidden="!visible"
+      :tabindex="visible ? 0 : -1"
+      @click="scrollToTop"
+    >
+      <AppIcon name="up" :size="17" />
+    </button>
+  </el-tooltip>
 </template>
 
 <style scoped>

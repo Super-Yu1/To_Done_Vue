@@ -18,7 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ pick: [File] }>()
 
-/** 与后端头像校验对齐：≤ 10MB、必须是图片（服务端另做扩展名与文件头魔数校验） */
+/** 与后端头像校验对齐：≤ 10MB、必须是静态位图 JPG/PNG/WebP（服务端另做扩展名与文件头魔数校验） */
 const MAX_BYTES = 10 * 1024 * 1024
 
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -67,6 +67,11 @@ function handleChange(event: Event) {
     ElMessage.error('请选择图片文件')
     return
   }
+  // 头像最终要裁成 512×512 JPEG，动图留着也只会变成静图，不如选图时就拒
+  if (file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif')) {
+    ElMessage.error('不支持 GIF 动图，请换成 JPG / PNG / WebP')
+    return
+  }
   if (file.size > MAX_BYTES) {
     ElMessage.error('图片超过 10MB，请换一张')
     return
@@ -78,20 +83,21 @@ function handleChange(event: Event) {
 <template>
   <div class="identity-card">
     <div class="identity">
-      <button
-        class="identity__avatar"
-        :class="{ 'identity__avatar--preview': avatarUrl }"
-        type="button"
-        :aria-label="avatarUrl ? '查看头像大图' : '上传头像'"
-        :title="avatarUrl ? '查看头像大图' : '上传头像'"
-        @click="handleAvatarClick"
-      >
-        <img v-if="avatarUrl" class="identity__image" :src="avatarUrl" alt="" />
-        <span v-else class="identity__initial">{{ initial }}</span>
-        <span class="identity__overlay" aria-hidden="true">
-          <AppIcon :name="avatarUrl ? 'zoom' : 'camera'" :size="18" />
-        </span>
-      </button>
+      <el-tooltip :content="avatarUrl ? '查看头像大图' : '上传头像'" placement="top">
+        <button
+          class="identity__avatar"
+          :class="{ 'identity__avatar--preview': avatarUrl }"
+          type="button"
+          :aria-label="avatarUrl ? '查看头像大图' : '上传头像'"
+          @click="handleAvatarClick"
+        >
+          <img v-if="avatarUrl" class="identity__image" :src="avatarUrl" alt="" />
+          <span v-else class="identity__initial">{{ initial }}</span>
+          <span class="identity__overlay" aria-hidden="true">
+            <AppIcon :name="avatarUrl ? 'zoom' : 'camera'" :size="18" />
+          </span>
+        </button>
+      </el-tooltip>
 
       <div class="identity__info">
         <p class="identity__name">{{ name }}</p>
@@ -110,7 +116,13 @@ function handleChange(event: Event) {
       </div>
     </div>
 
-    <input ref="inputRef" class="identity__input" type="file" accept="image/*" @change="handleChange" />
+    <input
+      ref="inputRef"
+      class="identity__input"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      @change="handleChange"
+    />
 
     <!-- 点击头像看大图：480px 正方形原图（不裁四角），点遮罩 / Esc / 关闭按钮退出 -->
     <Teleport to="body">

@@ -110,23 +110,29 @@ function handleRowClick() {
       <AppIcon v-if="selected" name="check" :size="14" />
     </span>
 
-    <button
+    <el-tooltip
       v-else
-      class="task-row__check"
-      type="button"
-      :aria-pressed="isDone || leaving"
-      :aria-label="isDone || leaving ? '标记为未完成' : '标记为已完成'"
-      :title="isDone || leaving ? '标记为未完成' : '标记为已完成'"
-      @click.stop="handleToggleStatus"
+      :content="isDone || leaving ? '标记为未完成' : '标记为已完成'"
+      placement="top"
     >
-      <span class="task-row__check-box">
-        <AppIcon name="check" :size="14" />
-      </span>
-    </button>
+      <button
+        class="task-row__check"
+        type="button"
+        :aria-pressed="isDone || leaving"
+        :aria-label="isDone || leaving ? '标记为未完成' : '标记为已完成'"
+        @click.stop="handleToggleStatus"
+      >
+        <span class="task-row__check-box">
+          <AppIcon name="check" :size="14" />
+        </span>
+      </button>
+    </el-tooltip>
 
     <div class="task-row__body">
-      <!-- 标题锁单行后可能被省略，用原生 title 兜住全文（2026-10-26） -->
-      <h3 class="task-row__title" :title="task.title">{{ task.title }}</h3>
+      <!-- 标题锁单行后可能被省略：用气泡兜住全文（2026-10-27 从原生 title 换成 EP 气泡，延迟稍长一点免得刷屏） -->
+      <el-tooltip :content="task.title" placement="top" :show-after="400">
+        <h3 class="task-row__title">{{ task.title }}</h3>
+      </el-tooltip>
       <!--
         描述是可选字段，但这一行**始终渲染**并占一行高度：
         否则没填描述的任务会矮一截，长列表里行的节奏忽高忽低。
@@ -142,11 +148,13 @@ function handleRowClick() {
           {{ TASK_PRIORITY_LABEL[task.priority] }}
         </span>
 
-        <!-- 截止时间同样只展示：默认短日期（今天 / 10-18），整行悬停换成完整「日期 + 时分」 -->
+        <!--
+          截止时间同样只展示：默认短日期（今天 / 10-18），整行悬停换成完整「日期 + 时分」——
+          这条 CSS 已经承担了「看完整时间」，所以不再挂原生 title（2026-10-27 去掉）。
+        -->
         <span
           class="task-row__due"
           :class="{ 'task-row__due--overdue': overdue, 'task-row__due--empty': !task.dueDate }"
-          :title="task.dueDate ? dueTitle : '未设截止时间'"
         >
           <AppIcon name="clock" :size="12" />
           <span class="task-row__due-text">
@@ -158,15 +166,16 @@ function handleRowClick() {
 
       <div v-if="!selectMode" class="task-row__actions">
         <!-- 2026-10-27：铅笔去掉，点整行即编辑；这里只留删除 -->
-        <button
-          class="task-row__action task-row__action--danger"
-          type="button"
-          :aria-label="`删除：${task.title}`"
-          title="删除"
-          @click.stop="emit('remove', task)"
-        >
-          <AppIcon name="trash" />
-        </button>
+        <el-tooltip content="删除" placement="top">
+          <button
+            class="task-row__action task-row__action--danger"
+            type="button"
+            :aria-label="`删除：${task.title}`"
+            @click.stop="emit('remove', task)"
+          >
+            <AppIcon name="trash" />
+          </button>
+        </el-tooltip>
       </div>
     </div>
   </article>
