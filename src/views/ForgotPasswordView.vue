@@ -37,6 +37,8 @@ const rules: FormRules = {
       }
 
 async function handleSubmit() {
+  // 原生表单：鼠标点击与回车共用这一条入口，请求在飞时回车也要挡住
+  if (submitting.value) return
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   submitting.value = true
@@ -58,7 +60,15 @@ async function handleSubmit() {
 
 <template>
   <AuthShell title="找回密码" :subtitle="`新密码要求：${PASSWORD_HINT}`">
-    <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
+    <!-- 回车即提交（与登录页同一套）：按钮是 submit，`@submit.prevent` 接住，按钮不再挂 @click -->
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
+      label-position="top"
+      novalidate
+      @submit.prevent="handleSubmit"
+    >
       <el-form-item label="邮箱" prop="email">
         <el-input v-model="form.email" type="email" autocomplete="username" placeholder="todone@example.com" />
       </el-form-item>
@@ -69,7 +79,7 @@ async function handleSubmit() {
         <el-input v-model="form.newPassword" type="password" autocomplete="new-password" show-password />
       </el-form-item>
 
-      <el-button class="submit" type="primary" :loading="submitting" @click="handleSubmit">
+      <el-button class="submit" type="primary" native-type="submit" :loading="submitting">
         重置密码
       </el-button>
     </el-form>

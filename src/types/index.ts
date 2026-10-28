@@ -153,7 +153,7 @@ export interface LoginPayload {
   password: string
   /**
    * 图形码（2026-10-28 起改为**条件必填**）：同一邮箱连续输错 2 次密码后，第 3 次起后端才要；
-   * 前两次不带，接口契约见 `docs/后端修改说明.md`。
+   * 前两次不带；字段以 Swagger 为准，口径见 `docs/CHANGELOG.md` 项目约定 25。
    */
   captchaId?: string
   captchaCode?: string

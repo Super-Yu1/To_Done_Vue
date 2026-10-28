@@ -38,7 +38,7 @@ export const EMAIL_CODE_RESEND_SECONDS = 60
  * 从第 3 次尝试起才要求图形码；登录成功即清零。
  *
  * 计数只存本地（`utils/loginAttempts`，按邮箱分开），因为前端要**提前**决定这次点「登录」
- * 是直接提交还是先弹窗；真正的判定在后端 —— 两边窗口都是 30 分钟（见 `docs/后端修改说明.md`）。
+ * 是直接提交还是先弹窗；真正的判定在后端 —— 两边窗口都是 30 分钟（见 `docs/CHANGELOG.md` 项目约定 25）。
  */
 export const LOGIN_FAILURE_KEY = 'todone_login_failures'
 export const LOGIN_CAPTCHA_AFTER_FAILURES = 2

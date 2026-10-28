@@ -21,7 +21,7 @@ export function register(payload: RegisterPayload): Promise<AuthResult> {
   return request<AuthResult>({ url: '/auth/register', method: 'POST', data: payload })
 }
 
-/** 登录（邮箱 + 密码；同一邮箱连续输错 2 次后，第 3 次起才带图形码，见 docs/后端修改说明.md） */
+/** 登录（邮箱 + 密码；同一邮箱连续输错 2 次后，第 3 次起才带图形码，口径见 docs/CHANGELOG.md 项目约定 25） */
 export function login(payload: LoginPayload): Promise<AuthResult> {
   return request<AuthResult>({ url: '/auth/login', method: 'POST', data: payload })
 }

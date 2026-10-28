@@ -141,13 +141,14 @@ defineProps<{ title: string; subtitle?: string }>()
   padding: 48px 0 64px;
 }
 
+/* 与分栏版那张卡同一块玻璃（2026-10-28 一起换），四个认证页看上去才是同一套 */
 .auth-shell__main:not(.auth-shell__main--split) .auth-shell__panel-inner {
   padding: 28px 28px 24px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-card);
+  border: 1px solid var(--glass-panel-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--glass-card-bg);
+  backdrop-filter: var(--glass-panel-blur);
+  box-shadow: var(--glass-panel-shadow), var(--glass-card-sheen);
 }
 
 /* 注册 / 登录：左右 4:6，两栏铺满「屏幕顶部 → 页脚」的全部高度 */
@@ -189,10 +190,43 @@ defineProps<{ title: string; subtitle?: string }>()
 
 /* 右栏：表单略偏上居中（下内边距大于上），重心落在偏上一点的位置更顺眼 */
 .auth-shell__main--split .auth-shell__panel {
+  position: relative;
+  /* 让下面那团「透光」待在卡片后面，而不是盖在卡片上 */
+  isolation: isolate;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 84px clamp(24px, 4vw, 56px) 96px;
+}
+
+/*
+ * 卡片背后的一团透光（2026-10-28）：右栏原本是整片近乎纯白，玻璃卡「没东西可折射」——
+ * 填色、模糊、高光全都落在同一片白上，看上去和实心白卡没区别。
+ * 在卡后面放一团很淡的品牌蓝 + 苹果蓝光晕（都走 color-mix，深色主题自动跟着变），
+ * 卡片 blur 之后边缘能喝到一点颜色，材质才立得住。**必须在卡片后面**（z-index: -1）。
+ */
+.auth-shell__main--split .auth-shell__panel::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: min(620px, 86%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(closest-side, color-mix(in srgb, var(--color-brand) 26%, transparent), transparent 72%),
+    radial-gradient(closest-side at 68% 34%, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent 70%);
+  filter: blur(38px);
+  /* 深色底上这点颜色已经很显眼（卡片填色只有 0.075 白），再高就抢正文了 */
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* 浅色底本来就亮，光晕得比深色主题更实一点才透得过玻璃（深色那档 0.45 已经够显） */
+:global(html:not(.dark)) .auth-shell__main--split .auth-shell__panel::before {
+  opacity: 0.8;
 }
 
 .auth-shell__panel {
@@ -205,17 +239,22 @@ defineProps<{ title: string; subtitle?: string }>()
 }
 
 /*
- * 表单卡片：右栏是纯白，单靠留白撑不住视觉重心 —— 用一张 1px 发丝描边的卡片把它收住，
- * 与左栏的任务卡、全站的卡片语言同源（不额外加阴影，白底上阴影几乎看不见，反而脏）。
+ * 表单卡片（2026-10-28 按「一块玻璃」重做）：
+ * 原来吃的是浮层那一档（`--glass-bg` + `--glass-blur` + `--shadow-card`），放在右栏这片近乎纯白的底上
+ * 等于一层白纱 —— 边缘只剩一条看不见的白描边，整张卡和背景糊在一起。
+ * 现在按**大面玻璃**取值：`--glass-card-bg` 的半透填色（比面板实一点，压得住正文）、
+ * `--glass-panel-blur` 的厚模糊（液体玻璃的「厚度」来自模糊，不来自填色）、26px 大面圆角、
+ * `--glass-panel-shadow` 的大而散落影负责「离地」，再用 `--glass-card-sheen` 在上沿铺一条 24px 的柔光
+ * （光打在玻璃上表面）。描边是 `--glass-panel-border` 那圈半透白 —— 它是玻璃的边，不是分隔线。
  */
 .auth-shell__card {
   max-width: 496px;
   padding: 28px 28px 24px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  box-shadow: var(--shadow-card);
+  border: 1px solid var(--glass-panel-border);
+  border-radius: var(--radius-panel);
+  background-color: var(--glass-card-bg);
+  backdrop-filter: var(--glass-panel-blur);
+  box-shadow: var(--glass-panel-shadow), var(--glass-card-sheen);
 }
 
 .auth-shell__heading {
@@ -265,6 +304,55 @@ defineProps<{ title: string; subtitle?: string }>()
   left: 12px;
 }
 
+/* ---------- 表单井（两种版式通用） ---------- */
+
+/*
+ * 输入框是**凹井**，不是又一层浅白（2026-10-28 修）：分栏版原来铺 `--color-hover`（52% 白）——
+ * 白卡上叠浅白，井和卡片糊成一片，占位符几乎看不见；单栏版（找回密码 / 后台登录）用的是
+ * Element Plus 默认的「白底 + 一圈近乎看不见的边」，同一个毛病。
+ * 现在四个认证页统一吃全站那套「玻璃上的输入井」（`--color-field-*`，与首页搜索框同一口径）：
+ * 墨色 5.5% + 一道内阴影 + 一圈发丝边 —— **井必须比承载它的玻璃更深**，控件才立得起来。
+ * 聚焦时井提亮成白（`--color-field-bg-focus`）并套一圈墨色环：苹果蓝按约定只留给搜索聚焦环。
+ */
+.auth-shell__panel
+  :deep(.el-form-item:not(.is-error) .el-input__wrapper:not(.is-focus)) {
+  background-color: var(--color-field-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--color-field-border),
+    inset 0 1px 3px rgba(17, 24, 39, 0.06);
+}
+
+.auth-shell__panel
+  :deep(.el-form-item:not(.is-error) .el-input__wrapper:not(.is-focus):hover) {
+  background-color: var(--color-field-bg-hover);
+}
+
+.auth-shell__panel :deep(.el-input__wrapper) {
+  padding: 0 12px;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-base) var(--ease);
+}
+
+.auth-shell__panel :deep(.el-input__wrapper.is-focus) {
+  background-color: var(--color-field-bg-focus);
+  box-shadow:
+    0 0 0 1.5px var(--color-text) inset,
+    0 0 0 4px color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+/*
+ * 校验失败时描边必须是红的 —— 包括「还聚焦着」的那一刻：
+ * 上面那条聚焦规则比 Element Plus 自带的错误态更具体，不显式盖一下会把红环吃掉。
+ */
+.auth-shell__panel :deep(.el-form-item.is-error .el-input__wrapper),
+.auth-shell__panel :deep(.el-form-item.is-error .el-input__wrapper.is-focus) {
+  background-color: var(--color-surface);
+  box-shadow:
+    0 0 0 1px var(--color-danger) inset,
+    0 0 0 4px color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
 /* ---------- 分栏版式的排版尺度 ---------- */
 
 /* 页面尺度大了，14px 的正文在大留白里会显得小；只作用在分栏分支，窄表单不受影响 */
@@ -281,39 +369,6 @@ defineProps<{ title: string; subtitle?: string }>()
 .auth-shell__main--split .auth-shell__panel :deep(.el-input__inner),
 .auth-shell__main--split .auth-shell__panel :deep(.el-textarea__inner) {
   font-size: 15px;
-}
-
-/*
- * 填充式输入框：浅底、无描边；聚焦时转白底 + 一圈主色环。
- * 只改「非聚焦、非错误」态，Element Plus 自带的聚焦态与错误红环（`.is-error` 在 form-item 上）
- * 保持原样 —— 校验失败时的红框不能被我压掉。
- */
-.auth-shell__main--split
-  .auth-shell__panel
-  :deep(.el-form-item:not(.is-error) .el-input__wrapper:not(.is-focus)) {
-  background-color: var(--color-hover);
-  box-shadow: none;
-}
-
-.auth-shell__main--split .auth-shell__panel :deep(.el-input__wrapper) {
-  padding: 0 12px;
-}
-
-.auth-shell__main--split .auth-shell__panel :deep(.el-input__wrapper.is-focus) {
-  background-color: var(--color-surface);
-  box-shadow: 0 0 0 1px var(--color-text) inset;
-}
-
-/*
- * 校验失败时描边必须是红的 —— 包括「还聚焦着」的那一刻：
- * 上面那条聚焦规则比 Element Plus 自带的错误态更具体，不显式盖一下会把红环吃掉。
- */
-.auth-shell__main--split .auth-shell__panel :deep(.el-form-item.is-error .el-input__wrapper),
-.auth-shell__main--split
-  .auth-shell__panel
-  :deep(.el-form-item.is-error .el-input__wrapper.is-focus) {
-  background-color: var(--color-surface);
-  box-shadow: 0 0 0 1px var(--color-danger) inset;
 }
 
 /* 验证码的输入框与「获取验证码」按钮等高（同一条高度变量） */

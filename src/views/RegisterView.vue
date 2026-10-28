@@ -14,6 +14,7 @@ import AuthAside from '@/components/AuthAside.vue'
 import AuthShell from '@/components/AuthShell.vue'
 import EmailCodeField from '@/components/EmailCodeField.vue'
 import { PASSWORD_HINT, PASSWORD_PATTERN } from '@/constants'
+import { clearLoginFailures } from '@/utils/loginAttempts'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -50,10 +51,15 @@ const rules: FormRules = {
  * 提交不再弹第二次，请求里也就不带 captchaId / captchaCode。
  */
 async function handleSubmit() {
+  // 原生表单：鼠标点击与回车共用这一条入口，请求在飞时回车也要挡住
+  if (auth.loading) return
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   try {
     await auth.register({ ...form })
+    // 后端注册成功会 DEL 该邮箱的登录失败计数（注销后用同一邮箱重注册，新账号不继承旧账）。
+    // 本地这份也得跟着清，否则第 1 次登录会先被本地计数骗出一张图。
+    clearLoginFailures(form.email)
     ElMessage.success('注册成功')
     await router.push('/tasks')
   } catch {
@@ -74,7 +80,15 @@ async function handleSubmit() {
       <AuthAside lead="把要做的事，一件件划掉。" />
     </template>
 
-    <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
+    <!-- 回车即提交（与登录页同一套）：按钮是 submit，`@submit.prevent` 接住，按钮不再挂 @click -->
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
+      label-position="top"
+      novalidate
+      @submit.prevent="handleSubmit"
+    >
       <el-form-item label="邮箱" prop="email">
         <el-input v-model="form.email" type="email" autocomplete="username" placeholder="todone@example.com" />
       </el-form-item>
@@ -98,7 +112,7 @@ async function handleSubmit() {
         <el-input v-model="form.name" maxlength="32" />
       </el-form-item>
 
-      <el-button class="submit" type="primary" :loading="auth.loading" @click="handleSubmit">
+      <el-button class="submit" type="primary" native-type="submit" :loading="auth.loading">
         注册
       </el-button>
     </el-form>

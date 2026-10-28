@@ -2,7 +2,7 @@
  * 登录密码错误计数（2026-10-28 需求：连续输错 2 次密码，第 3 次起才要图形验证码）。
  *
  * 这里只是「登录页该不该先弹窗」的判断，**不是安全闸** —— 真正的判定在后端
- * （见 `docs/后端修改说明.md`）。本地这份被清掉时不是漏洞：下一次请求后端会回 4008，
+ * （口径见 `docs/CHANGELOG.md` 项目约定 25）。本地这份被清掉时不是漏洞：下一次请求后端会回 4008，
  * 登录页据此把弹窗补上。
  *
  * 为什么落 localStorage 而不是内存：刷新不该把已经错过的次数洗掉，否则「错两次才要码」
@@ -69,21 +69,49 @@ export function needsLoginCaptcha(email: string): boolean {
 }
 
 /**
+ * 清掉窗口外的条目：这个键随用过的邮箱一直长，写之前顺手收一次。
+ */
+function pruneExpired(map: FailureMap, now: number): void {
+  for (const [mail, record] of Object.entries(map)) {
+    if (now - record.at > LOGIN_FAILURE_TTL_MS) delete map[mail]
+  }
+}
+
+/**
  * 记一次**密码错误**（冻结 / 注销 / 图形码错都不要调它），返回累计次数。
- * 写之前顺手清掉过期条目，免得这个键随用过的邮箱一直长。
  */
 export function recordLoginFailure(email: string): number {
   const key = normalizeEmail(email)
   if (!key) return 0
   const map = readMap()
   const now = Date.now()
-  for (const [mail, record] of Object.entries(map)) {
-    if (now - record.at > LOGIN_FAILURE_TTL_MS) delete map[mail]
-  }
+  pruneExpired(map, now)
   const count = (map[key]?.count ?? 0) + 1
   map[key] = { count, at: now }
   writeMap(map)
   return count
+}
+
+/**
+ * 后端回 4008（该输图形码了）时对齐本地计数：把该邮箱直接记到阈值。
+ *
+ * <p>为什么需要：计数存在后端（按邮箱、跨设备），本地这份可能落后——换浏览器、清缓存、
+ * 或者别处已经错过两次。不回填的话，用户关掉弹窗再点「登录」又会先不带码提交一次、
+ * 再吃一次 4008，弹窗来回闪。
+ *
+ * <p>`at` 尽量沿用原来那条：这份计数只该比后端**更早**过期。4008 不代表后端那次失败的时间
+ * 被刷新了（后端只在密码错时重置 30 分钟窗口），把窗口往后推会让本地比后端多要求一次图形码。
+ */
+export function markCaptchaRequired(email: string): void {
+  const key = normalizeEmail(email)
+  if (!key) return
+  const map = readMap()
+  const now = Date.now()
+  pruneExpired(map, now)
+  // 只有「还在窗口内」的旧记录才沿用它的 at：过期的那条刚被 prune 掉，
+  // 照抄它的 at 会让新记录一写进去就过期（弹窗关掉再点，又变回不带码提交）
+  map[key] = { count: LOGIN_CAPTCHA_AFTER_FAILURES, at: map[key]?.at ?? now }
+  writeMap(map)
 }
 
 /** 登录成功后清零（只清这一个邮箱） */

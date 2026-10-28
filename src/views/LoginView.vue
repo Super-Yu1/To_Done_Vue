@@ -4,7 +4,7 @@
  *
  * 图形码**不再每次都要**（2026-10-28 需求变更）：同一邮箱连续输错 2 次密码，第 3 次点「登录」才弹窗，
  * 前两次直接提交。计数在 `utils/loginAttempts`（本地 / 按邮箱 / 30 分钟过期 / 成功清零），
- * 后端按同一规则判定 —— 本地计数没跟上时后端回 4008，这里再把弹窗递上来（见 docs/后端修改说明.md）。
+ * 后端按同一规则判定 —— 本地计数没跟上时后端回 4008，这里再把弹窗递上来（口径见 `docs/CHANGELOG.md` 项目约定 25）。
  *
  * 排版（2026-10-16）与注册页**共用同一套**：左栏 `AuthAside`（同一份产品预览、同样可点）、
  * 右侧表单卡片（外壳的分栏分支给的），差别只有主张文案与场景标签那一行 ——
@@ -18,7 +18,12 @@ import AuthShell from '@/components/AuthShell.vue'
 import CaptchaDialog from '@/components/CaptchaDialog.vue'
 import { isCaptchaError, isCaptchaRequiredError, isCredentialError } from '@/api/http'
 import { pickLoginWelcome } from '@/constants'
-import { clearLoginFailures, needsLoginCaptcha, recordLoginFailure } from '@/utils/loginAttempts'
+import {
+  clearLoginFailures,
+  markCaptchaRequired,
+  needsLoginCaptcha,
+  recordLoginFailure,
+} from '@/utils/loginAttempts'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -66,6 +71,8 @@ const rules: FormRules = {
 
 /** 校验通过：该出图形码就弹窗，还不用出就直接提交 */
 async function handleSubmit() {
+  // 表单是原生 `<form>`：点按钮与按回车都会走到这里，请求在飞的时候回车要挡住（按钮自身会被 loading 禁用）
+  if (auth.loading) return
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
   if (needsLoginCaptcha(form.email)) {
@@ -99,8 +106,10 @@ async function submitLogin(captcha?: { captchaId: string; captchaCode: string })
     // 其它失败由 http 层提示；关掉弹窗，免得密码填错时逼用户为一次提交连填两次图形码。
     // 下次点「登录」自然是一张新图。
     captchaVisible.value = false
-    // 后端说「该输图形码了」而本地还没打算弹（换了浏览器 / 清了缓存）：把弹窗递上来
+    // 后端说「该输图形码了」而本地还没打算弹（换了浏览器 / 清了缓存 / 别处已经错过两次）：
+    // 把本地计数补到阈值再递上弹窗，否则关掉弹窗再点登录又会先不带码提交一次、再吃一次 4008
     if (isCaptchaRequiredError(error)) {
+      markCaptchaRequired(form.email)
       captchaVisible.value = true
       captchaDialogRef.value?.refresh()
     }
@@ -126,7 +135,19 @@ async function submitLogin(captcha?: { captchaId: string; captchaCode: string })
 
     <p v-if="expiredNotice" class="expired-notice">登录状态已失效，请重新登录</p>
 
-    <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
+    <!--
+      `@submit.prevent` 接住原生提交：按钮是 `native-type="submit"`，所以在任一输入框里按回车
+      都等同于点「登录」（2026-10-28 用户要求）。按钮不再挂 `@click`，否则鼠标点击会既触发
+      click 又触发表单提交，登录请求发两遍。
+    -->
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
+      label-position="top"
+      novalidate
+      @submit.prevent="handleSubmit"
+    >
       <el-form-item label="邮箱" prop="email">
         <el-input v-model="form.email" type="email" autocomplete="username" placeholder="todone@example.com" />
       </el-form-item>
@@ -145,7 +166,7 @@ async function submitLogin(captcha?: { captchaId: string; captchaCode: string })
         <RouterLink class="field-aside__link" to="/forgot-password">忘记密码？</RouterLink>
       </div>
 
-      <el-button class="submit" type="primary" :loading="auth.loading" @click="handleSubmit">
+      <el-button class="submit" type="primary" native-type="submit" :loading="auth.loading">
         登录
       </el-button>
     </el-form>
