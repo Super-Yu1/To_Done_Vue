@@ -185,16 +185,16 @@ function handleRowClick() {
  * 任务卡（2026-10-27 四改：回到「一行一卡」）：
  * 每行是一块独立的玻璃（20px 圆角 + 26px 模糊 + 0.5 白 + 高光边），
  * 悬停整体上浮 2px、影更深 —— 一列卡在渐变上各自浮着，层级靠「一张张卡」读，而不是分组里的发丝线。
- * 行高仍是 73px（padding 15 / 20、前置位 40px 放 22px 勾选圈），换皮不换骨架。
+ * 行高 87px（padding 18 / 22、前置位 40px 放 24px 勾选圈、标题 17 / 描述 14），换皮不换骨架。
  */
 .task-row {
   position: relative;
   display: grid;
-  /* 前置位 40px（命中区）放 22px 圆形框；正文一列；右侧元信息 + 固定宽度的操作列 */
+  /* 前置位 40px（命中区）放 24px 圆形框；正文一列；右侧元信息 + 固定宽度的操作列 */
   grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 15px 20px;
+  gap: 16px;
+  padding: 18px 22px;
   border: 1px solid var(--glass-card-border);
   border-radius: var(--radius-lg);
   background-color: var(--glass-card-bg);
@@ -246,8 +246,8 @@ function handleRowClick() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   /* 圆形复选框：细一圈浅灰描边，悬停才染上品牌色 */
   border: 1.5px solid color-mix(in srgb, var(--color-text) 20%, transparent);
   border-radius: 50%;
@@ -314,10 +314,10 @@ function handleRowClick() {
   line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   line-height: 1.4;
-  letter-spacing: -0.008em;
+  letter-spacing: -0.01em;
   color: var(--color-text);
   word-break: break-word;
   /*
@@ -339,9 +339,9 @@ function handleRowClick() {
   -webkit-box-orient: vertical;
   overflow: hidden;
   /* 占位高度 = 一行正文：没填描述的任务也占着这一行，行高才一致 */
-  min-height: 20px;
-  margin-top: 2px;
-  font-size: 12.5px;
+  min-height: 22px;
+  margin-top: 3px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--color-text-2);
   word-break: break-word;
@@ -376,12 +376,12 @@ function handleRowClick() {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 20px;
-  padding: 0 8px;
+  height: 22px;
+  padding: 0 9px;
   border: none;
   border-radius: 99px;
   background-color: color-mix(in srgb, currentColor 11%, transparent);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
@@ -414,15 +414,15 @@ function handleRowClick() {
   /* 固定一列：今天 / 10-17 / 未设截止时间 都右对齐，优先级胶囊的位置才不会左右浮动 */
   justify-content: flex-end;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   /* 预留完整日期（2026-10-26 18:00）的宽度：悬停切换文本时列宽不变，胶囊不会左右抖 */
-  min-width: 116px;
+  min-width: 126px;
   padding: 0;
   border: none;
   background-color: transparent;
   /* 日期比描述更轻：纯文本、浅灰，只靠时钟图标和字号压住重量 */
   color: var(--color-text-3);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   line-height: 1.6;
   white-space: nowrap;
@@ -461,8 +461,8 @@ function handleRowClick() {
 .task-row__actions {
   display: flex;
   flex: none;
-  /* 2026-10-27：只剩删除一个按钮（29px），让位宽度同步收窄 */
-  width: 29px;
+  /* 只剩删除一个按钮（32px），让位宽度同步 */
+  width: 32px;
   justify-content: flex-end;
   gap: 2px;
   transition: opacity var(--dur-fast) var(--ease);
@@ -482,10 +482,10 @@ function handleRowClick() {
     opacity: 1;
   }
 
-  /* 左移 37px：正好让出一个 29px 按钮 + 间距（2026-10-27 去掉铅笔后收窄） */
+  /* 左移 40px：正好让出一个 32px 按钮 + 间距 */
   .task-row:hover .task-row__meta,
   .task-row:focus-visible .task-row__meta, .task-row:has(:focus-visible) .task-row__meta {
-    transform: translateX(-37px);
+    transform: translateX(-40px);
   }
 }
 
@@ -493,8 +493,8 @@ function handleRowClick() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 29px;
-  height: 29px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: none;
   border-radius: var(--radius-control);

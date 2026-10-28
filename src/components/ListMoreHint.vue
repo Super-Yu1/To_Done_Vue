@@ -19,7 +19,7 @@ defineProps<{
 <style scoped>
 .list-more-hint {
   padding: 12px 0 4px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text-2);
   text-align: center;
 }

@@ -138,7 +138,7 @@ async function handleLogout() {
     <AppSidebar :items="navItems" brand-to="/tasks" :collapsed="sidebarCollapsed">
       <template #settings>
         <!-- 2026-10-26：身份 / 主题 / 折叠并成一行；点头像用户名向上弹出用户菜单 -->
-        <div class="side-row">
+        <div class="side-row" :class="{ 'side-row--stacked': sidebarCollapsed }">
           <el-popover
             v-model:visible="userMenuVisible"
             placement="top"
@@ -185,11 +185,13 @@ async function handleLogout() {
             </div>
           </el-popover>
 
-          <ThemeToggle class="side-row__tool" />
+          <!-- 主题按钮的定位写在 `.side-row :deep(.theme-toggle)` 里：
+               挂在组件上的 class 会穿过 AppTooltip，落不到这个 button 上 -->
+          <ThemeToggle />
           <!-- 2026-10-27：悬浮说明用 EP 气泡（全局白卡样式，见 main.css 的 `.el-popper.is-dark`） -->
           <AppTooltip :content="sidebarCollapsed ? '展开' : '折叠'" placement="top">
             <button
-              class="side-tool side-row__tool"
+              class="side-tool side-row__tool side-row__collapse"
               type="button"
               :aria-label="sidebarCollapsed ? '展开侧栏' : '折叠侧栏'"
               :aria-expanded="!sidebarCollapsed"
@@ -212,10 +214,14 @@ async function handleLogout() {
 /* 底部设置区：身份一行（点头像/用户名进个人中心）+ 主题与退出 */
 /* 2026-10-26：从 RouterLink 改成按钮（点它弹用户菜单），顺带做按钮样式重置 */
 .side-user {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: flex;
   align-items: center;
   gap: 9px;
-  width: 100%;
+  width: 70%;
+  height: 40px;
   padding: 6px 8px;
   border: none;
   border-radius: var(--radius-control);
@@ -224,24 +230,17 @@ async function handleLogout() {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease), transform 120ms var(--ease);
-}
-
-/* 折叠态：底部从三列改成竖排（76px 放不下三列），只留头像与两个图标 */
-.app-layout--collapsed .side-row {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.app-layout--collapsed .side-user {
-  justify-content: center;
-  padding: 6px;
-}
-
-.app-layout--collapsed .side-user__name {
-  display: none;
+  /*
+   * 2026-10-29：底部三格改成**绝对定位 + 位置过渡**，折叠时元素直接滑到新位置。
+   * 换排布那一下不再靠淡出遮挡：left / width / padding / gap 各自过渡，与侧栏 280ms 的宽度动画同拍。
+   */
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    transform 120ms var(--ease),
+    left 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    gap 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .side-user:hover {
@@ -250,8 +249,8 @@ async function handleLogout() {
 
 .side-user__avatar {
   flex: none;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--color-border);
   border-radius: 50%;
   object-fit: cover;
@@ -267,25 +266,93 @@ async function handleLogout() {
 }
 
 .side-user__name {
-  /* 占满 60% 那一格剩下的宽度，超长时省略号收尾（原来写死 118px，反而用不满） */
+  /* 占满 70% 那一格剩下的宽度，超长时省略号收尾（原来写死 118px，反而用不满） */
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text);
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 展开时等宽度长开一点再淡入，否则先看到的是被省略号截掉一半的名字 */
+  transition: opacity 160ms var(--ease) 60ms;
 }
 
-/* 一行三格：用户 70%、主题 15%、退出 15%（2026-10-18 按反馈逐步调整，给用户名留更多宽度） */
+.side-row--stacked .side-user__name {
+  opacity: 0;
+  /* 收起时立刻淡出：宽度收得比它慢，名字不会先被截成「我…」再消失 */
+  transition: opacity 120ms var(--ease);
+}
+
+/*
+ * 底部三格（2026-10-29 重做）：容器只负责高度，三枚按钮各自绝对定位。
+ * 用户名 70%、主题 / 折叠钮各占 15% 的两格中线；折叠态容器长到 120
+ * （40 + 8 + 32 + 8 + 32），三枚按钮的 left / top 一起滑过去 —— 是位移，不是淡出重画。
+ */
 .side-row {
-  display: grid;
-  grid-template-columns: 70% 15% 15%;
-  align-items: center;
+  position: relative;
+  height: 40px;
+  transition: height 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.side-row__tool {
-  justify-self: center;
+/* 用 .side-row 提权：`.side-tool` 自己那条 transition（颜色 / transform）写在后面，
+   同权重会把这里的 left / top 过渡顶掉 —— 那样折叠钮就是直接跳过去的。
+   transition 是整条覆盖，所以悬停变色与按下缩放要一起抄过来。 */
+.side-row .side-row__tool {
+  position: absolute;
+  top: 4px;
+  transition:
+    left 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    transform 120ms var(--ease);
+}
+
+/* 主题按钮的 class 落不到组件根节点上（穿过 AppTooltip），这里从父级点名它 */
+.side-row :deep(.theme-toggle) {
+  position: absolute;
+  top: 4px;
+  left: calc(77.5% - 16px);
+  /* 同理：整条 transition 会覆盖组件自带的那条，颜色与按下缩放要一起带上 */
+  transition:
+    left 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    transform 120ms var(--ease);
+}
+
+.side-row__collapse {
+  left: calc(92.5% - 16px);
+}
+
+/* 折叠态：三枚按钮竖排居中，40 / 48 / 88 的节奏与 76px 浮岛一致 */
+.side-row--stacked {
+  height: 120px;
+}
+
+.side-row--stacked .side-user {
+  /*
+   * 这里写 7px 而不是 `calc(50% - 20px)`：折叠态内容宽恒为 54（76 − 2×10 内边距 − 2 描边），
+   * (54 − 40) / 2 = 7 就是居中；用百分比的话，过渡中那个百分比会跟着正在变化的容器宽度来回算，
+   * 头像会先甩到右边再滑回来（实测 0 → 26 → 7）。px 目标 + 动画 = 一条平滑的直线。
+   */
+  left: 7px;
+  width: 40px;
+  gap: 0;
+  padding: 6px;
+  justify-content: center;
+}
+
+.side-row--stacked :deep(.theme-toggle) {
+  left: calc(50% - 16px);
+  top: 48px;
+}
+
+.side-row--stacked .side-row__collapse {
+  left: calc(50% - 16px);
+  top: 88px;
 }
 
 .side-tool {

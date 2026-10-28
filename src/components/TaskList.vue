@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 任务列表（2026-10-27 四改：回到「一行一卡」）：
- * 每行是一块独立玻璃卡，卡与卡之间留 10px —— 一列卡各自浮在渐变上；
+ * 每行是一块独立玻璃卡，卡与卡之间留 12px —— 一列卡各自浮在渐变上；
  * 悬停上浮、勾选完成原地缩小淡出，仍是 TransitionGroup 负责（420ms）。
  * 行骨架与真实卡同栅格（40px 前置位 / 正文 / 236px 元信息），加载完成不跳版。
  * 尾部 #footer 插槽（快速录入）落在最后一张卡之后，自己也是一张卡。
@@ -125,13 +125,13 @@ onUnmounted(() => observer?.disconnect())
   flex-direction: column;
 }
 
-/* 卡与卡之间 10px：一列卡各自成块，间距靠空气而不是分隔线 */
+/* 卡与卡之间 12px：一列卡各自成块，间距靠空气而不是分隔线 */
 .task-list__rows,
 .task-list__skeletons {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* 空状态也住在一张卡里，与有任务时是同一张脸 */
@@ -148,8 +148,8 @@ onUnmounted(() => observer?.disconnect())
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 236px;
   align-items: center;
-  gap: 14px;
-  padding: 15px 20px;
+  gap: 16px;
+  padding: 18px 22px;
   border: 1px solid var(--glass-card-border);
   border-radius: var(--radius-lg);
   background-color: var(--glass-card-bg);
@@ -158,9 +158,9 @@ onUnmounted(() => observer?.disconnect())
 }
 
 .task-list__skeleton-check {
-  width: 22px;
-  height: 22px;
-  margin: 0 9px;
+  width: 24px;
+  height: 24px;
+  margin: 0 8px;
   border-radius: 50%;
   background-color: color-mix(in srgb, var(--color-text) 8%, transparent);
 }
@@ -168,7 +168,7 @@ onUnmounted(() => observer?.disconnect())
 .task-list__skeleton-body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .task-list__skeleton-line {
@@ -179,13 +179,13 @@ onUnmounted(() => observer?.disconnect())
 
 .task-list__skeleton-line--title {
   width: 60%;
-  height: 15px;
+  height: 17px;
 }
 
 /* 与真实卡的元信息行同高同位置（标题下方、左对齐、约占三分之一） */
 .task-list__skeleton-line--meta {
   width: 32%;
-  height: 16px;
+  height: 18px;
 }
 
 .task-list__sentinel {

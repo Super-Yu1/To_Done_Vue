@@ -326,15 +326,19 @@ onUnmounted(() => {
 /*
  * 搜索井（2026-10-27）：胶囊形、凹进玻璃里 ——
  * 底色比面板更深一档（墨色兑水）+ 一道内阴影，聚焦时整口井提亮成白色并套上苹果蓝环。
+ *
+ * flex-basis 和 min-width 都取 160（2026-10-29）：换行**按 basis 算、不看 shrink**，
+ * 原来 basis 写 240 时存在一段「240 放不下、但 160 明明放得下」的窗口（约 1180 附近），
+ * 主按钮会被挤到第二行 —— 窗口拖过这里就跳一下。basis 收到下限，这一行只在真的塞不下时才折。
  */
 .filter-bar__search {
-  flex: 1 1 240px;
+  flex: 1 1 160px;
   min-width: 160px;
 }
 
 .filter-bar__search :deep(.el-input__wrapper) {
-  height: 42px;
-  padding: 1px 16px;
+  height: 46px;
+  padding: 1px 18px;
   border: none;
   border-radius: var(--radius-pill);
   background-color: var(--color-field-bg);
@@ -366,10 +370,10 @@ onUnmounted(() => {
 }
 
 .filter-bar__search :deep(.el-input__inner) {
-  font-size: 14px;
+  font-size: 15px;
 }
 
-/* 主操作区：按钮 42px 高 / 13px 圆角，与搜索井同一条基线 */
+/* 主操作区：按钮 46px 高 / 12px 圆角，与搜索井同一条基线 */
 .filter-bar__actions {
   display: flex;
   flex: none;
@@ -379,12 +383,30 @@ onUnmounted(() => {
 }
 
 .filter-bar__actions :deep(.el-button) {
-  height: 42px;
+  height: 46px;
   margin-left: 0;
-  padding: 0 20px;
+  padding: 0 22px;
   border-radius: var(--radius-control);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 550;
+  /* 收成方钮时留白也要跟着收（22 → 14），收回来的宽度才不会靠 width 硬切 */
+  transition: padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * 按钮文案（2026-10-29）：收的是 **max-width**，不是 `display: none` ——
+ * 后者在两个方向都是瞬切，展开时整枚按钮会「跳」一下；这里文字、左边距、按钮留白
+ * 一起走 280ms + `cubic-bezier(0.22, 1, 0.36, 1)`，与侧栏折叠同一条曲线，拖窗口时是同一个节拍。
+ * 4.2em 略大于「新建任务」四个全角字（4em）：换了更长的文案要把它调大，否则文字会被切掉。
+ */
+.filter-bar__actions :deep(.btn-text) {
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 4.2em;
+  transition:
+    max-width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-left 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms var(--ease);
 }
 
 /*
@@ -401,7 +423,10 @@ onUnmounted(() => {
   --el-button-active-bg-color: var(--color-accent-active);
   --el-button-active-border-color: transparent;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  transition: background-color var(--dur-fast) var(--ease), transform 120ms var(--ease);
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    padding 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 120ms var(--ease);
 }
 
 .filter-bar__actions :deep(.el-button--primary:hover) {
@@ -455,13 +480,13 @@ onUnmounted(() => {
 .filter-bar__tab {
   position: relative;
   z-index: 1;
-  height: 32px;
-  padding: 0 16px;
+  height: 34px;
+  padding: 0 17px;
   border: none;
   border-radius: var(--radius-pill);
   background-color: transparent;
   color: var(--color-text-2);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -522,13 +547,13 @@ onUnmounted(() => {
   flex: none;
   align-items: center;
   gap: 4px;
-  height: 32px;
-  padding: 0 10px;
+  height: 34px;
+  padding: 0 12px;
   border: none;
   border-radius: var(--radius-control);
   background-color: transparent;
   color: var(--color-text-2);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -551,28 +576,43 @@ onUnmounted(() => {
 }
 
 .filter-bar__caret {
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   color: var(--color-text-3);
 }
 
-/*
- * 工具栏自己变窄（窄侧栏 + 约 1024 的窗口）：主操作收成一枚加号方钮。
- * 文字让位而不是整行折行 —— 折行后按钮会孤零零落到第二行，比少一行字难看得多。
- */
+/* 工具栏自己真的放不下时，搜索井再收一档（按容器算，与侧栏收没收无关） */
 @container (max-width: 760px) {
-  /* 搜索的 flex-basis 也要跟着收：换行是按 basis 算的，只缩按钮仍会挤到第二行 */
+  /* 搜索的 flex-basis 与 min-width 一起收：换行按 basis 算，min-width 还压着实际宽度 */
   .filter-bar__search {
     flex-basis: 150px;
+    min-width: 150px;
   }
+}
 
+/*
+ * 主操作收成一枚加号方钮（2026-10-28 改断点）：**与侧栏折叠同一个宽度**。
+ * DefaultLayout 的 `NARROW_SIDEBAR_MAX = 1150`、判断式是 `innerWidth < 1150`，
+ * 所以这里取 1149.98（把小数宽度也算进去）—— 侧栏收窄与按钮收字在同一次 resize 里发生。
+ * 之前按容器 ≤760 算：侧栏 1150 就收了，按钮却要拖到约 946 才收，中间一段明显不同步。
+ * 文字让位而不是整行折行 —— 折行后按钮会孤零零落到第二行，比少一行字难看得多。
+ * ⚠️ 改侧栏断点时，这里必须一起改。
+ */
+@media (max-width: 1149.98px) {
   .filter-bar__actions :deep(.btn-text) {
-    display: none;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
   }
 
+  /*
+   * 留白 22 → 14：16 图标 + 28 留白 + 2 描边 = 46 的方钮。
+   * 三个量一起收，宽度是连续下去的（不再出现「前 3/4 不动、最后一帧缩到 46」的停顿），
+   * 图标由 flex 的 justify-content: center 居中。
+   */
   .filter-bar__actions :deep(.el-button) {
-    width: 42px;
-    padding: 0;
+    padding-left: 14px;
+    padding-right: 14px;
   }
 }
 
@@ -586,7 +626,7 @@ onUnmounted(() => {
 
 .sort-panel__title {
   padding: 2px 8px 6px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-3);
 }
 
@@ -595,13 +635,13 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  height: 34px;
+  height: 36px;
   padding: 0 8px;
   border: none;
   border-radius: var(--radius-sm);
   background-color: transparent;
   color: var(--color-text-2);
-  font-size: 13px;
+  font-size: 14px;
   text-align: left;
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
@@ -630,13 +670,13 @@ onUnmounted(() => {
 }
 
 .sort-panel__dir-btn {
-  height: 26px;
+  height: 28px;
   padding: 0 4px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background-color: transparent;
   color: var(--color-text-2);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
     color var(--dur-fast) var(--ease);

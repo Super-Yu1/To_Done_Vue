@@ -174,8 +174,11 @@ onUnmounted(() => {
   /*
    * 折叠 / 展开（2026-10-26）：时长拉到 280ms 并用「先快后慢」的缓出曲线 ——
    * 原先是通用 200ms + 通用曲线，收尾太急，看起来像被掐断。
+   * 2026-10-29：内边距（14 → 10）也跟着走同一条曲线，面板收窄时内容不会先跳一下。
    */
-  transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
   overflow-y: auto;
   /* 内容过多时能滚，但别在玻璃面板上压一根系统灰滚动条（与内容区同一套做法） */
   scrollbar-width: none;
@@ -194,47 +197,105 @@ onUnmounted(() => {
   padding-right: 10px;
 }
 
-/* 折叠后彻底不占位的：分组标题、徽标与选中浮块 */
-.sidebar--collapsed .sidebar__section,
-.sidebar--collapsed .sidebar__badge,
-.sidebar--collapsed .sidebar__count,
-.sidebar--collapsed .sidebar__indicator {
+/*
+ * 折叠后不占位的：只有演示模式徽章还走 display: none（演示布局从不折叠，留着是兜底）。
+ * 其余几块（分组标题 / 计数 / 文字 / 浮块）都改成可过渡的写法 —— 见下面的分块说明。
+ */
+.sidebar--collapsed .sidebar__badge {
   display: none;
 }
 
 /*
- * 文字类内容改成「渐隐 + 收宽」而不是 `display: none` ——
- * 后者是瞬间消失，会让整个折叠看起来像跳帧；这样才跟得上 280ms 的宽度动画。
+ * 文字类内容（2026-10-29 重做）：收的宽度用 **grid 轨道的 1fr → 0fr**，不用 `max-width`。
+ * `max-width` 在展开态是 `none`，`none → 0` 不能插值（离散属性，落到一半才翻转），
+ * 所以原来无论是收还是放，文字宽度都是「跳」的；`minmax(0, 0fr)` 能一路插值到 0，
+ * 与侧栏 280ms 的宽度动画同一个节拍，图标也不会被突然出现的文字顶一下。
  */
 .sidebar__name,
 .sidebar__link-text {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
   white-space: nowrap;
-  transition: opacity 160ms var(--ease), max-width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    grid-template-columns 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms var(--ease);
 }
 
 .sidebar--collapsed .sidebar__name,
 .sidebar--collapsed .sidebar__link-text {
-  max-width: 0;
+  grid-template-columns: minmax(0, 0fr);
   opacity: 0;
 }
 
 /*
- * 折叠态居中（2026-10-26 修）：文字用 max-width: 0 收起后**宽度为 0、但 flex 的 gap 还在**，
- * 图标会被顶偏（实测导航图标偏 -6px、logo 偏 -4px）。这里把 gap 一并归零。
+ * 折叠态「图标落在中线」（2026-10-29 改法）：不再靠 `justify-content: center`（不能过渡，
+ * 一换就跳 8px），改成**把左内边距推到 20** —— 内容宽 56、图标 16，20 + 16 + 20 正好居中。
+ * 内边距本身可过渡（见下方 .sidebar__link 的 transition），图标就在 12 → 20 之间滑过去，
+ * 与文字收窄同时发生；gap 也从 12 收到 0（文字宽度归零后那截缝隙会把图标顶偏，实测偏 6px）。
  */
-.sidebar--collapsed .sidebar__brand,
 .sidebar--collapsed .sidebar__link {
-  justify-content: center;
   gap: 0;
-  padding-left: 0;
+  /* 内容宽 54（76 − 2×10 内边距 − 2 描边），导航图标 20 → (54 − 20) / 2 = 17 才落在中线 */
+  padding-left: 17px;
   padding-right: 0;
 }
 
-/* 品牌行原本是 inline-flex，宽度只包住 logo，居中只是「在自身里居中」—— 拉满才能对齐侧栏中线 */
+/*
+ * 折叠态的 logo 也改成「滑到中线」，不再用 `width: 100% + justify-content: center`：
+ * 那两个属性都是瞬切 —— 类名一换，品牌块当场变成整行宽、logo 被推到行中央（实测 25 → 94.5），
+ * 再随着面板收窄滑回来，看着就是跳一下。
+ * 现在只推 2px 左内边距：折叠态品牌区从 21 起、logo 30 宽、浮岛中线在 38 → 21 + 2 + 15 = 38。
+ */
 .sidebar--collapsed .sidebar__brand {
-  display: flex;
-  width: 100%;
+  gap: 0;
+  padding-left: 2px;
+}
+
+/*
+ * 分组标题「工作台」：`display: none` 会让导航整块瞬间上移 27px（这是最显眼的一跳）。
+ * 改成 max-height + padding + opacity 三者一起收 —— 高度是连续下去的，导航跟着缓缓上移。
+ */
+.sidebar__section {
+  overflow: hidden;
+  /* 自然高 = 行高 18.4 + 下留白 8 = 26（量过），取 28 留 2px 余量，别把字裁掉 */
+  max-height: 28px;
+  transition:
+    max-height 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms var(--ease);
+}
+
+.sidebar--collapsed .sidebar__section {
+  max-height: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
+
+/* 计数徽标：宽度 / 内边距 / 透明度一起收，贴在右端的数字才是缩回去而不是凭空消失 */
+.sidebar__count {
+  overflow: hidden;
+  max-width: 64px;
+  transition:
+    max-width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms var(--ease);
+}
+
+.sidebar--collapsed .sidebar__count {
+  min-width: 0;
+  max-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+}
+
+/*
+ * 选中浮块仍然是直接撤掉，不做淡出：它的 opacity 是 JS 写在行内样式上的（位置/尺寸一起给），
+ * 外面压不过；而且它消失的那一刻，选中项自己铺的白玻璃正好在同一条矩形上，白对白看不出来。
+ */
+.sidebar--collapsed .sidebar__indicator {
+  display: none;
 }
 
 /* 折叠态没有浮块可依赖：选中项自己铺一层白玻璃（特异性压过基础规则的 transparent） */
@@ -264,27 +325,31 @@ html.dark .sidebar--collapsed .sidebar__link--exact.router-link-exact-active {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  /* 折叠时 gap 与文字一起收（10 → 0），logo 不会被那截缝隙顶偏；左内边距 0 → 2 让 logo 落到中线 */
+  transition:
+    gap 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebar__logo {
   display: block;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   /* 品牌圆在玻璃上会显得发灰，给它一层极淡的白光托一下 */
   filter: drop-shadow(0 2px 6px rgba(47, 75, 255, 0.18));
 }
 
 /* 品牌要压得住下面的导航：字号只比导航大一档，靠字重和收紧的字距拉层级 */
 .sidebar__name {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 650;
   letter-spacing: -0.015em;
 }
 
-/* 分组小标题：Apple 侧栏的分区标签，11px / 600 / 拉开字距，只做分组不抢视线 */
+/* 分组小标题：Apple 侧栏的分区标签，11.5px / 600 / 拉开字距，只做分组不抢视线 */
 .sidebar__section {
   padding: 0 12px 8px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--color-text-3);
@@ -340,8 +405,8 @@ html.dark .sidebar__indicator {
 }
 
 /*
- * 主导航项（2026-10-27 三改）：定高 44px，15px 字号、19px 图标 ——
- * 比之前 16px/48px 收一档，整块侧栏才像 macOS 的 source list，而不是一份大号菜单。
+ * 主导航项（2026-10-28 放大）：定高 48px，16px 字号、20px 图标 ——
+ * 与任务卡的 17px 标题同一视觉密度，整块侧栏才像 macOS 的 source list。
  * 按下即变色（pointer-down），不等 click。
  */
 .sidebar__link {
@@ -349,13 +414,18 @@ html.dark .sidebar__indicator {
   z-index: 1;
   display: flex;
   align-items: center;
-  gap: 11px;
-  height: 44px;
+  gap: 12px;
+  height: 48px;
   padding: 0 12px;
   border-radius: var(--radius-control);
-  font-size: 15px;
+  font-size: 16px;
   color: var(--color-text-2);
-  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  /* 2026-10-29：gap 与左内边距跟折叠动画同一条曲线（见 .sidebar--collapsed .sidebar__link） */
+  transition:
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    gap 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebar__link:active {
@@ -382,7 +452,7 @@ html.dark .sidebar__indicator {
   border-radius: var(--radius-pill);
   background-color: color-mix(in srgb, var(--color-brand) 14%, transparent);
   color: var(--color-brand);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.6;

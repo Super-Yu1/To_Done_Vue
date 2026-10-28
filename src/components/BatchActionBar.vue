@@ -88,7 +88,7 @@ const emit = defineEmits<{
 
 .batch-bar__count {
   margin-right: 4px;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-text-2);
 }
 
@@ -104,7 +104,7 @@ const emit = defineEmits<{
   height: 30px;
   padding: 0 12px;
   border-radius: var(--radius-control-sm);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 500;
   --el-button-bg-color: rgba(255, 255, 255, 0.5);
   --el-button-border-color: rgba(255, 255, 255, 0.7);

@@ -71,9 +71,9 @@ onUnmounted(() => {
 
 <style scoped>
 /*
- * 位置（2026-10-27 定稿）：**任务行右侧空白带的正中**。
- * 空白带 = 页面左右内边距（clamp 16~40）+ 外壳左右内边距（--sidebar-offset 24），
- * 按钮宽 34，`right` 取 (带宽 - 34) / 2，于是两侧留白始终相等、随窗口自适应。
+ * 位置（2026-10-28 修）：**任务卡右侧滚动轨的正中**。
+ * 滚动轨 = 页面右内边距（至少 --scroll-rail 32）+ 外壳右留白（--sidebar-offset 20），
+ * 按钮宽 34，`right` 取 (带宽 - 34) / 2 = 9，两侧各留 9px，窄窗口也不再和任务卡相切。
  * 层级压在弹窗遮罩（2000+）之下、内容之上；顶栏是 sticky z-index: 10，两者不重叠。
  */
 .back-to-top {
@@ -86,7 +86,7 @@ onUnmounted(() => {
    * 于是两侧留白相等、随窗口宽度自适应。
    */
   position: fixed;
-  right: calc((clamp(16px, 2.5vw, 40px) + var(--sidebar-offset) - 34px) / 2);
+  right: calc((max(clamp(14px, 1.6vw, 28px), var(--scroll-rail)) + var(--sidebar-offset) - 34px) / 2);
   /* 2026-10-27：离底边再抬一个按钮直径（24 → 58），按钮不再贴边 */
   bottom: 58px;
   z-index: 10;

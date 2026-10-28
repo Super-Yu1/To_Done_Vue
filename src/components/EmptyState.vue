@@ -28,8 +28,8 @@ const emit = defineEmits<{ action: [] }>()
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 64px 24px;
+  gap: 10px;
+  padding: 72px 24px;
   text-align: center;
 }
 
@@ -38,12 +38,12 @@ const emit = defineEmits<{ action: [] }>()
 }
 
 .empty-state__title {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text);
 }
 
 .empty-state__description {
-  font-size: 12px;
+  font-size: 13.5px;
   color: var(--color-text-2);
 }
 

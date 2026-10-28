@@ -55,7 +55,7 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
         :aria-label="`彻底删除：${task.title}`"
         @click.stop="emit('purge', task)"
       >
-        <AppIcon name="trash" :size="13" />
+        <AppIcon name="trash" :size="14" />
       </button>
     </AppTooltip>
 
@@ -70,7 +70,7 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
       @keydown.enter.prevent="emit('toggle-select', task)"
       @keydown.space.prevent="emit('toggle-select', task)"
     >
-      <AppIcon v-if="selected" name="check" :size="13" />
+      <AppIcon v-if="selected" name="check" :size="14" />
     </span>
 
     <div class="trash-row__body">
@@ -109,7 +109,7 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
 <style scoped>
 /*
  * 与任务卡同一套玻璃壳（2026-10-27 五改）：
- * 20px 圆角 + 0.5 白 + 26px 模糊 + 高光边 + 卡片影；卡高 75px（padding 15/20），
+ * 20px 圆角 + 0.5 白 + 26px 模糊 + 高光边 + 卡片影；卡高 87px（padding 18/22），
  * 栅格仍是 40px 前置位 + 正文 + 右侧 236px —— 与任务页逐项对齐。
  */
 .trash-row {
@@ -117,8 +117,8 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 15px 20px;
+  gap: 16px;
+  padding: 18px 22px;
   border: 1px solid var(--glass-card-border);
   border-radius: var(--radius-lg);
   background-color: var(--glass-card-bg);
@@ -157,8 +157,8 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   align-items: center;
   justify-content: center;
   justify-self: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   /* 与任务页复选框完全同款：1.5px、文字色 20% 的浅灰描边 */
   border: 1.5px solid color-mix(in srgb, var(--color-text) 20%, transparent);
@@ -192,8 +192,8 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   align-items: center;
   justify-content: center;
   justify-self: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border: 1.5px solid color-mix(in srgb, var(--color-text) 20%, transparent);
   border-radius: 50%;
   background-color: transparent;
@@ -226,10 +226,10 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   line-height: 1.4;
-  letter-spacing: -0.008em;
+  letter-spacing: -0.01em;
   color: var(--color-text);
   word-break: break-word;
 }
@@ -241,9 +241,9 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   -webkit-box-orient: vertical;
   overflow: hidden;
   /* 固定占位：没填描述也留这一行，所有卡片高度一致 */
-  min-height: 20px;
-  margin-top: 2px;
-  font-size: 12.5px;
+  min-height: 22px;
+  margin-top: 3px;
+  font-size: 14px;
   line-height: 1.6;
   color: var(--color-text-2);
   word-break: break-word;
@@ -270,13 +270,13 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
 .trash-row__pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 20px;
-  padding: 0 8px;
+  gap: 5px;
+  height: 22px;
+  padding: 0 9px;
   border-radius: var(--radius-pill);
   background-color: color-mix(in srgb, var(--color-text) 7%, transparent);
   color: var(--color-text-2);
-  font-size: 11.5px;
+  font-size: 12.5px;
   line-height: 1;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -292,8 +292,8 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
 .trash-row__deleted {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
+  gap: 5px;
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-3);
   white-space: nowrap;
@@ -305,11 +305,11 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-control-sm);
+  border-radius: var(--radius-control);
   background-color: transparent;
   color: var(--color-text-3);
   cursor: pointer;

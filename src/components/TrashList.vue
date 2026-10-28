@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
  * 回收站列表（UC-06 / 8.8）：真实页与演示页共用；只负责渲染与转发动作，不含数据来源。
- * 2026-10-27 五改：与任务首页对齐成「概览卡 → 工具栏 → 一行一卡」——
- * 同一个 26px 概览面板、同一条 64px 工具栏、同一套 20px 任务卡（卡高 75 / 标题 15 / 描述 12.5）。
- * 每行左侧那枚圆形「彻底删除」按钮保持原样，只是尺寸与任务页的勾选圈对齐到 22px。
+ * 2026-10-28 放大一档：与任务首页对齐成「概览卡 → 工具栏 → 一行一卡」——
+ * 同一个 26px 概览面板、同一条 68px 工具栏、同一套 20px 任务卡（卡高 87 / 标题 17 / 描述 14）。
+ * 每行左侧那枚圆形「彻底删除」按钮保持原样，只是尺寸与任务页的勾选圈对齐到 24px。
  */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
@@ -118,14 +118,14 @@ const minRemaining = computed<number | null>(() => {
       <!-- 搜索时把两枚信息胶囊收起来：它们在讲「全量」，和筛选后的列表不是一回事 -->
       <div v-if="count > 0 && !keyword && minRemaining !== null" class="trash-hero__stats">
         <span class="trash-chip">
-          <AppIcon class="trash-chip__icon" name="clock" :size="14" />
+          <AppIcon class="trash-chip__icon" name="clock" :size="15" />
           <span>最近</span>
           <strong>{{ minRemaining }}</strong>
           <span>天后清理</span>
         </span>
 
         <span v-if="soonCount > 0" class="trash-chip trash-chip--soon">
-          <AppIcon class="trash-chip__icon" name="alert" :size="14" />
+          <AppIcon class="trash-chip__icon" name="alert" :size="15" />
           <span>7 天内</span>
           <strong>{{ soonCount }}</strong>
           <span>件</span>
@@ -249,9 +249,9 @@ const minRemaining = computed<number | null>(() => {
 .trash-hero {
   display: flex;
   align-items: center;
-  gap: 22px;
-  min-height: 116px;
-  padding: 20px 22px 20px 26px;
+  gap: 24px;
+  min-height: 128px;
+  padding: 22px 24px 22px 28px;
   border: 1px solid var(--glass-panel-border);
   border-radius: var(--radius-panel);
   background-color: var(--glass-panel-bg);
@@ -265,16 +265,16 @@ const minRemaining = computed<number | null>(() => {
 }
 
 .trash-hero__eyebrow {
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 500;
   letter-spacing: 0.04em;
   color: var(--color-text-3);
 }
 
-/* 与首页那句「还有 N 件事没划掉」同档：22px / 650 / -0.02em */
+/* 与首页那句「还有 N 件事没划掉」同档：24px / 650 / -0.02em */
 .trash-hero__title {
-  margin-top: 6px;
-  font-size: 22px;
+  margin-top: 8px;
+  font-size: 24px;
   font-weight: 650;
   line-height: 1.25;
   letter-spacing: -0.02em;
@@ -288,8 +288,8 @@ const minRemaining = computed<number | null>(() => {
 }
 
 .trash-hero__meta {
-  margin-top: 5px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 13px;
   color: var(--color-text-3);
 }
 
@@ -307,14 +307,14 @@ const minRemaining = computed<number | null>(() => {
   --tone: var(--color-text-2);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 13px;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: var(--radius-pill);
   background-color: rgba(255, 255, 255, 0.36);
   color: var(--color-text-2);
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1;
   white-space: nowrap;
 }
@@ -325,7 +325,7 @@ const minRemaining = computed<number | null>(() => {
 }
 
 .trash-chip strong {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 650;
   color: var(--color-text);
   font-variant-numeric: tabular-nums;
@@ -346,6 +346,21 @@ html.dark .trash-chip {
 html.dark .trash-chip--soon {
   background-color: color-mix(in srgb, var(--tone) 16%, transparent);
   border-color: color-mix(in srgb, var(--tone) 34%, transparent);
+}
+
+/*
+ * 窄一档（与任务概览收字同一条 1149 线）：先收胶囊的内边距与间距，
+ * 让「还有 N 件任务…」保持一行 —— 右侧要留滚动轨，概览会比以前窄 15px。
+ */
+@media (max-width: 1149px) {
+  .trash-hero {
+    gap: 18px;
+  }
+
+  .trash-chip {
+    gap: 6px;
+    padding: 0 11px;
+  }
 }
 
 /* ---------- 工具栏 ---------- */
@@ -377,8 +392,8 @@ html.dark .trash-chip--soon {
 }
 
 .trash__search :deep(.el-input__wrapper) {
-  height: 42px;
-  padding: 1px 16px;
+  height: 46px;
+  padding: 1px 18px;
   border: none;
   border-radius: var(--radius-pill);
   background-color: var(--color-field-bg);
@@ -409,7 +424,7 @@ html.dark .trash-chip--soon {
 }
 
 .trash__search :deep(.el-input__inner) {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .trash__tools {
@@ -425,13 +440,13 @@ html.dark .trash-chip--soon {
   display: inline-flex;
   flex: none;
   align-items: center;
-  height: 32px;
-  padding: 0 10px;
+  height: 34px;
+  padding: 0 12px;
   border: none;
   border-radius: var(--radius-control);
   background-color: transparent;
   color: var(--color-text-2);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
@@ -467,11 +482,28 @@ html.dark .trash-chip--soon {
   --el-button-active-bg-color: var(--color-danger-hover);
   --el-button-active-border-color: var(--color-danger-hover);
   --el-button-active-text-color: var(--color-danger-fg);
-  height: 42px;
+  height: 46px;
   margin-left: 0;
-  padding: 0 18px;
+  padding: 0 20px;
   border-radius: var(--radius-control);
-  font-size: 14px;
+  font-size: 15px;
+  /* 与首页主按钮同一套收放节奏：留白跟着文字一起收，两个方向都有过渡 */
+  transition:
+    padding 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+/* 文案收 max-width（原因见 FilterBar 的同名规则）；5.2em 略大于「清空回收站」五个全角字 */
+.trash__clear :deep(.btn-text) {
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 5.2em;
+  transition:
+    max-width 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin-left 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms var(--ease);
 }
 
 /* ---------- 批量行 ---------- */
@@ -498,7 +530,7 @@ html.dark .trash-chip--soon {
 
 .trash__count {
   margin-right: 2px;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--color-text-2);
 }
 
@@ -514,7 +546,7 @@ html.dark .trash-chip--soon {
   height: 30px;
   padding: 0 12px;
   border-radius: var(--radius-control-sm);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
@@ -573,19 +605,25 @@ html.dark .trash__batch--danger:hover:not(:disabled) {
   background-color: color-mix(in srgb, var(--color-danger) 20%, transparent);
 }
 
-/* 工具栏窄一档：清空按钮收成一枚图标方钮，避免折行（与首页主按钮同一套降级） */
+/* 工具栏自己真的放不下时，搜索井再收一档 */
 @container (max-width: 760px) {
   .trash__search {
     flex-basis: 150px;
   }
+}
 
+/* 清空按钮收成一枚图标方钮：断点与首页主按钮、侧栏折叠一致（见 FilterBar 同名注释） */
+@media (max-width: 1149.98px) {
   .trash__clear :deep(.btn-text) {
-    display: none;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
   }
 
+  /* 20 → 14：16 图标 + 28 留白 + 2 描边 = 46，收放全程连续 */
   .trash__clear {
-    width: 42px;
-    padding: 0;
+    padding-left: 14px;
+    padding-right: 14px;
   }
 }
 

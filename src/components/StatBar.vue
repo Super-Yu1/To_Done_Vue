@@ -89,7 +89,7 @@ function toggle(next: TaskQuickFilter) {
         :aria-pressed="activeFilter === 'overdue'"
         @click="toggle('overdue')"
       >
-        <AppIcon class="quick-pill__icon" name="alert" :size="14" />
+        <AppIcon class="quick-pill__icon" name="alert" :size="15" />
         <span class="quick-pill__label">逾期</span>
         <span class="quick-pill__count">{{ view.overdue }}</span>
       </button>
@@ -101,7 +101,7 @@ function toggle(next: TaskQuickFilter) {
         :aria-pressed="activeFilter === 'dueToday'"
         @click="toggle('dueToday')"
       >
-        <AppIcon class="quick-pill__icon" name="calendar" :size="14" />
+        <AppIcon class="quick-pill__icon" name="calendar" :size="15" />
         <span class="quick-pill__label">今日到期</span>
         <span class="quick-pill__count">{{ view.dueToday }}</span>
       </button>
@@ -113,7 +113,7 @@ function toggle(next: TaskQuickFilter) {
         :aria-pressed="activeFilter === 'high'"
         @click="toggle('high')"
       >
-        <AppIcon class="quick-pill__icon" name="flag" :size="14" />
+        <AppIcon class="quick-pill__icon" name="flag" :size="15" />
         <span class="quick-pill__label">高优先级</span>
         <span class="quick-pill__count">{{ highPriority ?? 0 }}</span>
       </button>
@@ -161,9 +161,11 @@ function toggle(next: TaskQuickFilter) {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 22px;
-  min-height: 116px;
-  padding: 20px 22px 20px 26px;
+  gap: 24px;
+  /* 窄一档时 gap 收 8px（24 → 16）：也走过渡，右侧胶囊组不会整块横移一下 */
+  transition: gap 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  min-height: 128px;
+  padding: 22px 24px 22px 28px;
   border: 1px solid var(--glass-panel-border);
   border-radius: var(--radius-panel);
   background-color: var(--glass-panel-bg);
@@ -178,19 +180,19 @@ function toggle(next: TaskQuickFilter) {
 
 /* 日期是最轻的一层：11px、拉开字距，只负责交代「今天」 */
 .summary__date {
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 500;
   letter-spacing: 0.04em;
   color: var(--color-text-3);
 }
 
 /*
- * 标题（2026-10-27）：22px / 650 / -0.02em —— 大字号收字距，才不会读成一排散字；
+ * 标题（2026-10-28 放大）：24px / 650 / -0.02em —— 大字号收字距，才不会读成一排散字；
  * 行高收到 1.25，与上面那行日期贴成一组。
  */
 .summary__title {
-  margin-top: 6px;
-  font-size: 22px;
+  margin-top: 8px;
+  font-size: 24px;
   font-weight: 650;
   line-height: 1.25;
   letter-spacing: -0.02em;
@@ -206,8 +208,8 @@ function toggle(next: TaskQuickFilter) {
 }
 
 .summary__meta {
-  margin-top: 5px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 13px;
   color: var(--color-text-3);
   font-variant-numeric: tabular-nums;
 }
@@ -226,19 +228,28 @@ function toggle(next: TaskQuickFilter) {
   --tone: var(--color-text-2);
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 13px;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: var(--radius-pill);
   background-color: rgba(255, 255, 255, 0.36);
   color: var(--color-text-2);
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
-    color var(--dur-fast) var(--ease), transform 120ms var(--ease);
+  /*
+   * 2026-10-29：收成「圆点 + 数字」时，内边距与两段 gap 也要跟着收（14 → 11、8 → 6），
+   * 否则断点一到胶囊当场窄 17px，再慢慢等文字收完 —— 看着就是缩得不顺。
+   */
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    transform 120ms var(--ease),
+    padding 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    gap 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .quick-pill:hover {
@@ -258,16 +269,26 @@ function toggle(next: TaskQuickFilter) {
   color: var(--tone);
 }
 
-/* 文字宽度参与折叠动画：窄屏收到 0，圆点与数字不会因为 gap 残留而偏 */
+/*
+ * 文字宽度参与折叠动画：窄屏收到 0，圆点与数字不会因为 gap 残留而偏。
+ * 2026-10-29：收宽改用 grid 轨道 `minmax(0, 1fr) → minmax(0, 0fr)`，不再用 max-width ——
+ * max-width 展开态写的是 160px，只要它一大于文字实际宽（27 / 54）文字就立刻满宽，
+ * 于是**展开方向几乎没有动画**；反向收起时又会先「不动」一半时长再猛地收完。
+ * 轨道宽能一路插值，两个方向都连续。margin 也跟着过渡（收完靠 -3px 把两段 gap 合成一段）。
+ */
 .quick-pill__label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   overflow: hidden;
-  max-width: 160px;
   white-space: nowrap;
-  transition: opacity 160ms var(--ease), max-width 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    grid-template-columns 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms var(--ease);
 }
 
 .quick-pill__count {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 650;
   color: var(--color-text);
   font-variant-numeric: tabular-nums;
@@ -323,8 +344,8 @@ html.dark .quick-pill--active {
   display: grid;
   flex: none;
   place-items: center;
-  width: 76px;
-  height: 76px;
+  width: 80px;
+  height: 80px;
   margin-left: 2px;
 }
 
@@ -367,7 +388,7 @@ html.dark .summary__ring-stop--start {
 
 .summary__ring-value {
   position: relative;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--color-text);
@@ -376,7 +397,7 @@ html.dark .summary__ring-stop--start {
 
 .summary__ring-value small {
   margin-left: 1px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--color-text-3);
 }
@@ -396,7 +417,7 @@ html.dark .summary__ring-stop--start {
   }
 
   .quick-pill__label {
-    max-width: 0;
+    grid-template-columns: minmax(0, 0fr);
     opacity: 0;
     /* 文字收到 0 宽后仍占两段 gap（图标—文字—数字），两侧各补 -3px 把它们合成一段 */
     margin: 0 -3px;

@@ -26,7 +26,7 @@ function handleSubmit() {
 
 <template>
   <div class="quick-add">
-    <AppIcon class="quick-add__icon" name="plus" :size="16" />
+    <AppIcon class="quick-add__icon" name="plus" :size="18" />
     <el-input
       v-model="title"
       class="quick-add__input"
@@ -41,15 +41,15 @@ function handleSubmit() {
 
 <style scoped>
 /*
- * 与任务卡同壳（20px 圆角 / 20 内边距 / 40 前置位），唯一的不同是描边用虚线：
+ * 与任务卡同壳（20px 圆角 / 22 内边距 / 40 前置位），唯一的不同是描边用虚线：
  * 它是一条「待填写」的卡，不是已有的任务。底色比真卡更淡，才不会读成「又一条任务」。
  */
 .quick-add {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-top: 10px;
-  padding: 13px 20px;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 15px 22px;
   border: 1px dashed color-mix(in srgb, var(--color-text) 22%, transparent);
   border-radius: var(--radius-lg);
   background-color: rgba(255, 255, 255, 0.3);
@@ -83,8 +83,8 @@ html.dark .quick-add:focus-within {
 
 .quick-add__icon {
   flex: none;
-  /* 16 + 12×2 = 40，正好是任务行的勾选列宽，标题才会落在同一条竖线上 */
-  margin: 0 12px;
+  /* 18 + 11×2 = 40，正好是任务行的勾选列宽，标题才会落在同一条竖线上 */
+  margin: 0 11px;
   color: var(--color-text-3);
 }
 
@@ -100,13 +100,13 @@ html.dark .quick-add:focus-within {
 }
 
 .quick-add__input :deep(.el-input__inner) {
-  height: 22px;
-  font-size: 14.5px;
+  height: 24px;
+  font-size: 16px;
 }
 
 .quick-add__hint {
   flex: none;
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--color-text-3);
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease);

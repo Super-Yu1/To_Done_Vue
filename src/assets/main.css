@@ -209,6 +209,8 @@
    */
   --sidebar-offset: 20px;
   --app-gutter-y: 30px;
+  /* 回到顶部的滚动轨（2026-10-28）：有浮动回顶钮的页面在右侧留出这条带，按钮才不贴任务卡 */
+  --scroll-rail: 32px;
   color-scheme: light;
 }
 
@@ -680,6 +682,16 @@ img {
   padding: 0 clamp(14px, 1.6vw, 28px) 32px;
 }
 
+/*
+ * 有「回到顶部」的页面（任务 / 回收站）：右侧让出一条滚动轨（2026-10-28）。
+ * 原来 34px 的按钮挤在 36px 的边带里，窄窗口下会和任务卡相切；
+ * 现在右内边距至少 32（含外壳 20 → 边带 52），按钮居中后两侧各留 9px。
+ * 其余页面没有这枚浮钮，保持左右对称，不跟着变窄。
+ */
+.page:has(.back-to-top) {
+  padding-right: max(clamp(14px, 1.6vw, 28px), var(--scroll-rail));
+}
+
 .page-title {
   font-size: 20px;
   font-weight: 600;
@@ -868,7 +880,7 @@ img {
 .task-form-dialog.el-dialog {
   padding: 0;
   border: 1px solid var(--glass-border);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   /* 玻璃浮层（2026-10-26）：比卡片更实一档，模糊把底下的页面虚化成一片柔光 */
   background-color: var(--glass-bg-strong);
@@ -882,12 +894,23 @@ img {
   padding: 20px 24px 0;
 }
 
+/*
+ * 关闭按钮里的 × 用 flex 居中（2026-10-28）：
+ * EP 默认让图标按行内基线排，按钮改成 32px 后 × 会偏上约 2px；
+ * 统一成 flex 居中后，这个弹窗与其余 48px 默认尺寸的弹窗一起对齐。
+ */
+.el-dialog__headerbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .task-form-dialog .el-dialog__headerbtn {
   top: 14px;
   right: 14px;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   transition: background-color var(--dur-fast) var(--ease);
 }
 
