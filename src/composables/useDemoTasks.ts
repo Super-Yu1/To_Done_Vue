@@ -152,7 +152,7 @@ export function useDemoTasks() {
     rebuild()
   }
 
-  /** 编辑：勾了「将时间更新为当前时间」才刷新 recordedAt（刷新即置顶，与真实页一致） */
+  /** 编辑：勾了「更新创建时间」才刷新 recordedAt（刷新即置顶，与真实页一致） */
   function update(id: string, payload: TaskPayload) {
     const target = demoTasks.value.find((task) => task.id === id)
     if (!target) return

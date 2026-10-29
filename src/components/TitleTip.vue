@@ -177,7 +177,8 @@ onUnmounted(() => {
   max-width: 260px;
   padding: 5px 9px;
   border: 1px solid var(--color-border);
-  border-radius: 7px;
+  /* 2026-10-30 归并：7 是阶梯外散值，小浮层走小件档 */
+  border-radius: var(--radius-sm);
   background-color: var(--color-surface);
   color: var(--color-text);
   box-shadow:

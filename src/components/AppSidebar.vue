@@ -443,15 +443,15 @@ html.dark .sidebar__indicator {
   white-space: nowrap;
 }
 
-/* 数字徽标：贴在链接右端，品牌色的极淡底 + 品牌色字；表格式数字不抖动 */
+/* 数字徽标：贴在链接右端，品牌浅蓝的极淡底 + 品牌墨色字；表格式数字不抖动 */
 .sidebar__count {
   flex: none;
   min-width: 22px;
   margin-left: auto;
   padding: 1px 7px;
   border-radius: var(--radius-pill);
-  background-color: color-mix(in srgb, var(--color-brand) 14%, transparent);
-  color: var(--color-brand);
+  background-color: color-mix(in srgb, var(--color-brand) 18%, transparent);
+  color: var(--color-brand-ink);
   font-size: 12.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -483,7 +483,7 @@ html.dark .sidebar__link:hover {
 
 .sidebar__link.router-link-active .sidebar__link-icon,
 .sidebar__link--exact.router-link-exact-active .sidebar__link-icon {
-  color: var(--color-brand);
+  color: var(--color-brand-ink);
 }
 
 .sidebar__link.router-link-active:hover:not(.sidebar__link--exact),

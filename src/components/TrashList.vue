@@ -282,7 +282,7 @@ const minRemaining = computed<number | null>(() => {
 }
 
 .trash-hero__title strong {
-  color: var(--color-brand);
+  color: var(--color-brand-ink);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -372,7 +372,8 @@ html.dark .trash-chip--soon {
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--glass-panel-border);
-  border-radius: 20px;
+  /* 2026-10-30 归并：写死的 20 改走令牌 */
+  border-radius: var(--radius-lg);
   background-color: var(--glass-panel-bg);
   backdrop-filter: var(--glass-panel-blur);
   box-shadow: var(--shadow-card);
@@ -564,11 +565,11 @@ html.dark .trash-chip--soon {
   cursor: not-allowed;
 }
 
-/* 批量恢复：品牌色的浅底 + 细边，是这一行里的「正向」动作 */
+/* 批量恢复：品牌浅蓝的底 + 细边 + 墨色字，是这一行里的「正向」动作 */
 .trash__batch--restore {
-  border: 1px solid color-mix(in srgb, var(--color-brand) 26%, transparent);
-  background-color: color-mix(in srgb, var(--color-brand) 10%, transparent);
-  color: var(--color-brand);
+  border: 1px solid color-mix(in srgb, var(--color-brand) 38%, transparent);
+  background-color: color-mix(in srgb, var(--color-brand) 14%, transparent);
+  color: var(--color-brand-ink);
 }
 
 .trash__batch--restore:hover:not(:disabled) {
@@ -693,7 +694,7 @@ html.dark .trash__batch--danger:hover:not(:disabled) {
   justify-self: end;
   width: 150px;
   height: 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background-color: color-mix(in srgb, var(--color-text) 6%, transparent);
 }
 

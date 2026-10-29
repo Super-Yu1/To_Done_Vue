@@ -4,7 +4,7 @@
  * 点任务行即进编辑，字段正常填写并提交。
  * 状态只有未完成 / 已完成两态，且由列表上的勾选切换，所以表单里不放状态字段：
  * 新建固定为未完成，编辑时保持该任务原有状态不变。
- * 编辑时默认勾选「将时间更新为当前时间」（改的是 recordedAt）。
+ * 编辑时默认勾选「更新创建时间」（改的是 recordedAt）。
  * 只负责收集表单，提交交给调用方：真实页落库、演示页弹「演示模式不保存」。
  */
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
@@ -285,13 +285,13 @@ async function handleSubmit() {
           />
         </div>
 
-        <!-- 「将时间更新为当前时间」只在编辑时出现 -->
+        <!-- 「更新创建时间」只在编辑时出现 -->
         <el-checkbox
           v-if="isEdit"
           v-model="form.refreshRecordedAt"
           class="task-form__refresh"
         >
-          将时间更新为当前时间
+          更新创建时间
         </el-checkbox>
       </div>
     </el-form>
@@ -364,7 +364,7 @@ async function handleSubmit() {
 
 .task-form__title-input :deep(.el-input__wrapper) {
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background-color: var(--color-hover);
   box-shadow: none;
   transition: box-shadow var(--dur-fast) var(--ease);
@@ -399,7 +399,7 @@ async function handleSubmit() {
   /* 2026-10-21：高度显著加高（≈120px），浅灰底无边框，聚焦才加一条极细的主色边 */
   min-height: 120px;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background-color: var(--color-hover);
   box-shadow: none;
   font-size: 14px;
@@ -417,7 +417,8 @@ async function handleSubmit() {
   flex-direction: column;
   gap: 14px;
   padding: 16px;
-  border-radius: 14px;
+  /* 2026-10-30 归并：14 是阶梯外散值，弹窗内面板走控件档 */
+  border-radius: var(--radius-md);
   background-color: var(--color-hover);
 }
 
@@ -552,15 +553,17 @@ async function handleSubmit() {
 }
 
 /*
- * 「将时间更新为当前时间」的勾选（2026-10-27）：改用强调蓝。
+ * 「更新创建时间」的勾选（2026-10-27）：改用主操作蓝（与搜索聚焦环同一支）。
  * 它原来跟随 EP 的 --el-color-primary（浅色主题是近黑、深色主题是近白），
- * 勾没勾上全靠明暗差，深色下几乎分不清；蓝色与「新建任务 / 搜索聚焦环」同一支色。
+ * 勾没勾上全靠明暗差，深色下几乎分不清；勾的笔画跟 `--color-accent-fg` 走 ——
+ * 深色主题里 accent 是亮蓝，白勾会消失（2026-10-29）。
  */
 .task-form__refresh {
   align-self: flex-start;
   --el-checkbox-checked-bg-color: var(--color-accent);
   --el-checkbox-checked-input-border-color: var(--color-accent);
   --el-checkbox-input-border-color-hover: var(--color-accent);
+  --el-checkbox-checked-icon-color: var(--color-accent-fg);
   --el-checkbox-checked-text-color: var(--color-text);
 }
 
@@ -570,7 +573,7 @@ async function handleSubmit() {
 }
 
 .task-form__refresh :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {
-  border-color: #fff;
+  border-color: var(--color-accent-fg);
 }
 
 /*

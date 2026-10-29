@@ -14,14 +14,14 @@ import AppIcon from './AppIcon.vue'
 import AppTooltip from './AppTooltip.vue'
 import { TASK_PRIORITY_LABEL } from '@/constants'
 import { formatDateTime, formatDueDay, isOverdue } from '@/utils/date'
-import type { Task } from '@/types'
+import type { Task, TaskStatus } from '@/types'
 
 const props = defineProps<{
   task: Task
   /** 批量选择模式：前置位换方形框、行内快捷入口禁用、点击整行 = 勾选 */
   selectMode?: boolean
   selected?: boolean
-  /** 当前只看「未完成」：勾选后这一行会离开列表，先播缩小退场再落数据 */
+  /** 这次切换会让这一行离开列表（未完成页勾选完成、已完成页取消勾选都算），先播形态变化再落数据 */
   leaveOnToggle?: boolean
 }>()
 
@@ -41,7 +41,6 @@ const emit = defineEmits<{
 }>()
 
 const isDone = computed(() => props.task.status === 'DONE')
-const overdue = computed(() => isOverdue(props.task.dueDate, props.task.status))
 const dueText = computed(() =>
   props.task.dueDate ? formatDueDay(props.task.dueDate) : '未设截止时间',
 )
@@ -51,20 +50,37 @@ const dueTitle = computed(() =>
 )
 
 /**
- * 勾选完成后的退场（2026-10-18）：在「未完成」筛选下先本地切成完成态，
- * 160ms 后把状态交给数据层；行离开时的缩小淡出由 TaskList 的 leave 过渡完成。
- * 其余筛选（如「全部」）任务不会离开列表，保持即时更新 + 划线。
+ * 勾选 / 取消勾选的退场（2026-10-18，2026-10-30 补齐反方向）：
+ * `leaveOnToggle` = 「这次切换会让这一行离开列表」—— 未完成页勾选完成、已完成页取消勾选都算。
+ * 先本地切成**目标态**、把形态变化播出来（划线划出 / 收回、勾选圈染色 / 褪色），
+ * 160ms 后再把状态交给数据层；行离开时的缩小淡出由 TaskList 的 leave 过渡完成
+ * （必须带 `--leaving`，否则走的是 200ms 的快速淡出，看起来就是「直接消失」）。
+ *
+ * ⚠ 这里存的是**目标状态**而不是布尔：两个方向要显示的样子不同。
+ * 原来只判 `isDone`，「已完成 → 未完成」会直接 emit，划线根本没机会退回去。
  */
-const leaving = ref(false)
+const pending = ref<TaskStatus | null>(null)
 let leaveTimer: number | undefined
 
+/** 视图上的完成态：pending 存在时以它为准（数据还没回写） */
+const displayDone = computed(() => (pending.value ?? props.task.status) === 'DONE')
+
+/** 逾期也按「视图状态」算：取消完成后它立刻回到「可能逾期」，只是退场期间不显示标记 */
+const overdue = computed(() => isOverdue(props.task.dueDate, pending.value ?? props.task.status))
+
+/**
+ * 逾期标记（2026-10-29）：那 160ms 的退场里先收起 ——
+ * 否则「已完成」的绿勾会同时挂着红胶囊；取消完成同理，别刚变回未完成就闪一下红标。
+ */
+const showOverdue = computed(() => overdue.value && !pending.value)
+
 function handleToggleStatus() {
-  if (leaving.value) return
-  if (!props.leaveOnToggle || isDone.value) {
+  if (pending.value) return
+  if (!props.leaveOnToggle) {
     emit('toggle-status', props.task)
     return
   }
-  leaving.value = true
+  pending.value = isDone.value ? 'TODO' : 'DONE'
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   leaveTimer = window.setTimeout(() => emit('toggle-status', props.task), reduceMotion ? 0 : SETTLE_MS)
 }
@@ -89,10 +105,11 @@ function handleRowClick() {
   <article
     class="task-row"
     :class="{
-      'task-row--done': isDone,
+      'task-row--done': displayDone,
+      'task-row--overdue': showOverdue,
       'task-row--select': selectMode,
       'task-row--selected': selected,
-      'task-row--leaving': leaving,
+      'task-row--leaving': pending !== null,
     }"
     role="button"
     tabindex="0"
@@ -113,14 +130,14 @@ function handleRowClick() {
 
     <AppTooltip
       v-else
-      :content="isDone || leaving ? '标记为未完成' : '标记为已完成'"
+      :content="displayDone ? '标记为未完成' : '标记为已完成'"
       placement="top"
     >
       <button
         class="task-row__check"
         type="button"
-        :aria-pressed="isDone || leaving"
-        :aria-label="isDone || leaving ? '标记为未完成' : '标记为已完成'"
+        :aria-pressed="displayDone"
+        :aria-label="displayDone ? '标记为未完成' : '标记为已完成'"
         @click.stop="handleToggleStatus"
       >
         <span class="task-row__check-box">
@@ -153,9 +170,10 @@ function handleRowClick() {
         -->
         <span
           class="task-row__due"
-          :class="{ 'task-row__due--overdue': overdue, 'task-row__due--empty': !task.dueDate }"
+          :class="{ 'task-row__due--overdue': showOverdue, 'task-row__due--empty': !task.dueDate }"
         >
-          <AppIcon name="clock" :size="12" />
+          <!-- 逾期时把时钟换成警告三角（同一枚 12px 图标位，右列宽度不变） -->
+          <AppIcon :name="showOverdue ? 'alert' : 'clock'" :size="12" />
           <span class="task-row__due-text">
             <span class="task-row__due-short">{{ dueText }}</span>
             <span class="task-row__due-full">{{ dueTitle || dueText }}</span>
@@ -222,6 +240,28 @@ function handleRowClick() {
   transform: translateY(-2px);
 }
 
+/*
+ * 状态标记（2026-10-29 八改）：居中悬在「卡片左边缘 ↔ 勾选圈」之间。
+ * 量过：卡片左边到 24px 勾选圈的左边是 31px（1px 描边 + 22px 内边距 + 40px 命中区里 8px 的居中留白），
+ * 胶囊取 5px 宽、左缘 13px（相对内边距盒 12px），左右各余 13px，整数像素、不落半格。
+ * 高 54%（≈46px）、两端全圆角（pill）、垂直居中与勾选圈同线；伪元素不占布局、不碰底色与阴影。
+ */
+.task-row::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 5px;
+  height: 54%;
+  transform: translateY(-50%);
+  border-radius: var(--radius-pill);
+  background-color: var(--row-edge, transparent);
+}
+
+.task-row--overdue {
+  --row-edge: var(--color-danger);
+}
+
 /* 批量选择：选中行留一层品牌浅蓝，和悬停的浮起区分开 */
 .task-row--selected {
   background-color: var(--color-brand-soft);
@@ -261,21 +301,24 @@ function handleRowClick() {
 /* 卡片悬停：勾选圈先透一层很淡的光，提示这一列是「点一下就完成」的入口 */
 .task-row:hover .task-row__check-box,
 .task-row:focus-visible .task-row__check-box, .task-row:has(:focus-visible) .task-row__check-box {
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-brand) 16%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-check-bg) 20%, transparent);
 }
 
-/* 直接悬停勾选圈：品牌色描边 + 淡蓝底 + 一圈微光，并轻轻放大（弹性曲线，像被指尖顶了一下） */
+/*
+ * 直接悬停勾选圈（2026-10-29 改浅绿预览）：先给结果、再给动作 ——
+ * 描边与微光都是「完成后的绿」，点下去颜色不会再跳一次。
+ */
 .task-row__check:hover .task-row__check-box {
-  border-color: var(--color-brand);
-  background-color: var(--color-brand-soft);
-  color: var(--color-brand);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brand) 10%, transparent),
-    0 0 16px color-mix(in srgb, var(--color-brand) 34%, transparent);
+  border-color: color-mix(in srgb, var(--color-check-bg) 55%, var(--color-check-fg));
+  background-color: color-mix(in srgb, var(--color-check-bg) 14%, transparent);
+  color: var(--color-check-fg);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-check-bg) 14%, transparent),
+    0 0 16px color-mix(in srgb, var(--color-check-bg) 40%, transparent);
   transform: scale(1.08);
 }
 
 .task-row__check:active .task-row__check-box {
-  background-color: color-mix(in srgb, var(--color-brand) 24%, transparent);
+  background-color: color-mix(in srgb, var(--color-check-bg) 30%, transparent);
 }
 
 /* 批量选择：同尺寸圆形框，选中态用品牌色实底 */
@@ -379,7 +422,7 @@ function handleRowClick() {
   height: 22px;
   padding: 0 9px;
   border: none;
-  border-radius: 99px;
+  border-radius: var(--radius-pill);
   background-color: color-mix(in srgb, currentColor 11%, transparent);
   font-size: 12.5px;
   font-weight: 600;
@@ -520,13 +563,12 @@ function handleRowClick() {
   background-size: 100% 1px;
 }
 
-.task-row--done .task-row__check-box,
-.task-row--leaving .task-row__check-box {
+.task-row--done .task-row__check-box {
   border-color: transparent;
-  background-color: var(--color-brand);
+  background-color: var(--color-check-bg);
   background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 62%);
-  color: var(--color-brand-fg);
-  box-shadow: 0 3px 9px -4px color-mix(in srgb, var(--color-brand) 75%, transparent);
+  color: var(--color-check-fg);
+  box-shadow: 0 3px 9px -4px color-mix(in srgb, var(--color-check-bg) 75%, transparent);
 }
 
 .task-row--done .task-row__description,
@@ -534,24 +576,15 @@ function handleRowClick() {
   color: var(--color-text-3);
 }
 
-/* ---------- 勾选完成的退场 ---------- */
+/* ---------- 勾选 / 取消勾选的退场 ---------- */
 
 /*
- * 本地先切成完成态（绿勾 + 划线），随后整卡原地缩小淡出；
- * 260ms 后由 JS 派发 toggle-status，数据层把行移除，下方由 TransitionGroup 补位。
+ * 退场期间整卡只读：连点会把 pending 打乱。
+ * 「完成态长什么样」一律交给 `--done`（由 displayDone 控制），这里不再重复第二遍 ——
+ * 取消勾选时 `--done` 被摘掉，绿勾褪色、划线从右往左收回，160ms 后行再缩小淡出。
  */
 .task-row--leaving {
   pointer-events: none;
-}
-
-.task-row--leaving .task-row__title {
-  color: var(--color-text-2);
-  background-size: 100% 1px;
-}
-
-.task-row--leaving .task-row__description,
-.task-row--leaving .task-row__due {
-  color: var(--color-text-3);
 }
 
 /* 窄容器：右侧元信息换到正文下方，左元信息、右操作 */

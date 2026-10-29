@@ -372,14 +372,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         <button class="guide__close" type="button" aria-label="知道了" @click="dismissGuide">✕</button>
       </p>
 
+      <!--
+        leaving-on-toggle：与任务页同一口径 —— 任何状态筛选下切换都会离开
+        （未完成页勾选完成、已完成页取消勾选）。
+      -->
       <TaskList
         :tasks="visibleTasks"
         :loading="loading"
         :select-mode="selectMode"
         :leaving-on-toggle="
-          Boolean(activeFilter) ||
-          Boolean(query.onlyUnfinished) ||
-          Boolean(query.status && query.status !== 'DONE')
+          Boolean(activeFilter) || Boolean(query.onlyUnfinished) || Boolean(query.status)
         "
         :selected-ids="selectedIds"
         empty-title="没有匹配的任务"
@@ -499,7 +501,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   min-height: 38px;
   padding: 6px 8px 6px 13px;
   border: 1px solid color-mix(in srgb, #d98324 22%, transparent);
-  border-radius: 14px;
+  /* 2026-10-30 归并：14 是阶梯外散值，提示条走控件档 */
+  border-radius: var(--radius-md);
   background-color: color-mix(in srgb, #d98324 9%, var(--glass-panel-bg));
   backdrop-filter: var(--glass-card-blur);
   color: #8a560d;

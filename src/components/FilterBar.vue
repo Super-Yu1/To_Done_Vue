@@ -309,7 +309,8 @@ onUnmounted(() => {
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--glass-panel-border);
-  border-radius: 20px;
+  /* 2026-10-30 归并：写死的 20 改走令牌，与概览 / 任务卡同一档 */
+  border-radius: var(--radius-lg);
   background-color: var(--glass-panel-bg);
   backdrop-filter: var(--glass-panel-blur);
   box-shadow: var(--shadow-card);
@@ -373,23 +374,28 @@ onUnmounted(() => {
   font-size: 15px;
 }
 
-/* 主操作区：按钮 46px 高 / 12px 圆角，与搜索井同一条基线 */
+/*
+ * 主操作区（2026-10-29 收形）：按钮 46px 高、**胶囊圆角** —— 与左侧胶囊搜索井、
+ * 胶囊分段控件同一套形状语言（原来是 12px 方钮和两个胶囊并排，形状是混的）。
+ * 横向留白 22 → 18：颜色降饱和之后再把体积收一档，整条工具栏才读成一个控件组。
+ */
 .filter-bar__actions {
   display: flex;
   flex: none;
   align-items: center;
   gap: 8px;
-  margin-left: 2px;
+  /* 与「排序 / 批量选择」拉开一点：主操作不该和文字按钮连成一条 */
+  margin-left: 8px;
 }
 
 .filter-bar__actions :deep(.el-button) {
   height: 46px;
   margin-left: 0;
-  padding: 0 22px;
-  border-radius: var(--radius-control);
-  font-size: 15px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  font-size: 14.5px;
   font-weight: 550;
-  /* 收成方钮时留白也要跟着收（22 → 14），收回来的宽度才不会靠 width 硬切 */
+  /* 收成方钮时留白也要跟着收（18 → 14），收回来的宽度才不会靠 width 硬切 */
   transition: padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -410,19 +416,24 @@ onUnmounted(() => {
 }
 
 /*
- * 「新建任务」（2026-10-28 C 方案）：纯色填充 + 一层内高光，**不再带外发光** ——
- * 页面深度交给面板，按钮只靠填充和描边表达层级；悬停提亮，按下缩到 0.96。
+ * 「新建任务」（2026-10-30 定稿二）：走 `--color-cta` —— **浅色浅蓝 + 深字、深色深蓝 + 白字**。
+ * 浅色 #69adff 与白卡的明度对比只有约 2.1:1，所以内高光提到 .45（浅蓝面上更亮的一条边），
+ * 边界靠它勾出来；仍**不带外投影**（约定：按钮一律不投影）。
  */
 .filter-bar__actions :deep(.el-button--primary) {
-  --el-button-bg-color: var(--color-accent);
+  --el-button-bg-color: var(--color-cta);
   --el-button-border-color: transparent;
-  --el-button-text-color: #fff;
-  --el-button-hover-bg-color: var(--color-accent-hover);
+  --el-button-text-color: var(--color-cta-fg);
+  --el-button-hover-bg-color: var(--color-cta-hover);
   --el-button-hover-border-color: transparent;
-  --el-button-hover-text-color: #fff;
-  --el-button-active-bg-color: var(--color-accent-active);
+  --el-button-hover-text-color: var(--color-cta-fg);
+  --el-button-active-bg-color: var(--color-cta-active);
   --el-button-active-border-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  /*
+   * 两层内光：上沿一条亮边（光打在按钮顶面）+ 一圈更淡的内发光（浅蓝面上的「厚度」）。
+   * 浅蓝与白卡明度差不足 3:1，这两层就是唯一的边界线索。
+   */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 0 12px -6px rgba(255, 255, 255, 0.35);
   transition:
     background-color var(--dur-fast) var(--ease),
     padding 280ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -430,12 +441,12 @@ onUnmounted(() => {
 }
 
 .filter-bar__actions :deep(.el-button--primary:hover) {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 0 12px -6px rgba(255, 255, 255, 0.45);
 }
 
 .filter-bar__actions :deep(.el-button--primary:active) {
   transform: scale(0.96);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), inset 0 0 10px -6px rgba(255, 255, 255, 0.3);
 }
 
 /*
@@ -498,9 +509,9 @@ onUnmounted(() => {
   color: var(--color-text);
 }
 
-/* 选中项：文字转品牌色 + 加粗（白底由滑块提供，这里不要再写 background / box-shadow） */
+/* 选中项：文字转品牌墨色 + 加粗（白底由滑块提供，这里不要再写 background / box-shadow） */
 .filter-bar__tab--active {
-  color: var(--color-brand);
+  color: var(--color-brand-ink);
   font-weight: 600;
 }
 
@@ -653,7 +664,7 @@ onUnmounted(() => {
 }
 
 .sort-panel__item--active {
-  color: var(--color-brand);
+  color: var(--color-brand-ink);
   font-weight: 500;
 }
 
@@ -688,9 +699,9 @@ onUnmounted(() => {
 }
 
 .sort-panel__dir-btn--active {
-  border-color: color-mix(in srgb, var(--color-brand) 28%, transparent);
+  border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
   background-color: var(--color-brand-soft);
-  color: var(--color-brand);
+  color: var(--color-brand-ink);
   font-weight: 500;
 }
 </style>

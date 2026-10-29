@@ -349,14 +349,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       </template>
     </FilterBar>
 
+    <!--
+      leaving-on-toggle：任何「状态筛选」下切换都会让行离开 ——
+      未完成页是勾选完成，已完成页是取消勾选。原来只判了「不是 DONE」，
+      取消勾选那一侧不成立，行会直接消失、划线没机会收回去。
+    -->
     <TaskList
       :tasks="visibleTasks"
       :loading="todo.loading && visibleTasks.length === 0"
       :select-mode="selectMode"
       :leaving-on-toggle="
-        Boolean(activeFilter) ||
-        Boolean(todo.query.onlyUnfinished) ||
-        Boolean(todo.query.status && todo.query.status !== 'DONE')
+        Boolean(activeFilter) || Boolean(todo.query.onlyUnfinished) || Boolean(todo.query.status)
       "
       :selected-ids="selectedIds"
       :empty-title="emptyTitle"

@@ -21,7 +21,7 @@ withDefaults(
     loadingMore?: boolean
     /** 批量选择模式：前置位换方形多选框、行内快捷入口禁用 */
     selectMode?: boolean
-    /** 当前只看「未完成」：勾选完成后该行会离开列表，由 TaskItem 先播退场动画 */
+    /** 这次切换会让该行离开列表（未完成页勾选完成、已完成页取消勾选），由 TaskItem 先播形态变化 */
     leavingOnToggle?: boolean
     /** 已选中的任务 id（选择模式下使用） */
     selectedIds?: string[]

@@ -58,15 +58,15 @@ function handleSubmit() {
 }
 
 .quick-add:hover {
-  border-color: color-mix(in srgb, var(--color-brand) 45%, transparent);
+  border-color: color-mix(in srgb, var(--color-brand-ink) 45%, transparent);
   background-color: rgba(255, 255, 255, 0.44);
 }
 
-/* 聚焦 = 虚线转品牌色 + 一圈极淡的蓝，说明「这里正在输入」 */
+/* 聚焦 = 虚线转品牌墨色 + 一圈极淡的蓝，说明「这里正在输入」 */
 .quick-add:focus-within {
-  border-color: var(--color-brand);
+  border-color: var(--color-brand-ink);
   background-color: rgba(255, 255, 255, 0.52);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 10%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 18%, transparent);
 }
 
 html.dark .quick-add {

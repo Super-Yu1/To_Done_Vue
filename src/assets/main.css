@@ -17,8 +17,15 @@
    * 层级靠「字号 × 字重 × 灰度」三重差拉开，不再只靠一档灰。
    */
   --color-text: #111827;
-  --color-text-2: #6b7280;
-  --color-text-3: #9ca3af;
+  /*
+   * 2026-10-29 加深：原来的 #6b7280 / #9ca3af 压在玻璃上只有 4.47:1 / 2.35:1，
+   * 描述与「工作台」这类小字在浅色下基本读不出来（深色主题反而更清楚，正是这个原因）。
+   * 2026-10-30：画布再压半档 + 玻璃填色降下来，卡底也暗了一点，辅助色跟着从 #667080 走到
+   * #626c7a（卡底 #f0f3f8 上 4.7:1），否则又掉回 AA 线下。
+   * 层级仍靠字号 × 字重拉开，不靠灰度差。
+   */
+  --color-text-2: #4b5563;
+  --color-text-3: #626c7a;
   /* 画布上的卡片不靠描边分层，边框只留给输入框等确实需要边界的控件 */
   --color-border: #edf0f4;
   --color-border-strong: #dfe4ea;
@@ -28,14 +35,17 @@
   /* 设置行悬停：比 --color-hover 更浅，避免整行像被选中 */
   --color-row-hover: #f9fafb;
   /*
-   * 品牌色：克莱因蓝的现代变体 —— 选中态、进度条、完成勾选、导航高亮。
-   * 「新建任务」主按钮与搜索聚焦环 2026-10-26 起改用苹果蓝 --color-accent。
+   * 品牌色（2026-10-29 改自 logo）：取 `public/logo.svg` 内盘的浅蓝 #69adff。
+   * 浅蓝只能当「面」—— 对白底 2.33:1，做字、做白字底都不够；
+   * 所以拆成三件套：面 = --color-brand，白底上的字 / 图标 = --color-brand-ink（4.98:1），
+   * 压在浅蓝块上的字 = --color-brand-fg（6.25:1）。三者别互相顶替。
    */
-  --color-brand: #2f4bff;
-  --color-brand-hover: #1f3ae6;
-  --color-brand-active: #1630c9;
-  --color-brand-soft: #edf0ff;
-  --color-brand-fg: #ffffff;
+  --color-brand: #69adff;
+  --color-brand-hover: #57a2fa;
+  --color-brand-active: #3f8ef0;
+  --color-brand-soft: #eaf4ff;
+  --color-brand-fg: #0b2a4a;
+  --color-brand-ink: #2a6fc9;
   --color-primary-bg: #1f2430;
   --color-primary-bg-hover: #363d4c;
   --color-primary-bg-active: #000000;
@@ -51,6 +61,13 @@
   /* 红底上的前景色：两端主题都是白 —— 不能复用主按钮的 -fg（深色主题里它是深色） */
   --color-danger-fg: #ffffff;
   --color-status-done: #2f9e6e;
+  /*
+   * 完成勾选（2026-10-29）：从品牌蓝改成浅绿 —— 先做、再做、做完三种状态一眼分得开。
+   * 白勾压在浅绿上只有 1.86:1，所以勾用深墨绿（3.52:1）；浅绿只做底。
+   * 任务列表、批量框、登录页样例行共用这一套，别再另起一支绿。
+   */
+  --color-check-bg: #5fd3a0;
+  --color-check-fg: #0e6b47;
   /* 薄荷绿（点缀）：成功徽章；进度条与完成态已交给品牌色 */
   --color-mint: #62c99b;
   --color-mint-fg: #2f9e6e;
@@ -79,70 +96,143 @@
    * 大而散的冷调落影（负扩散，边缘不糊成黑边）+ 一圈贴地窄影勾出接触面；
    * 面板比卡片离地更高，所以单独一档 `--shadow-panel`。
    */
-  --shadow-card: 0 8px 22px -14px rgba(24, 36, 74, 0.16), 0 1px 2px -1px rgba(24, 36, 74, 0.04),
-    var(--glass-sheen);
-  --shadow-card-hover: 0 14px 30px -16px rgba(24, 36, 74, 0.22), 0 2px 6px -3px rgba(24, 36, 74, 0.06),
-    var(--glass-sheen);
-  --shadow-panel: 0 12px 30px -16px rgba(24, 36, 74, 0.18), 0 2px 6px -2px rgba(24, 36, 74, 0.05),
-    var(--glass-sheen);
+  /*
+   * 边界（2026-10-29）：玻璃的白描边在白底上和白卡同色，边界全靠阴影 —— 容易读成「一张白纸」。
+   * 外圈补一条极淡墨边：白描边负责高光、墨边负责边界，浅色下牌面才立得住。
+   * 深色主题不用这条（暗底上墨边等于没有，靠 0.16 白描边就够）。
+   */
+  --glass-edge: 0 0 0 1px rgba(31, 45, 90, 0.05);
+  /* 2026-10-30：填色回到 .55 之后影可以收一档（.22 → .20），卡片靠白度立住，不必靠影压 */
+  --shadow-card: var(--glass-edge), 0 10px 26px -14px rgba(24, 36, 74, 0.2),
+    0 2px 4px -2px rgba(24, 36, 74, 0.07), var(--glass-sheen);
+  --shadow-card-hover: var(--glass-edge), 0 16px 34px -16px rgba(24, 36, 74, 0.24),
+    0 3px 8px -4px rgba(24, 36, 74, 0.08), var(--glass-sheen);
+  --shadow-panel: var(--glass-edge), 0 12px 30px -16px rgba(24, 36, 74, 0.18),
+    0 2px 6px -2px rgba(24, 36, 74, 0.05), var(--glass-sheen);
   --color-mask: rgba(0, 0, 0, 0.28);
   /*
-   * 液态玻璃（2026-10-26）：页面底色 + 玻璃三件套。
-   * 底色是三层弥散光斑（蓝 / 紫 / 粉）铺在浅冷灰上，光斑都压在四角，内容区保持够亮；
+   * 液态玻璃（2026-10-26 起）：页面底色 + 玻璃三件套。
    * 玻璃只定义「填色 / 描边 / 模糊」三件事，卡片、侧栏、弹窗共用同一组取值，深色主题整体换一组。
    *
-   * 2026-10-27 降饱和：原来的 0.55 / 0.45 / 0.42 太抢眼 —— 白卡边缘被彩色底吃掉、久看发飘。
-   * 三团光斑的透明度各降约一半（0.26 / 0.20 / 0.18），底色整体提亮一档，
-   * 变成「隐约有冷暖的浅灰」，卡片靠明度差而不是靠颜色立住。
+   * 2026-10-29 对比度返工（浅色）：原先是「亮蓝白底 + 0.42 白玻璃」，两层叠起来文字底下
+   * 不是白纸而是蓝纸 —— 描述灰 #6b7280 只有 4.47:1、辅助灰 #9ca3af 只有 2.35:1，都在 AA 线下。
+   * 三条一起改，缺一条都会打折：
+   *   ① 画布：彩色往四角推、中段加一层更强的白光，内容区回到中性浅灰；
+   *   ② 玻璃：填色提白一档（0.42 → 0.58 / 0.5 → 0.66），**饱和度反而降下来**
+   *      —— saturate(200%) 会把透过来的蓝紫又加强一档，既压对比度又让卡发紫；
+   *   ③ 文字：--color-text-2 / -3 各加深一档（见上面的三级文字）。
    */
   /*
-   * 画布（2026-10-27 三改）：玻璃要有东西可折射，底色就不能是一片灰白。
-   * 四团光斑分别压在左上（蓝）/ 右上（紫）/ 右下（粉）/ 中段（白），
-   * 让面板靠近边缘时能「喝」到一点颜色，边缘的高光才有内容；底色本身仍是浅冷灰。
+   * 画布（2026-10-30 四改，均匀度）：
+   * 上一版左上角还是一大块蓝 —— 它是**两层叠出来的**：
+   * `760px at -6% -8% .42` 的大光斑 + `520px at 9% 18% .34` 的侧栏后色斑。
+   * 0.42 的蓝压在浅灰上已经是一块色域，而且 760px 的半径在 1920 宽的屏上只占 40%，
+   * 所以「看得见中心、也看得见边界」。
+   *
+   * ⚠ 这不是缺模糊：radial-gradient 本身没有硬边，看起来像一块是因为 **alpha 高 + 半径小**。
+   * 真正的解法是「降 alpha + 放大半径」，让衰减跨过半个屏幕 —— 加 filter: blur() 要多一层
+   * 全屏合成、还要处理弹窗与遮罩的层级，观感收益远小于成本，不做。
+   *
+   * 现在：四角彩色一律削到 .08–.16，位置全部推到视口外（-8% / 106%）或放大到 700px 以上；
+   * 中段白光收到 .22 但半径放到 1600×1200 —— 覆盖整屏，中间才是真的均匀。
+   * 底色同时压暗半档（#e4e9f2 → #dfe5ee），整页从「白+彩」变成「一层浅灰蓝 + 极淡冷暖」。
    */
-  --page-bg: #e8eef8;
+  /*
+   * 2026-10-30 五改（回到「玻璃」而不是「灰板」）：
+   * 前几轮把「文字对比度」和「玻璃质感」当成一件事在调，一路压画布、削彩色、降填色，
+   * 结果玻璃背后没有可折射的东西，整页只剩灰。
+   * 这一版把对比度交回给文字色（#4b5563 / #626c7a 本身已过 AA），画布亮回来：
+   * 底色 #e8edf6、四角彩色回到 .30 / .26 / .18、面板后 .30 / .24、中段白光 .35。
+   * ⚠ 画布只负责提供「透过去的明暗与色彩」，不要再靠压暗它来救文字。
+   */
+  --page-bg: #e8edf6;
   --page-bg-image:
-    radial-gradient(860px 620px at 2% -10%, rgba(98, 142, 236, 0.5), transparent 60%),
-    radial-gradient(760px 560px at 98% -6%, rgba(152, 138, 246, 0.42), transparent 62%),
-    radial-gradient(900px 720px at 102% 106%, rgba(242, 166, 196, 0.38), transparent 64%),
-    radial-gradient(720px 560px at 48% 38%, rgba(255, 255, 255, 0.4), transparent 74%),
-    linear-gradient(158deg, #e9eff9 0%, #e9e8f8 48%, #f9eef4 100%);
+    linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.22) 42%, rgba(255, 255, 255, 0.08) 56%, transparent 74%),
+    radial-gradient(720px 620px at 8% 22%, rgba(96, 150, 255, 0.3), transparent 84%),
+    radial-gradient(680px 580px at 76% 20%, rgba(150, 132, 246, 0.24), transparent 86%),
+    radial-gradient(640px 480px at -8% -10%, rgba(88, 132, 226, 0.3), transparent 70%),
+    radial-gradient(600px 480px at 106% -8%, rgba(140, 126, 240, 0.26), transparent 72%),
+    radial-gradient(600px 500px at 106% 106%, rgba(232, 150, 186, 0.18), transparent 72%),
+    radial-gradient(1300px 1000px at 50% 44%, rgba(255, 255, 255, 0.35), transparent 84%),
+    linear-gradient(158deg, #e8edf6 0%, #e9e9f4 48%, #efe9f0 100%);
+  /*
+   * 磨砂噪点（2026-10-30，同日再降）：5% 太重了 —— 它铺满整个可视区，分不清「玻璃上」和「空地上」，
+   * 视觉上就是给整页蒙了一层灰纱，这也是「灰蒙蒙」最直接的一层。
+   * 收到 1.5%：够压住渐变的色带（banding），又不会把页面整体拉脏。
+   * ⚠ 不要为了「磨砂感」再加回去；玻璃的质地主要靠 `--glass-sheen` 的高光与 `--glass-surface` 的厚度。
+   * 它是背景的第一层，不是伪元素：不挡内容、不参与层级。
+   */
+  --page-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.015'/%3E%3C/svg%3E");
   /* 浮层（弹窗 / 下拉 / 气泡）：字要压得住底下的页面，所以比面板更实 */
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-bg-strong: rgba(255, 255, 255, 0.78);
-  --glass-bg-hover: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.62);
-  --glass-blur: blur(30px) saturate(190%);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.86);
+  --glass-bg-hover: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.78);
+  --glass-blur: blur(30px) saturate(170%) brightness(1.02);
   /*
    * 悬浮面板（左侧栏 / 顶部概览 / 任务分组）：
-   * 大面模糊更强、饱和度更高（液体玻璃的「厚度」来自这里），描边是一圈半透白，
-   * 真正勾边的是 `--glass-sheen` 里那条 1px 内高光 —— 上沿亮、下沿暗，材质才有厚度。
+   * 大面模糊更强（液体玻璃的「厚度」来自这里），描边是一圈半透白，
+   * 真正勾边的是 `--glass-sheen` 里那圈内高光 —— 上沿亮、下沿一亮一暗，材质才有厚度。
+   *
+   * 2026-10-30 五改：填色从 .38 涨回 .55。上一版把填色压到 .38 想「更透」，
+   * 但透出来的是被削平的中性灰，卡片只剩 #eef2f7 的灰白 —— 玻璃的「白」来自**它比背后白多少**，
+   * 填色降太狠，这个差就没了。画布亮回来之后，填色必须跟着回一档，两者是一组数。
+   * 面板 .46 仍然比卡片 .55 更透：面板是容器、卡片是主体。
    */
-  --glass-panel-bg: rgba(255, 255, 255, 0.42);
-  --glass-panel-border: rgba(255, 255, 255, 0.6);
-  --glass-panel-blur: blur(34px) saturate(200%);
+  --glass-panel-bg: rgba(255, 255, 255, 0.46);
+  --glass-panel-border: rgba(255, 255, 255, 0.78);
+  --glass-panel-blur: blur(38px) saturate(165%) brightness(1.02);
   --glass-panel-shadow: var(--shadow-panel);
-  /* 单独浮起的卡片（回收站行、设置分组等不成组的内容） */
-  --glass-card-bg: rgba(255, 255, 255, 0.5);
-  --glass-card-bg-hover: rgba(255, 255, 255, 0.7);
-  --glass-card-border: rgba(255, 255, 255, 0.55);
-  --glass-card-border-hover: rgba(255, 255, 255, 0.9);
-  --glass-card-blur: blur(26px) saturate(190%);
+  /*
+   * 单张卡片（任务行 / 回收站行 / 设置分组）：
+   * 2026-10-30 定稿 —— 直接采用**面板同一档材质**（.46 / 38px / .78 描边）。
+   * 之前卡片填色一直比面板高（.55 / .66），描边又更白（.90 / .92），
+   * 结果「一行一卡」比工具栏更实、更白，读起来是白纸而不是玻璃。
+   * 现在卡片与概览 / 工具栏是同一块材料，只是尺寸和圆角不同；层级交给内容与间距，不靠更白。
+   */
+  --glass-card-bg: rgba(255, 255, 255, 0.46);
+  --glass-card-bg-hover: rgba(255, 255, 255, 0.58);
+  --glass-card-border: rgba(255, 255, 255, 0.78);
+  --glass-card-border-hover: rgba(255, 255, 255, 0.92);
+  --glass-card-blur: blur(38px) saturate(165%) brightness(1.02);
   --glass-card-sheen: inset 0 24px 24px -24px rgba(255, 255, 255, 0.9);
-  /* 分组列表里的行：默认透明（让面板的模糊透上来），悬停擦亮一档 */
-  --glass-row-hover: rgba(255, 255, 255, 0.52);
-  --glass-row-active: rgba(255, 255, 255, 0.78);
+  /*
+   * 玻璃内部渐变：纯色填色怎么调都是「一张半透明的纸」，
+   * 真玻璃是上沿亮、往下逐渐变薄、底部再回一点光。这一层与 background-color 相乘：
+   * 顶部 .46 + .30×.54 ≈ .62、中段 .49、底部 .46 + .14×.54 ≈ .54。
+   * 所有玻璃面统一吃它（见下方 `.sidebar, .summary …` 那一组）。
+   */
+  --glass-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.06) 42%, rgba(255, 255, 255, 0.14) 100%);
+  /* 分组列表里的行：默认透明（让面板的模糊透上来），悬停擦亮一档 —— 跟着面板降一档 */
+  --glass-row-hover: rgba(255, 255, 255, 0.44);
+  --glass-row-active: rgba(255, 255, 255, 0.7);
   /* 控件悬停的统一底色（2026-10-28 C 方案）：透明按钮（主题 / 折叠 / ghost / 行内动作）都吃这一层 */
   --control-hover: var(--glass-row-hover);
   /* 玻璃上的分隔线：白色线看不见，必须用墨色兑水 */
   --separator: rgba(31, 45, 90, 0.09);
   /*
-   * 苹果蓝（2026-10-26）：只给「搜索聚焦环」和「新建任务」主按钮用，与品牌蓝 --color-brand 并列；
-   * 另有一组「玻璃上的输入井」取色，搜索框这类控件铺半透明白 + 10px 模糊，深色主题换成极淡的白。
+   * 主操作蓝（2026-10-29）：与品牌浅蓝同色相、深两档 —— 白字压上去 4.98:1，
+   * 所以「新建任务」主按钮、搜索聚焦环、勾选框的选中底都走它，浅蓝只负责「面」。
+   * 深色主题反向：浅蓝字配深墨底（见下方 --color-accent-fg）。
    */
-  --color-accent: #007aff;
-  --color-accent-hover: #2b8dff;
-  --color-accent-active: #0068d9;
+  --color-accent: #2a6fc9;
+  --color-accent-hover: #2568bd;
+  --color-accent-active: #1b5499;
+  --color-accent-fg: #ffffff;
+  /*
+   * 主按钮（2026-10-30 定稿二）：**浅色用浅蓝 + 深字，深色用深蓝 + 白字**。
+   * 这与「界面越暗、颜色越亮」的常规做法相反，但符合这条线自己的逻辑 ——
+   * 浅色模式整页是白玻璃，一块深蓝会像补丁；深色模式整页近黑，深蓝按钮反而收得住，白字也够亮。
+   * 浅色 #69adff + #0b2a4a = 6.25:1；深色 #2a6fc9 + 白字 = 4.98:1。
+   * ⚠ 浅蓝与白卡的**明度**对比只有约 2.1:1（低于非文本 3:1），边界靠按钮自身的内高光补，
+   *   不要为此加外投影（约定：按钮一律不投影）。
+   * ⚠ 功能蓝 `--color-accent` 不跟着反 —— 聚焦环与勾选框在深色下必须是亮蓝才看得见，
+   *   浅色下必须是深蓝才有 3:1，两支蓝各管各的。
+   */
+  --color-cta: #69adff;
+  --color-cta-hover: #7fbcff;
+  --color-cta-active: #57a2fa;
+  --color-cta-fg: #0b2a4a;
   /*
    * 玻璃上的输入井（2026-10-27 三改）：从「又一层浅白」改成**凹进去** ——
    * 墨色兑水 + 一道内阴影；聚焦时整口井提亮成白色，再套苹果蓝的环。
@@ -160,24 +250,36 @@
   --seg-track-bg: rgba(17, 24, 39, 0.06);
   --seg-thumb-bg: #ffffff;
   --seg-thumb-shadow: 0 1px 3px rgba(17, 24, 39, 0.12), 0 2px 8px rgba(17, 24, 39, 0.06);
-  /* 玻璃的上/下沿：上沿一条白高光（光打在边缘），下沿一线更淡的反光（厚度） */
-  --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.92), inset 0 -1px 0 rgba(255, 255, 255, 0.3);
   /*
-   * 圆角阶梯（2026-10-28 C 方案）：大面 26 / 卡片 20 / 常规控件 12 / 紧凑控件 9 /
-   * 胶囊 999 / 圆形 50%。不再保留 13 / 14 / 16 这些中途值。
-   * sm 6px   极小件：复选框、标签、骨架条
-   * md 12px  非控件的常规面：输入框、下拉、气泡、表格
-   * lg 20px  容器：任务卡、弹窗、消息框
-   * pill     胶囊与圆形：分段控件、优先级标签、头像
+   * 玻璃的厚度（2026-10-30 补内发光）：填色降到 0.58 之后，光靠上/下沿两条线撑不住「一块玻璃」，
+   * 所以补一层 `inset 0 0 24px -10px` 的**一圈内发光** —— 四边各有一小段亮边，
+   * 中间是透的，材质才有厚薄之分（之前只有上沿亮，读起来仍是一张纸）。
    */
-  --radius-sm: 6px;
+  --glass-sheen:
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 26px -10px rgba(255, 255, 255, 0.62),
+    inset 0 -18px 28px -22px rgba(255, 255, 255, 0.82);
+  /*
+   * 圆角阶梯（2026-10-30 重排：四级 + 胶囊）。
+   * 旧版是 6 / 9 / 12 / 20 / 26 五档，外加 7 / 8 / 14 三处散值 ——
+   * 差 1–2px 在 20–30px 的元件上读不出层级，只会让一排控件对不齐；
+   * 26 与 20 又只差 6px，同级并置时像是「做错了」，而不是「有意分层」。
+   * 现在只有四级，层级交给面积、留白与落影表达（这才是苹果的做法）：
+   *   面 20    一切浮在画布上的玻璃块（侧栏 / 概览 / 工具栏 / 任务卡 / 弹窗 / 空态）
+   *   控件 12  可输入、可按的一切（输入框 / 按钮 / 图标按钮 / 下拉面板 / 气泡）
+   *   小件 8   标记与骨架（标签 / 复选框 / 骨架条 / 菜单项）
+   *   胶囊 999 只给「无方向」的元素（搜索井 / 分段 / 主按钮 / 优先级 / 计数徽标）
+   * ⚠ 不要再往阶梯里塞新值；也不要再分「大面」「小面」两档圆角。
+   */
+  --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 20px;
-  /* 大面玻璃的圆角（2026-10-27 三改）：侧栏、顶部概览、任务分组同一档 */
-  --radius-panel: 26px;
+  /* 面板与大卡片同档：不再靠圆角区分「面」的大小 */
+  --radius-panel: 20px;
   --radius-pill: 999px;
-  /* 控件专用：30px 紧凑档 9，32–44px 常规档 12（与 Element Plus 全局按钮同值） */
-  --radius-control-sm: 9px;
+  /* 控件专用：30px 紧凑档并入小件 8，32–44px 常规档 12（与 Element Plus 全局按钮同值） */
+  --radius-control-sm: 8px;
   --radius-control: 12px;
   --dur-fast: 150ms;
   --dur-base: 200ms;
@@ -232,11 +334,14 @@ html.dark {
   --color-split: #262b34;
   --color-hover: #20252d;
   --color-row-hover: #1d222a;
-  --color-brand: #7c8dff;
-  --color-brand-hover: #94a2ff;
-  --color-brand-active: #6679ff;
-  --color-brand-soft: #1c2246;
-  --color-brand-fg: #0f1220;
+  /* 品牌·深色（2026-10-29）：同一支 logo 蓝提亮 —— 暗底上浅蓝可以直接当字（8.97:1），
+   * 所以 ink 反而要更亮；压在浅蓝块上的字仍是深墨色。 */
+  --color-brand: #6fb6ff;
+  --color-brand-hover: #85c4ff;
+  --color-brand-active: #5aa9f5;
+  --color-brand-soft: rgba(111, 182, 255, 0.16);
+  --color-brand-fg: #0b1b2b;
+  --color-brand-ink: #a8d4ff;
   --color-primary-bg: #eceeec;
   --color-primary-bg-hover: #cfd3d0;
   --color-primary-bg-active: #ffffff;
@@ -249,6 +354,8 @@ html.dark {
   --color-danger-soft: #3a1f1e;
   --color-danger-fg: #ffffff;
   --color-status-done: #63c99a;
+  --color-check-bg: #4fcb9a;
+  --color-check-fg: #062b1e;
   --color-mint: #63c99a;
   --color-mint-fg: #7ad6ab;
   --color-mint-bg: #16281f;
@@ -277,13 +384,24 @@ html.dark {
     var(--glass-sheen);
   --color-mask: rgba(0, 0, 0, 0.6);
   --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.5);
-  /* 液态玻璃·深色：底色压到近黑，三团光斑保持饱和度（玻璃的厚度全靠它们透上来） */
-  --page-bg: #080a10;
+  /*
+   * 液态玻璃·深色（2026-10-30 二改）：上一版为了「把视觉中心拉回中间」压得太狠 ——
+   * 底色 #0b0d13 + vignette 边缘 62% 黑 + 四角光斑降到 .28/.24/.18，
+   * 三层叠成「中间一片深蓝、四周近黑」的两段式，没有中间调，看起来像被调暗的截图。
+   * 现在把压暗**摊开**而不是取消，四件事：
+   *   ① 底色提到 #101319（略亮的深蓝黑，卡片那 7.5% 白仍分得出来）；
+   *   ② vignette 半径放大到 1900×1400、起点推到 44%、黑度降到 0.42 —— 从「黑框」变成「远处变暗」；
+   *   ③ 四角光斑回升到 .36/.30/.24 并推到 -12% 以外，边缘有色彩才不死黑；
+   *   ④ 中段冷光留 0.14，视觉重心仍在中间。
+   */
+  --page-bg: #101319;
   --page-bg-image:
-    radial-gradient(900px 640px at 2% -10%, rgba(56, 96, 214, 0.58), transparent 60%),
-    radial-gradient(760px 560px at 98% -6%, rgba(122, 70, 222, 0.48), transparent 62%),
-    radial-gradient(900px 720px at 102% 106%, rgba(196, 68, 132, 0.4), transparent 64%),
-    linear-gradient(158deg, #090c15 0%, #0c0a17 48%, #150b13 100%);
+    radial-gradient(1900px 1400px at 50% 44%, transparent 44%, rgba(3, 5, 10, 0.42) 100%),
+    radial-gradient(820px 600px at -12% -14%, rgba(52, 88, 200, 0.36), transparent 62%),
+    radial-gradient(740px 560px at 110% -12%, rgba(110, 62, 208, 0.3), transparent 64%),
+    radial-gradient(780px 620px at 112% 110%, rgba(176, 56, 118, 0.24), transparent 66%),
+    radial-gradient(1200px 900px at 50% 44%, rgba(96, 132, 255, 0.14), transparent 72%),
+    linear-gradient(158deg, #0d1018 0%, #0e0d18 48%, #141019 100%);
   --glass-bg: rgba(255, 255, 255, 0.06);
   --glass-bg-strong: rgba(22, 26, 36, 0.82);
   --glass-bg-hover: rgba(255, 255, 255, 0.1);
@@ -292,17 +410,31 @@ html.dark {
   --glass-panel-border: rgba(255, 255, 255, 0.18);
   --glass-card-bg: rgba(255, 255, 255, 0.075);
   --glass-card-bg-hover: rgba(255, 255, 255, 0.12);
-  /* 深色卡的命门（2026-10-27）：没有这圈 13% 白的高光边，卡片就和背景糊在一起了 */
-  --glass-card-border: rgba(255, 255, 255, 0.13);
-  --glass-card-border-hover: rgba(255, 255, 255, 0.22);
+  /* 深色卡的命门（2026-10-27）：没有这圈 16% 白的高光边，卡片就和背景糊在一起了 */
+  --glass-card-border: rgba(255, 255, 255, 0.16);
+  --glass-card-border-hover: rgba(255, 255, 255, 0.24);
   --glass-card-sheen: inset 0 24px 24px -24px rgba(255, 255, 255, 0.1);
   --glass-row-hover: rgba(255, 255, 255, 0.07);
   --glass-row-active: rgba(255, 255, 255, 0.12);
+  /* 深色不用外圈墨边：暗底上等于没有，边界交给那圈 0.16 白描边 */
+  --glass-edge: 0 0 0 0 rgba(0, 0, 0, 0);
+  /* 同一层内部渐变，数值压到浅色的 1/6：暗底上稍微一亮就会炸开 */
+  --glass-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.015) 42%, rgba(255, 255, 255, 0.03) 100%);
   --separator: rgba(255, 255, 255, 0.09);
-  /* 苹果蓝·深色：用 iOS 深色主题的 #0a84ff，避免浅底蓝在暗背景上发灰 */
-  --color-accent: #0a84ff;
-  --color-accent-hover: #3d9bff;
-  --color-accent-active: #0068d9;
+  /* 主操作·深色（2026-10-29）：亮蓝做底时白字只剩 1.8:1，所以按钮字改成深墨（--color-accent-fg） */
+  --color-accent: #8fcbff;
+  --color-accent-hover: #a6d6ff;
+  --color-accent-active: #74bcf5;
+  --color-accent-fg: #0b1b2b;
+  /*
+   * 主按钮·深色（2026-10-30 定稿二）：**深蓝 + 白字**，与浅色正好相反。
+   * 与暗底的明度对比约 3.4:1（过非文本 3:1），白字 4.98:1；
+   * hover 提到 #3272cf（对比 4.73:1，别更亮，再亮白字就掉到 AA 以下）。
+   */
+  --color-cta: #2a6fc9;
+  --color-cta-hover: #3272cf;
+  --color-cta-active: #1b5499;
+  --color-cta-fg: #ffffff;
   /* 搜索框这类「井」在深色里要浮出背景一档，再加一圈极细的边（2026-10-27） */
   --color-field-bg: rgba(255, 255, 255, 0.07);
   --color-field-bg-hover: rgba(255, 255, 255, 0.1);
@@ -311,7 +443,12 @@ html.dark {
   --seg-track-bg: rgba(255, 255, 255, 0.07);
   --seg-thumb-bg: rgba(255, 255, 255, 0.16);
   --seg-thumb-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-  --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  /* 与浅色同一套厚度：上沿强一点、下沿一线、一圈内发光、底部一层回光（暗底数值压到 1/5 上下） */
+  --glass-sheen:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 24px -10px rgba(255, 255, 255, 0.06),
+    inset 0 -18px 28px -22px rgba(255, 255, 255, 0.1);
   color-scheme: dark;
 }
 
@@ -409,11 +546,20 @@ html {
    * 页面底色（2026-10-26）：不再是纯白，换成蓝 / 紫 / 粉三层弥散光斑。
    * 挂在 html 上 + fixed：滚动时光斑不动，卡片像浮在同一片光里；
    * body 与各布局层一律透明，谁也不再盖住它。
+   *
+   * 2026-10-30：最上面多一层磨砂噪点（`--page-noise`），它是**背景的第一层**而不是伪元素 ——
+   * 不挡内容、不参与层级；`repeat` 只给噪点，其余渐变仍 `no-repeat` 铺满。
    */
   background-color: var(--page-bg);
-  background-image: var(--page-bg-image);
+  background-image: var(--page-noise), var(--page-bg-image);
   background-attachment: fixed;
-  background-repeat: no-repeat;
+  /*
+   * 逐层给值：第 1 层是噪点（要平铺），后面 8 层是渐变（各铺一次）。
+   * ⚠ 这里**必须写满 9 个**：background-repeat 的值列表会循环，
+   * 只写 `repeat, no-repeat` 会让第 3 / 5 / 7 层又变成平铺。
+   */
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+    no-repeat;
 }
 
 html::-webkit-scrollbar {
@@ -575,11 +721,45 @@ body {
   color: var(--color-text);
   /* 底色由 html 的弥散渐变负责，body 留空让光透上来 */
   background-color: transparent;
+  /* 深色主题：白字压在暗底上，灰度抗锯齿更干净（笔画不会糊成一团） */
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * 浅色主题改回子像素抗锯齿（2026-10-29）：
+ * `antialiased` 在 macOS 上会把白底文字从子像素降级成灰度抗锯齿，笔画变细变淡 ——
+ * 深色主题里是白字压暗底，变细反而更锐，所以「深色比浅色清楚」有一半是这个原因。
+ * backdrop-filter 元素被提到独立合成层，那一层仍会丢子像素，所以文字色本身也一并加深了
+ * （见 :root 的 --color-text-2 / -3）。两边一起做，浅色才追得平。
+ */
+html:not(.dark) body {
+  -webkit-font-smoothing: subpixel-antialiased;
 }
 
 #app {
   min-height: 100vh;
+}
+
+/*
+ * 玻璃面的内部渐变（2026-10-30）。
+ * 所有「一块玻璃」统一吃这一层，与各自的 `background-color` 相乘 ——
+ * 顶部厚（约 .64）、中段薄（约 .44）、底部回一点光（约 .49），同一张卡里就分出厚薄了。
+ * 组件里只写了 `background-color`，这里补的是 `background-image`，两者不冲突，也不改动画。
+ * 认证页（AuthShell）不在这张表里：它走的是另一套「表单卡」口径，要单独验收。
+ */
+.sidebar,
+.summary,
+.filter-bar,
+.trash-hero,
+.trash__toolbar,
+.task-row,
+.trash-row,
+.task-list__skeleton,
+.task-list__empty,
+.trash-skeleton,
+.trash__empty,
+.settings-group {
+  background-image: var(--glass-surface);
 }
 
 h1,
@@ -957,7 +1137,8 @@ img {
 .el-popper.is-dark {
   padding: 6px 12px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  /* 2026-10-30 归并：14 是阶梯外的散值，浮层统一走控件档 12 */
+  border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);
   font-size: 13px;
@@ -1000,7 +1181,7 @@ img {
   min-width: 0;
   padding: 6px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   box-shadow: 0 12px 32px -12px rgb(0 0 0 / 20%), 0 4px 12px -4px rgb(0 0 0 / 8%);
 }
 
@@ -1020,7 +1201,7 @@ img {
   width: 100%;
   padding: 8px 12px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background-color: transparent;
   color: var(--color-text);
   font-size: 13px;

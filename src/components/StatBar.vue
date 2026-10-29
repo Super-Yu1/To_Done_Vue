@@ -46,6 +46,15 @@ const ringOffset = computed(() =>
   view.value ? CIRCUMFERENCE * (1 - view.value.percent / 100) : CIRCUMFERENCE,
 )
 
+/**
+ * 全部完成（2026-10-30）：环从蓝转绿、百分比数字跟着转绿。
+ * 判 100% 时**必须带上 total > 0** —— 空列表在部分口径下会算成 0/0 = 100%，
+ * 那种情况应该保持蓝色（还没开始，谈不上「收工」）。
+ * 颜色走 `--color-check-bg → --color-status-done`，与任务卡勾选框是同一支绿，
+ * 不用再另起一套绿色。
+ */
+const complete = computed(() => Boolean(view.value && view.value.total > 0 && view.value.percent === 100))
+
 /** 日期不做成「欢迎语」：一行日期负责交代今天，语气交给标题那句 */
 const todayLabel = computed(() => {
   const now = new Date()
@@ -60,7 +69,12 @@ function toggle(next: TaskQuickFilter) {
 </script>
 
 <template>
-  <section v-if="view" class="summary" aria-label="任务概览与快捷筛选">
+  <section
+    v-if="view"
+    class="summary"
+    :class="{ 'summary--complete': complete }"
+    aria-label="任务概览与快捷筛选"
+  >
     <div class="summary__intro">
       <p class="summary__date">{{ todayLabel }}</p>
 
@@ -201,8 +215,8 @@ function toggle(next: TaskQuickFilter) {
 }
 
 .summary__title strong {
-  /* 数字用品牌蓝，和右边的环呼应；tabular 让 1 / 10 切换时标题不跳 */
-  color: var(--color-brand);
+  /* 数字用品牌墨色（浅蓝当字不够读），和右边的环呼应；tabular 让 1 / 10 切换时标题不跳 */
+  color: var(--color-brand-ink);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -375,6 +389,36 @@ html.dark .quick-pill--active {
 /* 深色主题里两端都换亮一档，弧线才不会陷进暗背景 */
 html.dark .summary__ring-stop--start {
   stop-color: var(--color-accent-hover);
+}
+
+/*
+ * 全部完成（2026-10-30）：环从蓝转绿，数字跟着转绿。
+ * 绿色直接用已有的「完成」那一支（`--color-check-bg → --color-status-done`），
+ * 与任务卡的勾选圈是同一个语汇，不另起一套绿。
+ *
+ * ⚠ 选择器写成 `.summary.summary--complete …`（三个类）是必须的：
+ * 深色主题那条 `html.dark .summary__ring-stop--start` 是「一个元素 + 两个类」，
+ * 单写 `.summary--complete .summary__ring-stop--start` 特异性更低，深色下完成态会被它压住、不生效。
+ */
+.summary.summary--complete .summary__ring-stop--start {
+  stop-color: var(--color-check-bg);
+}
+
+.summary.summary--complete .summary__ring-stop--end {
+  stop-color: var(--color-status-done);
+}
+
+.summary--complete .summary__ring-value {
+  color: var(--color-status-done);
+}
+
+/* 颜色跟着进度一起柔下来，别在 100% 那一帧硬切 */
+.summary__ring-stop {
+  transition: stop-color 400ms var(--ease);
+}
+
+.summary__ring-value {
+  transition: color 400ms var(--ease);
 }
 
 .summary__ring-fill {

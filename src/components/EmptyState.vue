@@ -47,17 +47,21 @@ const emit = defineEmits<{ action: [] }>()
   color: var(--color-text-2);
 }
 
-/* 空状态的主操作跟品牌色一致（默认是一个白底描边按钮） */
+/*
+ * 空状态的主操作与工具栏的「新建任务」同一支
+ * （2026-10-30 定稿二：浅色浅蓝 #69adff + 深字，深色深蓝 #2a6fc9 + 白字）：
+ * 胶囊圆角，同一个动作在两处长得一样。
+ */
 .empty-state__action {
-  --el-button-bg-color: var(--color-brand);
-  --el-button-border-color: var(--color-brand);
-  --el-button-text-color: var(--color-brand-fg);
-  --el-button-hover-bg-color: var(--color-brand-hover);
-  --el-button-hover-border-color: var(--color-brand-hover);
-  --el-button-hover-text-color: var(--color-brand-fg);
-  --el-button-active-bg-color: var(--color-brand-active);
-  --el-button-active-border-color: var(--color-brand-active);
+  --el-button-bg-color: var(--color-cta);
+  --el-button-border-color: transparent;
+  --el-button-text-color: var(--color-cta-fg);
+  --el-button-hover-bg-color: var(--color-cta-hover);
+  --el-button-hover-border-color: transparent;
+  --el-button-hover-text-color: var(--color-cta-fg);
+  --el-button-active-bg-color: var(--color-cta-active);
+  --el-button-active-border-color: transparent;
   margin-top: 8px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
 }
 </style>

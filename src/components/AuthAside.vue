@@ -469,9 +469,9 @@ async function togglePreview(task: PreviewTask) {
 
 /* 悬停预览「点一下就会完成」，与任务列表里勾选圈的反馈同一套 */
 .sample-row__check:hover .sample-row__check-ring {
-  border-color: var(--color-status-done);
-  background-color: color-mix(in srgb, var(--color-status-done) 12%, transparent);
-  color: var(--color-status-done);
+  border-color: color-mix(in srgb, var(--color-check-bg) 55%, var(--color-check-fg));
+  background-color: color-mix(in srgb, var(--color-check-bg) 14%, transparent);
+  color: var(--color-check-fg);
 }
 
 .sample-row__title {
@@ -496,11 +496,11 @@ async function togglePreview(task: PreviewTask) {
   font-size: 13px;
 }
 
-/* 已完成那条：勾选圈填状态色，标题被划掉 */
+/* 已完成那条：勾选圈填浅绿、勾用深墨绿，标题被划掉 */
 .sample-row--done .sample-row__check-ring {
-  border-color: var(--color-status-done);
-  background-color: var(--color-status-done);
-  color: var(--color-surface);
+  border-color: transparent;
+  background-color: var(--color-check-bg);
+  color: var(--color-check-fg);
 }
 
 .sample-row--done .sample-row__title {
