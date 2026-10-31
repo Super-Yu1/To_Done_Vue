@@ -1,5 +1,5 @@
 /**
- * 后台：管理员登录态 + 用户列表 + 管理员列表（见 8.3、6.5 ⑫）。
+ * 后台：管理员登录态 + 用户列表 + 管理员列表 + 登录审计（见 8.3、6.5 ⑫）。
  * 与用户端完全隔离：只读写 todone_admin_token（8.2 的另一套守卫）。
  */
 import { reactive, ref } from 'vue'
@@ -15,6 +15,8 @@ import type {
   AdminUserQuery,
   AdminUserUpdatePayload,
   CreateAdminPayload,
+  LoginAudit,
+  LoginAuditQuery,
   UserStatus,
 } from '@/types'
 
@@ -49,6 +51,20 @@ export const useAdminStore = defineStore('admin', () => {
   const admins = ref<AdminInfo[]>([])
   const loading = ref(false)
 
+  /** 登录审计（2026-10-31）：与用户列表同一套分页口径，筛选条件各自独立 */
+  const auditQuery = reactive<LoginAuditQuery>({
+    page: 1,
+    size: PAGE_SIZE,
+    actorType: undefined,
+    result: undefined,
+    account: '',
+    from: undefined,
+    to: undefined,
+  })
+  const audits = ref<LoginAudit[]>([])
+  const auditTotal = ref(0)
+  const auditLoading = ref(false)
+
   async function login(payload: AdminLoginPayload) {
     const result = await adminApi.adminLogin(payload)
     token.value = result.token
@@ -61,6 +77,8 @@ export const useAdminStore = defineStore('admin', () => {
     token.value = ''
     admin.value = null
     users.value = []
+    audits.value = []
+    auditTotal.value = 0
     localStorage.removeItem(ADMIN_TOKEN_KEY)
     localStorage.removeItem(ADMIN_INFO_KEY)
   }
@@ -118,6 +136,38 @@ export const useAdminStore = defineStore('admin', () => {
     await adminApi.resetUserPassword(id, newPassword)
   }
 
+  /**
+   * 解禁登录锁定（2026-10-31）：接口幂等，没锁也成功。
+   * 锁定的依据是列表里的 `lockedUntil`，所以必须回查当前页 —— 解禁后那一行要立刻变回正常。
+   */
+  async function unlock(id: string) {
+    await adminApi.unlockUser(id)
+    await fetchUsers(query.page)
+  }
+
+  /** 审计查询：空串 / 未选一律不发送（后端把空字符串当筛选条件会筛出空结果） */
+  function buildAuditParams(): LoginAuditQuery {
+    const params: LoginAuditQuery = { ...auditQuery }
+    if (!params.account) delete params.account
+    if (!params.actorType) delete params.actorType
+    if (!params.result) delete params.result
+    if (!params.from) delete params.from
+    if (!params.to) delete params.to
+    return params
+  }
+
+  async function fetchAudits(page = auditQuery.page) {
+    auditLoading.value = true
+    auditQuery.page = page
+    try {
+      const result = await adminApi.fetchLoginAudits(buildAuditParams())
+      audits.value = result.records
+      auditTotal.value = result.total
+    } finally {
+      auditLoading.value = false
+    }
+  }
+
   async function fetchAdmins() {
     admins.value = await adminApi.fetchAdmins()
   }
@@ -141,6 +191,10 @@ export const useAdminStore = defineStore('admin', () => {
     total,
     admins,
     loading,
+    auditQuery,
+    audits,
+    auditTotal,
+    auditLoading,
     login,
     logout,
     fetchUsers,
@@ -150,6 +204,8 @@ export const useAdminStore = defineStore('admin', () => {
     setFrozen,
     setDeleted,
     resetPassword,
+    unlock,
+    fetchAudits,
     fetchAdmins,
     createAdmin,
     setStatusFilter,

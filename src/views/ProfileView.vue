@@ -7,13 +7,13 @@
  * 登录态相关：邮箱是登录凭证，换成功即退出登录并提示用新邮箱登录；改密同样强制重新登录；
  * 退出登录走二次确认。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import type { InputInstance } from 'element-plus'
 import EmptyState from '@/components/EmptyState.vue'
 import AppearanceSettings from '@/components/profile/AppearanceSettings.vue'
 import AvatarCropDialog from '@/components/profile/AvatarCropDialog.vue'
-import BasicInfoDialog from '@/components/profile/BasicInfoDialog.vue'
 import EmailChangeDialog from '@/components/profile/EmailChangeDialog.vue'
 import IdentityRow from '@/components/profile/IdentityRow.vue'
 import PasswordChangeDialog from '@/components/profile/PasswordChangeDialog.vue'
@@ -21,6 +21,7 @@ import SettingRow from '@/components/profile/SettingRow.vue'
 import { usePreferences } from '@/composables/usePreferences'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/date'
+import { validateName, validatePhone } from '@/utils/validate'
 import type { ChangeEmailPayload, ChangePasswordPayload, UpdateProfilePayload } from '@/types'
 
 const auth = useAuthStore()
@@ -32,15 +33,72 @@ const { confirmDelete, setConfirmDelete } = usePreferences()
 const loading = ref(false)
 const loadFailed = ref(false)
 
-const basicVisible = ref(false)
 const emailVisible = ref(false)
 const passwordVisible = ref(false)
 const cropVisible = ref(false)
 
-const savingBasic = ref(false)
 const savingEmail = ref(false)
 const savingPassword = ref(false)
 const savingAvatar = ref(false)
+
+/* ---------- 用户名 / 手机号：行内编辑（2026-10-31） ---------- */
+type InlineField = 'name' | 'phone'
+
+const editingField = ref<InlineField | null>(null)
+const draft = ref('')
+const savingField = ref<InlineField | null>(null)
+const nameInputRef = ref<InputInstance | null>(null)
+const phoneInputRef = ref<InputInstance | null>(null)
+
+/**
+ * 进入编辑：同一时刻只编辑一行。
+ * 切到另一行时**直接丢弃**上一行的草稿 —— 没点「确认」的内容本来就不算数，
+ * 弹二次确认反而啰嗦。
+ */
+function startEdit(field: InlineField) {
+  editingField.value = field
+  draft.value = field === 'name' ? (user.value?.name ?? '') : (user.value?.phone ?? '')
+}
+
+/** 输入框要等这一帧渲染完才存在，所以聚焦放在 nextTick 之后 */
+watch(editingField, async (field) => {
+  if (!field) return
+  await nextTick()
+  const target = field === 'name' ? nameInputRef : phoneInputRef
+  target.value?.focus()
+})
+
+async function confirmEdit(field: InlineField) {
+  const error = field === 'name' ? validateName(draft.value) : validatePhone(draft.value)
+  if (error) {
+    ElMessage.error(error)
+    return
+  }
+
+  const value = draft.value.trim()
+  const current = field === 'name' ? (user.value?.name ?? '') : (user.value?.phone ?? '')
+  // 一个字符都没改就直接退出，不发这次请求
+  if (value === current) {
+    editingField.value = null
+    return
+  }
+
+  savingField.value = field
+  try {
+    const payload: UpdateProfilePayload = field === 'name' ? { name: value } : { phone: value }
+    await auth.updateProfile(payload)
+    ElMessage.success('资料已更新')
+    editingField.value = null
+  } catch {
+    // 1008 手机号被占用等由 http 层提示；留在编辑态，用户在原地改
+  } finally {
+    savingField.value = null
+  }
+}
+
+function cancelEdit() {
+  editingField.value = null
+}
 
 /* ---------- 注销账号（2026-10-18）---------- */
 const deleteVisible = ref(false)
@@ -85,24 +143,6 @@ async function load() {
 onMounted(() => {
   if (!auth.user) void load()
 })
-
-async function handleEditBasic(payload: UpdateProfilePayload) {
-  // 弹窗只提交改动过的字段；一个都没改就直接关，不发这次请求
-  if (Object.keys(payload).length === 0) {
-    basicVisible.value = false
-    return
-  }
-  savingBasic.value = true
-  try {
-    await auth.updateProfile(payload)
-    ElMessage.success('资料已更新')
-    basicVisible.value = false
-  } catch {
-    // 1008 手机号被占用等由 http 层提示；弹窗保持打开，用户在原地改
-  } finally {
-    savingBasic.value = false
-  }
-}
 
 async function handleChangeEmail(payload: ChangeEmailPayload) {
   savingEmail.value = true
@@ -187,14 +227,53 @@ async function handleAvatarConfirm(file: File) {
 
       <h2 class="settings-group-title">账号</h2>
       <div class="settings-group">
-        <SettingRow label="用户名" :value="user.name" action-text="编辑" @action="basicVisible = true" />
+        <!--
+          用户名 / 手机号：点「编辑」直接在本行改（2026-10-31），不再弹窗。
+          Enter 确认、Esc 取消；只有右侧按钮能进入编辑态，点整行不再触发。
+        -->
+        <SettingRow
+          label="用户名"
+          :value="user.name"
+          :editing="editingField === 'name'"
+          :saving="savingField === 'name'"
+          action-text="编辑"
+          @action="editingField === 'name' ? confirmEdit('name') : startEdit('name')"
+          @cancel="cancelEdit"
+        >
+          <template #editor>
+            <el-input
+              ref="nameInputRef"
+              v-model="draft"
+              class="inline-input"
+              maxlength="32"
+              placeholder="显示用的称呼，可以重复"
+              @keyup.enter="confirmEdit('name')"
+              @keyup.esc="cancelEdit"
+            />
+          </template>
+        </SettingRow>
         <SettingRow
           label="手机号"
           :value="user.phone || '未绑定'"
           :muted="!user.phone"
+          :editing="editingField === 'phone'"
+          :saving="savingField === 'phone'"
           action-text="编辑"
-          @action="basicVisible = true"
-        />
+          @action="editingField === 'phone' ? confirmEdit('phone') : startEdit('phone')"
+          @cancel="cancelEdit"
+        >
+          <template #editor>
+            <el-input
+              ref="phoneInputRef"
+              v-model="draft"
+              class="inline-input"
+              maxlength="20"
+              placeholder="选填，留空即解绑"
+              @keyup.enter="confirmEdit('phone')"
+              @keyup.esc="cancelEdit"
+            />
+          </template>
+        </SettingRow>
         <SettingRow
           label="登录邮箱"
           :value="user.email"
@@ -271,12 +350,6 @@ async function handleAvatarConfirm(file: File) {
       -->
     </template>
 
-    <BasicInfoDialog
-      v-model:visible="basicVisible"
-      :user="user"
-      :saving="savingBasic"
-      @submit="handleEditBasic"
-    />
     <EmailChangeDialog
       v-model:visible="emailVisible"
       :saving="savingEmail"
@@ -306,6 +379,11 @@ async function handleAvatarConfirm(file: File) {
   }
 .profile-block {
   margin-top: 20px;
+}
+
+/* 行内编辑的输入框（2026-10-31）：限一个最大宽度，别让一根输入框横穿整行 */
+.inline-input {
+  max-width: 320px;
 }
 
 .skeleton-row {

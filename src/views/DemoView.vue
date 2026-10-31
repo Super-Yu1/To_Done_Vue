@@ -332,24 +332,22 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </el-button>
       </template>
 
-      <!-- 批量操作条落在工具栏右端（选择模式才出现），进出场由 Transition 负责 -->
+      <!-- 批量操作条（2026-10-31）：与常规行同高叠放，整条工具栏原地换内容，不推动列表 -->
       <template #tabs-actions>
-        <Transition name="batch-slide">
-          <BatchActionBar
-            v-if="selectMode"
-            :selected-count="selectedIds.length"
-            :total-count="visibleTasks.length"
-            :all-selected="allSelected"
-            :busy="batchBusy"
-            :status="query.status"
-            :only-unfinished="Boolean(query.onlyUnfinished)"
-            @complete="handleBatchStatus('DONE')"
-            @uncomplete="handleBatchStatus('TODO')"
-            @remove="handleBatchRemove"
-            @change-priority="handleBatchPriority"
-            @toggle-all="toggleAll"
-          />
-        </Transition>
+        <BatchActionBar
+          v-if="selectMode"
+          :selected-count="selectedIds.length"
+          :total-count="visibleTasks.length"
+          :all-selected="allSelected"
+          :busy="batchBusy"
+          :status="query.status"
+          :only-unfinished="Boolean(query.onlyUnfinished)"
+          @complete="handleBatchStatus('DONE')"
+          @uncomplete="handleBatchStatus('TODO')"
+          @remove="handleBatchRemove"
+          @change-priority="handleBatchPriority"
+          @toggle-all="toggleAll"
+        />
       </template>
     </FilterBar>
 

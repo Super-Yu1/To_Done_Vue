@@ -15,15 +15,20 @@ import { RouterLink, useRoute } from 'vue-router'
 import type { IconName } from './icons'
 import AppIcon from './AppIcon.vue'
 
-const props = defineProps<{
-  /** 主导航项；`badge` 给数字徽标（如「任务」的未完成条数），没有就不渲染 */
-  items: { to: string; label: string; icon: IconName; exact?: boolean; badge?: number }[]
-  /** 折叠成图标条（2026-10-26）：只留图标与头像，宽度收到 76px */
-  collapsed?: boolean
-  brandTo: string
-  /** 品牌后面的小徽章（演示模式） */
-  brandSuffix?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** 主导航项；`badge` 给数字徽标（如「任务」的未完成条数），没有就不渲染 */
+    items: { to: string; label: string; icon: IconName; exact?: boolean; badge?: number }[]
+    /** 折叠成图标条（2026-10-26）：只留图标与头像，宽度收到 76px */
+    collapsed?: boolean
+    brandTo: string
+    /** 品牌后面的小徽章（演示模式 / 后台） */
+    brandSuffix?: string
+    /** 导航上方的分组小标题（2026-10-30）：前台是「工作台」，后台传「管理」 */
+    sectionTitle?: string
+  }>(),
+  { sectionTitle: '工作台' },
+)
 
 const route = useRoute()
 
@@ -125,7 +130,7 @@ onUnmounted(() => {
       <span v-if="brandSuffix" class="sidebar__badge">{{ brandSuffix }}</span>
     </div>
 
-    <p class="sidebar__section" aria-hidden="true">工作台</p>
+    <p class="sidebar__section" aria-hidden="true">{{ sectionTitle }}</p>
 
     <nav ref="navRef" class="sidebar__nav" aria-label="主导航">
       <!-- 选中态的白色浮块：位置由 JS 量当前链接得出，切页时滑过去 -->

@@ -1,5 +1,11 @@
 /** 全局常量与字典（字典口径见系统设计说明书 6.5 ⑥ / ⑫，附录 D） */
-import type { TaskPriority, TaskStatus, UserStatus } from '@/types'
+import type {
+  LoginAuditActorType,
+  LoginAuditResult,
+  TaskPriority,
+  TaskStatus,
+  UserStatus,
+} from '@/types'
 
 /** localStorage 键：两套 token 互不通用（7.11），主题键见 8.7 */
 export const TOKEN_KEY = 'todone_token'
@@ -123,15 +129,51 @@ export const TASK_PRIORITY_CLASS: Record<TaskPriority, string> = {
  * 前端不再按优先级排序，6.5 ⑥ 的「priority 按业务权重排」由后端实现。
  */
 
-/** 后台用户状态（6.5 ⑫：不传 = 正常 + 已冻结，默认不含已注销） */
+/**
+ * 后台用户状态（6.5 ⑫：不传 = 正常 + 已冻结，默认不含已注销）。
+ * 「已锁定」是 2026-10-31 后端新增的筛选档：锁定不改 NORMAL 的语义，
+ * 它只是「正常账号暂时登录不了」，所以默认列表里本来就看得到被锁的人。
+ */
 export const USER_STATUS_OPTIONS: Option<UserStatus>[] = [
   { value: 'NORMAL', label: '正常' },
   { value: 'FROZEN', label: '已冻结' },
+  { value: 'LOCKED', label: '已锁定' },
   { value: 'DELETED', label: '已注销' },
 ]
 
 export const USER_STATUS_LABEL: Record<UserStatus, string> = {
   NORMAL: '正常',
   FROZEN: '已冻结',
+  LOCKED: '已锁定',
   DELETED: '已注销',
+}
+
+/** 登录审计字典（2026-10-31）：结果六类 + 两种登录方 */
+export const LOGIN_AUDIT_ACTOR_LABEL: Record<LoginAuditActorType, string> = {
+  USER: '用户',
+  ADMIN: '管理员',
+}
+
+export const LOGIN_AUDIT_ACTOR_OPTIONS: Option<LoginAuditActorType>[] = [
+  { value: 'USER', label: LOGIN_AUDIT_ACTOR_LABEL.USER },
+  { value: 'ADMIN', label: LOGIN_AUDIT_ACTOR_LABEL.ADMIN },
+]
+
+/** 顺序按「通过 → 密码错 → 查无此人 → 账号状态挡住 → 图形码」排，筛选项读起来是一条线 */
+export const LOGIN_AUDIT_RESULT_OPTIONS: Option<LoginAuditResult>[] = [
+  { value: 'SUCCESS', label: '成功' },
+  { value: 'WRONG_PASSWORD', label: '密码错误' },
+  { value: 'NO_SUCH_ACCOUNT', label: '账号不存在' },
+  { value: 'FROZEN', label: '账号已冻结' },
+  { value: 'LOCKED', label: '账号已锁定' },
+  { value: 'CAPTCHA_FAILED', label: '图形码未通过' },
+]
+
+export const LOGIN_AUDIT_RESULT_LABEL: Record<LoginAuditResult, string> = {
+  SUCCESS: '成功',
+  WRONG_PASSWORD: '密码错误',
+  NO_SUCH_ACCOUNT: '账号不存在',
+  FROZEN: '账号已冻结',
+  LOCKED: '账号已锁定',
+  CAPTCHA_FAILED: '图形码未通过',
 }

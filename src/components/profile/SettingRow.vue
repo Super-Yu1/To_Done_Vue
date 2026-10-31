@@ -4,10 +4,11 @@
  * 用户已经在任务列表里学会「左边是什么、右边能做什么」，这里不再教一遍。
  *
  * 设计要点：
- *   ① 默认只显示**当前值**，表单进弹窗——用户想知道「现在是什么」不必点开任何东西；
- *   ② 鼠标点整行等同点动作（命中区大），但键盘只留动作按钮一个踏板，避免同一动作两处焦点；
- *   ③ 动作平时是次要色，悬停才提亮；破坏性动作（移除、退出）悬停显危险色。
- * 插槽：默认插槽用来放自定义内容（如外观的三态分段控件），此时本行不可点。
+ *   ① 默认只显示**当前值**；用户名 / 手机号改成行内编辑（2026-10-31），其余仍进弹窗；
+ *   ② **只有右侧按钮可点**（2026-10-31 改动）：原来整行都能点，命中区大但会和行内编辑打架 ——
+ *      输入框里点一下就把编辑关掉了。现在整行只是容器，`cursor` 也不再是 pointer；
+ *   ③ 编辑态（`editing`）时右侧换成「取消 / 确认」，值列由调用方用默认插槽塞输入框；
+ *   ④ 动作平时是次要色，悬停才提亮；破坏性动作（移除、退出）悬停显危险色。
  */
 defineProps<{
   /** 项名，如「用户名」「登录邮箱」 */
@@ -16,7 +17,7 @@ defineProps<{
   value?: string
   /** 值处于「未绑定」这类次要状态 */
   muted?: boolean
-  /** 右侧动作文案；不传则本行没有动作 */
+  /** 右侧动作文案（非编辑态）；不传则本行没有动作 */
   actionText?: string
   /** 破坏性动作：悬停显危险色 */
   danger?: boolean
@@ -25,32 +26,47 @@ defineProps<{
    * 与账号行右侧的动作按钮对齐（2026-10-26 反馈：控件贴在左边看着像没做完）。
    */
   alignEnd?: boolean
+  /** 行内编辑中：值区域换成输入框（插槽），右侧变成「取消 / 确认」 */
+  editing?: boolean
+  /** 正在提交：两个按钮都禁用，确认按钮显示「保存中…」 */
+  saving?: boolean
 }>()
 
-const emit = defineEmits<{ action: [] }>()
-
-/** 只有带动作的行才响应整行点击（外观那种自带控件的行不抢它的交互） */
-function handleRowClick(actionText?: string) {
-  if (actionText) emit('action')
-}
+const emit = defineEmits<{ action: []; cancel: [] }>()
 </script>
 
 <template>
-  <div
-    class="setting-row"
-    :class="{ 'setting-row--clickable': actionText }"
-    @click="handleRowClick(actionText)"
-  >
+  <div class="setting-row" :class="{ 'setting-row--editing': editing }">
     <span class="setting-row__label">{{ label }}</span>
 
     <div class="setting-row__value" :class="{ 'setting-row__value--end': alignEnd }">
-      <slot>
+      <!--
+        编辑态用独立的 `editor` 插槽：默认插槽要留给「外观」「删除二次确认」这类**常驻控件**，
+        不能和输入框共用一个槽 —— 否则调用方一旦提供了默认插槽，`value` 文本就永远不渲染了。
+      -->
+      <slot v-if="editing" name="editor" />
+      <slot v-else>
         <span :class="{ 'setting-row__text--muted': muted }">{{ value }}</span>
       </slot>
     </div>
 
+    <!-- 编辑态：右侧从「编辑」换成「取消 / 确认」，确认是这一行的落点 -->
+    <div v-if="editing" class="setting-row__edit-actions">
+      <button class="row-action" type="button" :disabled="saving" @click="emit('cancel')">
+        取消
+      </button>
+      <button
+        class="row-action row-action--primary"
+        type="button"
+        :disabled="saving"
+        @click="emit('action')"
+      >
+        {{ saving ? '保存中…' : '确认' }}
+      </button>
+    </div>
+
     <button
-      v-if="actionText"
+      v-else-if="actionText"
       class="setting-row__action row-action"
       :class="{ 'row-action--danger': danger }"
       type="button"
@@ -79,11 +95,10 @@ function handleRowClick(actionText?: string) {
   transition: background-color var(--dur-fast) var(--ease);
 }
 
-.setting-row--clickable {
-  cursor: pointer;
-}
-
-/* 整行悬停：极浅灰底（2026-10-18），无动作的行也给，保持列表反馈一致 */
+/*
+ * 整行悬停的浅灰底保留 —— 它是「这一行」的反馈，不是「可点」的暗示；
+ * 可点的暗示交给右侧按钮自己的悬停色（2026-10-31 去掉整行 click）。
+ */
 .setting-row:hover,
 .setting-row:focus-within {
   background-color: var(--color-row-hover);
@@ -103,6 +118,11 @@ function handleRowClick(actionText?: string) {
 
 .setting-row:hover .row-action--danger {
   color: var(--color-danger-hover);
+}
+
+/* 确认按钮在悬停时仍保持主色：它是这一行唯一的「落点」，不该被融进正文色 */
+.setting-row:hover .row-action--primary {
+  color: var(--color-accent-hover);
 }
 
 .setting-row__value {
@@ -125,6 +145,13 @@ function handleRowClick(actionText?: string) {
   color: var(--color-text-3);
 }
 
+/* 编辑态右侧的两枚文字按钮：取消在左、确认在右，间距收到 2 —— 它们是一组，不是两个独立动作 */
+.setting-row__edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 /* 动作按钮的外观来自 main.css 的 .row-action；这里只负责它在窄屏的落位 */
 
 /* 窄屏：项名收到值上方，动作仍在右侧，避免三列挤成两行 */
@@ -144,7 +171,8 @@ function handleRowClick(actionText?: string) {
     grid-column: 1;
   }
 
-  .setting-row__action {
+  .setting-row__action,
+  .setting-row__edit-actions {
     grid-row: 1 / span 2;
     grid-column: 2;
   }

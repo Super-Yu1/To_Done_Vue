@@ -11,6 +11,8 @@ import type {
   AdminUserUpdatePayload,
   CreateAdminPayload,
   FreezePayload,
+  LoginAudit,
+  LoginAuditQuery,
   PageResult,
 } from '@/types'
 
@@ -48,6 +50,15 @@ export function setUserFrozen(id: string, payload: FreezePayload): Promise<void>
   return request<void>({ url: `/admin/users/${id}/status`, method: 'PATCH', data: payload })
 }
 
+/**
+ * 解禁登录锁定（2026-10-31）：清掉连续失败计数与锁定截止时间，并清 Redis 的失败计数
+ * （否则解禁后还会被要求图形码）。**幂等** —— 本来没锁也返回成功；
+ * 账号不存在 1004 / 已注销 1007。
+ */
+export function unlockUser(id: string): Promise<void> {
+  return request<void>({ url: `/admin/users/${id}/unlock`, method: 'POST' })
+}
+
 /** 重置用户密码（旧密码立即失效，响应不回显密码） */
 export function resetUserPassword(id: string, newPassword: string): Promise<void> {
   return request<void>({
@@ -60,6 +71,17 @@ export function resetUserPassword(id: string, newPassword: string): Promise<void
 /** 注销用户（软删除，不可恢复） */
 export function deleteUser(id: string): Promise<void> {
   return request<void>({ url: `/admin/users/${id}`, method: 'DELETE' })
+}
+
+/**
+ * 登录审计（2026-10-31）：分页，按时间倒序；可按登录方 / 结果 / 账号（模糊）与时间区间过滤。
+ * 只含登录元数据（结果、IP、UA），没有密码与验证码明文。
+ *
+ * 时间区间按**服务端时区**（Asia/Shanghai）解释，格式 `yyyy-MM-dd'T'HH:mm:ss`（不带时区后缀）；
+ * 上界含整秒由后端处理（`< to + 1 秒`），调用方原样传控件给的时间即可。
+ */
+export function fetchLoginAudits(params: LoginAuditQuery): Promise<PageResult<LoginAudit>> {
+  return request<PageResult<LoginAudit>>({ url: '/admin/login-audit', method: 'GET', params })
 }
 
 /** 管理员列表（只读，不含任何凭证字段） */

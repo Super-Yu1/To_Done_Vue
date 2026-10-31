@@ -3,6 +3,7 @@
  * ① 注入 Authorization 头（按请求路径选用户 / 管理员两套 token）
  * ② code !== 200 提示并 reject；③ HTTP 401 清对应 token 并跳对应登录页
  * ④ 413 / 3002 提示图片超限；⑤ 按状态码给网络异常提示
+ * ⑥ 例外：1009（登录锁定）不弹气泡，提示由登录页常驻展示（见 LOGIN_LOCKED_CODE）
  */
 import axios, { type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
@@ -11,6 +12,13 @@ import type { ApiResult } from '@/types'
 
 const AUTH_PREFIX = 'Bearer '
 const REQUEST_TIMEOUT = 20000
+
+/**
+ * 登录锁定（1009，2026-10-31）：只有 `/auth/login` 会返回它 —— 密码**正确**但账号在锁定期。
+ * 文案里带「还剩 X 分钟」，要常驻展示在登录页上（气泡三秒就没了），
+ * 所以这个码不走拦截器的 toast，交给登录页渲染。
+ */
+const LOGIN_LOCKED_CODE = 1009
 
 const http = axios.create({
   baseURL: '/api',
@@ -55,7 +63,10 @@ http.interceptors.response.use(
   (response) => {
     const body = response.data as ApiResult<unknown>
     if (body.code !== 200) {
-      ElMessage.error(body.message || '操作失败')
+      // 1009 的提示由登录页常驻展示（见 LOGIN_LOCKED_CODE），这里不弹
+      if (body.code !== LOGIN_LOCKED_CODE) {
+        ElMessage.error(body.message || '操作失败')
+      }
       // 把业务码带出去：调用方要能区分「图形码错（4001）」这类可以原地重试的失败
       const failure = new Error(body.message || '操作失败') as Error & { businessCode?: number }
       failure.businessCode = body.code
@@ -128,6 +139,15 @@ export function isCredentialError(error: unknown): boolean {
  */
 export function isCaptchaRequiredError(error: unknown): boolean {
   return businessCodeOf(error) === 4008
+}
+
+/**
+ * 账号处于登录锁定期（1009，2026-10-31）：连续 10 次密码错 → 锁 2 小时，
+ * **只有密码正确时**才会拿到这个码（密码错仍是 1003）。登录页拿它把后端的原话
+ * （含「请 X 分钟后再试，或联系管理员解禁」）常驻展示出来，不要改写。
+ */
+export function isLockedError(error: unknown): boolean {
+  return businessCodeOf(error) === LOGIN_LOCKED_CODE
 }
 
 /** 业务侧拿到的直接是 data（8.4） */

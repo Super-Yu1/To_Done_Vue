@@ -890,6 +890,125 @@ img {
   color: var(--color-danger);
 }
 
+/*
+ * 后台页面（2026-10-30）：与前台同一套浮岛。
+ * 原来是「贴着浏览器边缘的固定侧栏 + 顶栏 + 白底表格」，和前台完全是两套语言；
+ * 现在换成 .app-layout + AppSidebar（玻璃浮岛），页面只有两块玻璃：
+ *   ① .admin-hero  页头（标题 + 说明 + 主操作）
+ *   ② .admin-panel 大面板：工具条 / 表格 / 分页整块住在里面
+ * 表格**不做一行一卡** —— 那是一列「待勾选的任务」才需要的密度，后台是浏览与检索，
+ * 一张连续的表更快读；玻璃只套在最外层一层。
+ */
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.admin-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border: 1px solid var(--glass-panel-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--glass-panel-bg);
+  background-image: var(--glass-surface);
+  backdrop-filter: var(--glass-panel-blur);
+  box-shadow: var(--shadow-panel);
+}
+
+.admin-hero__title {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+
+.admin-hero__hint {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--color-text-2);
+}
+
+/* 页头主操作：与前台的「新建任务」同一支蓝、同一个胶囊形状 */
+.admin-hero .el-button {
+  height: 40px;
+  margin-left: 0;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  font-size: 14.5px;
+  font-weight: 550;
+}
+
+.admin-hero .el-button--primary {
+  --el-button-bg-color: var(--color-cta);
+  --el-button-border-color: transparent;
+  --el-button-text-color: var(--color-cta-fg);
+  --el-button-hover-bg-color: var(--color-cta-hover);
+  --el-button-hover-border-color: transparent;
+  --el-button-hover-text-color: var(--color-cta-fg);
+  --el-button-active-bg-color: var(--color-cta-active);
+  --el-button-active-border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.admin-panel {
+  display: flex;
+  flex-direction: column;
+  /* 上下各 14：没有分页的页面（管理员管理）底部不会只剩 6px */
+  padding: 14px 16px;
+  border: 1px solid var(--glass-panel-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--glass-panel-bg);
+  background-image: var(--glass-surface);
+  backdrop-filter: var(--glass-panel-blur);
+  box-shadow: var(--shadow-panel);
+
+  /*
+   * 表格铺在玻璃上：EP 默认给表头 / 行 / 固定列都铺了实心底色，
+   * 这里全部让位给面板，只留一条 `--separator` 的发丝线分隔表头与行。
+   */
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: transparent;
+  --el-table-row-hover-bg-color: var(--glass-row-hover);
+  --el-table-border-color: var(--separator);
+  --el-table-header-text-color: var(--color-text-2);
+  --el-table-text-color: var(--color-text);
+  --el-table-expanded-cell-bg-color: transparent;
+}
+
+/* 表格自己不再要圆角：外层面板已经有 20px，里面再圆一层会出现「双圆角」 */
+.admin-panel .el-table {
+  border-radius: 0;
+}
+
+/* 表头文字：小一号 + 拉开字距，与「标签」这一层对齐 */
+.admin-panel .el-table th.el-table__cell {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* 行高：表格是密集阅读，比任务卡矮一档 */
+.admin-panel .el-table td.el-table__cell,
+.admin-panel .el-table th.el-table__cell {
+  padding: 10px 0;
+}
+
+/* 分页：面板底部一条分隔线，右对齐（面板自己已有 14px 底，这里不再补） */
+.admin-panel__foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding: 10px 2px 0;
+  border-top: 1px solid var(--separator);
+}
+
+/* 面板里的工具条（搜索 / 筛选 / 刷新）由 AdminUserToolbar 自己的 padding-bottom 收口 */
+
 /* 分区容器：个人中心这类多段页面共用，靠 1px 分隔线划分（8.7 落地要求） */
 /*
  * 设置分组（个人中心）：一张卡里若干设置行，行之间用发丝线分隔。
@@ -961,6 +1080,20 @@ img {
 
 .row-action--danger:hover {
   color: var(--color-danger-hover);
+}
+
+/*
+ * 行内编辑的「确认」（2026-10-31）：比普通文字动作重一档 —— 同一行里出现「取消 / 确认」两个按钮时，
+ * 眼睛要能立刻分出哪个是落点。用主色 + 稍粗字重，不做成实心按钮（行高只有 56px，实心块太重）。
+ */
+.row-action--primary {
+  color: var(--color-accent);
+  font-weight: 550;
+}
+
+.row-action--primary:hover {
+  background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent-hover);
 }
 
 .row-action:disabled {
@@ -1259,34 +1392,8 @@ img {
 }
 
 /*
- * 批量操作条的进出场（2026-10-27）。
- * 进入选择模式：从右侧滑入（右 → 左）；退出选择：原路滑回（左 → 右）。
- * 位移负责「滑」，透明度负责收尾，长条才不会横穿视线。
+ * 批量操作条的进出场（2026-10-27 的 `batch-slide`）已随 2026-10-31 的布局改造下线：
+ * 批量条不再作为第二行滑进滑出，而是与常规行**同高叠放在同一格里**、整行交叉淡化。
+ * 那套「滑入 + grid 行高 1fr → 0fr 收占位」的做法只能让高度变化平滑，
+ * 长出来的 42px 照样把下面的列表推下去 —— 根因是「占位」，不是「突变」。
  */
-.batch-slide-enter-active,
-.batch-slide-leave-active {
-  transition:
-    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 240ms var(--ease);
-}
-
-.batch-slide-enter-from,
-.batch-slide-leave-to {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-/*
- * 退出时把操作条的「占位」一起收掉（2026-10-27）。
- * 背景：操作条滑走之后，那一块空间会**瞬间**消失，下面的任务列表跟着上跳 —— 用户看到的就是「闪一下」。
- * 这里用 grid 行高从 1fr 收到 0fr，高度是连续变化的，收得和滑动一样快。
- */
-.filter-bar__tabs-actions:has(> .batch-slide-leave-active) {
-  /* !important 压过组件内 scoped 的 `grid-template-rows: 1fr`（后者运行时注入，顺序在后） */
-  grid-template-rows: 0fr !important;
-}
-
-/* 网格行高要能被压缩，子项必须允许 min-height: 0（槽内容在父级作用域，只能写在全局） */
-.filter-bar__tabs-actions > * {
-  min-height: 0;
-}

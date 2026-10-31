@@ -9,7 +9,9 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { TASK_PRIORITY_OPTIONS } from '@/constants'
+import { TASK_MAX_IMAGES, TASK_PRIORITY_OPTIONS } from '@/constants'
+import AppIcon from './AppIcon.vue'
+import AppTooltip from './AppTooltip.vue'
 import TaskImageField from './TaskImageField.vue'
 import type { Task, TaskPayload, TaskPriority } from '@/types'
 
@@ -52,6 +54,13 @@ const isEdit = computed(() => !!props.task)
 /** 平铺的优先级胶囊：按「高 → 中 → 低」展示（2026-10-21 弹窗改版，下拉换成胶囊） */
 const PRIORITY_PILLS = [...TASK_PRIORITY_OPTIONS].reverse()
 const dialogTitle = computed(() => (isEdit.value ? '编辑任务' : '新建任务'))
+
+/**
+ * 配图用法（2026-10-30）：原来这行字常住在添加框右边，占一行宽度、又和「＋」抢注意力。
+ * 现在收进「配图」标签旁的 i 图标里 —— 需要时才展开，表单干净一档。
+ */
+const IMAGE_HINT = `点击看大图，拖动可调整顺序。
+支持 JPG / PNG / WEBP，最多 ${TASK_MAX_IMAGES} 张。`
 
 /* ---------- 优先级胶囊的滑动指示块（2026-10-27） ---------- */
 
@@ -227,8 +236,35 @@ async function handleSubmit() {
         </span>
       </el-form-item>
 
-      <!-- ③ 属性区：整块浅灰面板，与正文分开 -->
+      <!-- ③ 属性区：整块浅灰面板，与正文分开（2026-10-30 起顺序为 配图 → 优先级 → 截止时间） -->
       <div class="task-form__panel">
+        <div class="task-form__row task-form__row--stack">
+          <div class="task-form__label-row">
+            <span class="task-form__label">配图</span>
+            <!-- 用法说明从「添加框旁边的一行字」收进这枚 i 图标 -->
+            <AppTooltip
+              :content="IMAGE_HINT"
+              placement="top"
+              :show-after="200"
+              popper-class="task-form__hint-pop"
+            >
+              <button class="task-form__hint" type="button" aria-label="配图的使用说明">
+                <AppIcon name="info" :size="14" />
+              </button>
+            </AppTooltip>
+          </div>
+          <!--
+            key 让每次打开都拿到全新的字段实例：弹窗体关闭后仍留在 DOM 里，
+            编辑同一个任务时 props.images 不变，光靠 props 重建清不掉上一次选的新文件。
+          -->
+          <TaskImageField
+            :key="`${task?.id ?? 'new'}-${visible}`"
+            v-model="images"
+            :images="task?.images"
+            :submitting="submitting"
+          />
+        </div>
+
         <div class="task-form__row">
           <span class="task-form__label">优先级</span>
           <div ref="priosRef" class="task-form__prios" role="radiogroup" aria-label="优先级">
@@ -270,29 +306,6 @@ async function handleSubmit() {
             clearable
           />
         </div>
-
-        <div class="task-form__row task-form__row--stack">
-          <span class="task-form__label">配图</span>
-          <!--
-            key 让每次打开都拿到全新的字段实例：弹窗体关闭后仍留在 DOM 里，
-            编辑同一个任务时 props.images 不变，光靠 props 重建清不掉上一次选的新文件。
-          -->
-          <TaskImageField
-            :key="`${task?.id ?? 'new'}-${visible}`"
-            v-model="images"
-            :images="task?.images"
-            :submitting="submitting"
-          />
-        </div>
-
-        <!-- 「更新创建时间」只在编辑时出现 -->
-        <el-checkbox
-          v-if="isEdit"
-          v-model="form.refreshRecordedAt"
-          class="task-form__refresh"
-        >
-          更新创建时间
-        </el-checkbox>
       </div>
     </el-form>
 
@@ -305,19 +318,33 @@ async function handleSubmit() {
       :show-text="false"
     />
 
+    <!--
+      页脚（2026-10-30）：左侧放「更新创建时间」，右侧是取消 / 保存 ——
+      它原来占着属性面板里的一整行，只在编辑时出现，出现时会把面板撑高一截；
+      挂在页脚既不占表单位置，也和「提交这一件事」在语义上更近。
+    -->
     <template #footer>
       <div class="task-form__footer">
-        <el-button class="task-form__cancel" :disabled="submitting" @click="visible = false">
-          取消
-        </el-button>
-        <el-button
-          class="task-form__save"
-          type="primary"
-          :loading="submitting"
-          @click="handleSubmit"
+        <el-checkbox
+          v-if="isEdit"
+          v-model="form.refreshRecordedAt"
+          class="task-form__refresh"
         >
-          保存
-        </el-button>
+          更新创建时间
+        </el-checkbox>
+        <div class="task-form__footer-actions">
+          <el-button class="task-form__cancel" :disabled="submitting" @click="visible = false">
+            取消
+          </el-button>
+          <el-button
+            class="task-form__save"
+            type="primary"
+            :loading="submitting"
+            @click="handleSubmit"
+          >
+            保存
+          </el-button>
+        </div>
       </div>
     </template>
   </el-dialog>
@@ -441,6 +468,43 @@ async function handleSubmit() {
   color: var(--color-text-2);
 }
 
+/* 「配图」那一行的标题：文字 + i 图标，纵向排列的 stack 行里单独占一行 */
+.task-form__label-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* 这一行不需要 64px 的固定列宽，图标要贴着字 */
+.task-form__label-row .task-form__label {
+  width: auto;
+}
+
+/*
+ * 「配图」旁的 i（2026-10-30）：原来添加框右边常驻一行「点击看大图 · 拖动调整顺序 · 支持…」，
+ * 它占掉半个添加区的宽度、又和「＋」抢注意力。收进这枚 18px 的图标里，
+ * 悬停 200ms 展开说明（见 script 里的 IMAGE_HINT）。
+ */
+.task-form__hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--color-text-3);
+  cursor: help;
+  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+.task-form__hint:hover {
+  background-color: var(--color-field-bg);
+  color: var(--color-text-2);
+}
+
 /* 优先级胶囊：高红 / 中橙 / 低蓝灰，选中时是实底 —— 与任务行上的优先级同一套令牌 */
 .task-form__prios {
   position: relative;
@@ -559,7 +623,8 @@ async function handleSubmit() {
  * 深色主题里 accent 是亮蓝，白勾会消失（2026-10-29）。
  */
 .task-form__refresh {
-  align-self: flex-start;
+  /* 2026-10-30：从属性面板挪到页脚左侧，与按钮同一基线 */
+  white-space: nowrap;
   --el-checkbox-checked-bg-color: var(--color-accent);
   --el-checkbox-checked-input-border-color: var(--color-accent);
   --el-checkbox-input-border-color-hover: var(--color-accent);
@@ -585,11 +650,19 @@ async function handleSubmit() {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
-/* 底部：取消（白底黑字）+ 保存（品牌主色，圆角），右对齐 */
+/* 底部：左侧「更新创建时间」，右侧取消 + 保存（2026-10-30） */
 .task-form__footer {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* 新建时左侧没有勾选，按钮仍靠右（`margin-left: auto` 兜住） */
+.task-form__footer-actions {
+  display: flex;
   gap: 10px;
+  margin-left: auto;
 }
 
 .task-form__cancel {
@@ -626,4 +699,18 @@ async function handleSubmit() {
   margin-top: 12px;
 }
 
+</style>
+
+<style>
+/*
+ * 「配图」说明气泡（2026-10-30）：tooltip 会 teleport 到 body，scoped 够不到，只能写全局。
+ * 两行文案靠 `white-space: pre-line` 认 `\n`，再限一个 240px 的宽度 —— 否则它会铺成一条很长的横条。
+ * 其余（白卡、圆角、指针穿透）沿用 main.css 里 `.el-popper.is-dark` 那一套。
+ */
+.task-form__hint-pop.el-popper {
+  /* 280 = 两行文案刚好不折行；再窄第一行就会被拆开 */
+  max-width: 280px;
+  line-height: 1.65;
+  white-space: pre-line;
+}
 </style>
