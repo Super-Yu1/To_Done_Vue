@@ -22,29 +22,15 @@ const props = defineProps<{ query: TaskQuery; selectMode?: boolean }>()
 const emit = defineEmits<{ change: []; 'toggle-select': [] }>()
 
 /**
- * 退出选择时右侧「晚一步」（2026-10-27）：
- * 批量操作条要向右滑 300ms，如果「排序 ▾ / 批量选择」在同一帧就换回来，
- * 两块内容会在同一处交叠 —— 看着就是闪一下。让**关闭**晚 320ms 生效、打开立即生效。
+ * 是否在选择模式（2026-10-31）：
+ * 不再需要原来那套「退出时晚 320ms 再切回来」—— 批量条现在与常规行**同高叠放**、
+ * 整行交叉淡化，两行之间不会再出现「滑出时与第一行交叠」，也就不必错开时间。
+ *
+ * 更重要的一点：批量条**不再作为第二行插进来**。它一插进来，工具栏就从 68px 长到 110px，
+ * 下面的任务列表跟着整体下移 42px —— 那才是「整页跳一下」的真正来源。
+ * （旧实现用 grid `1fr → 0fr` 过渡高度，那只是让「长高」平滑，长出来的高度仍然占位。）
  */
-const visualSelectMode = ref(Boolean(props.selectMode))
-let modeTimer: number | undefined
-
-watch(
-  () => props.selectMode,
-  (value) => {
-    window.clearTimeout(modeTimer)
-    if (value) {
-      visualSelectMode.value = true
-      return
-    }
-    modeTimer = window.setTimeout(() => {
-      visualSelectMode.value = false
-    }, 320)
-  },
-  { immediate: true },
-)
-
-onUnmounted(() => window.clearTimeout(modeTimer))
+const selecting = computed(() => Boolean(props.selectMode))
 
 /** 分段控件的 value 统一用字符串：`unfinished` / `DONE` / `all`，再映射回查询字段 */
 const ALL = 'all'
@@ -77,6 +63,18 @@ const SORT_OPTIONS = [
 ]
 
 const sortOpen = ref(false)
+
+/**
+ * 三角的朝向（2026-10-31）：不直接绑 `sortOpen`。
+ * el-popover 收起时，`visible` 要等它自己的一层时序才回写，三角会比面板慢半拍（实测约 200ms 才起步）；
+ * 这里点下按钮就立即翻转，`sortOpen` 只做兜底同步（点面板外面关闭那种情况）。
+ * 方向：展开 0° → 180°（顺时针），收起 180° → 0°（逆时针），原路返回。
+ */
+const caretOpen = ref(false)
+
+watch(sortOpen, (open) => {
+  caretOpen.value = open
+})
 
 function pickSort(value: string) {
   props.query.sortBy = value as TaskQuery['sortBy']
@@ -182,115 +180,158 @@ onUnmounted(() => {
 
 <template>
   <div class="filter-bar">
-    <div class="filter-bar__row">
-      <!-- 搜索：贴在最左，占满剩余宽度；它是一口「凹进去的井」，不是又一层白玻璃 -->
-      <el-input
-        v-model="query.keyword"
-        class="filter-bar__search"
-        placeholder="搜索标题或描述"
-        clearable
-      >
-        <template #prefix>
-          <AppIcon name="search" />
-        </template>
-      </el-input>
-
-      <!-- 状态分段控件 -->
-      <div ref="tabsRef" class="filter-bar__tabs" role="tablist" aria-label="任务状态">
-        <!-- 白色滑块：位置 / 宽高由 JS 量当前页签得出，切页签时滑过去 -->
-        <span
-          class="filter-bar__tab-indicator"
-          :class="{ 'filter-bar__tab-indicator--ready': indicatorReady }"
-          :style="indicatorStyle"
-          aria-hidden="true"
-        />
-
-        <button
-          v-for="(tab, index) in tabs"
-          :key="tab.value"
-          :ref="(el) => setTabRef(el, index)"
-          class="filter-bar__tab"
-          :class="{ 'filter-bar__tab--active': activeTab === tab.value }"
-          type="button"
-          role="tab"
-          :aria-selected="activeTab === tab.value"
-          @click="activeTab = tab.value"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
-
-      <div class="filter-bar__tools">
-        <el-popover
-        v-if="!visualSelectMode"
-        v-model:visible="sortOpen"
-        trigger="click"
-        placement="bottom"
-        :width="176"
-        popper-class="todone-sort-pop"
-      >
-        <template #reference>
-          <button class="filter-bar__ghost" type="button" :aria-expanded="sortOpen">
-            排序
-            <span class="filter-bar__caret" aria-hidden="true">▾</span>
-          </button>
-        </template>
-
-        <div class="sort-panel" role="menu" aria-label="排序方式">
-          <p class="sort-panel__title">排序方式</p>
-          <button
-            v-for="option in SORT_OPTIONS"
-            :key="option.value"
-            class="sort-panel__item"
-            :class="{ 'sort-panel__item--active': query.sortBy === option.value }"
-            type="button"
-            role="menuitemradio"
-            :aria-checked="query.sortBy === option.value"
-            @click="pickSort(option.value)"
-          >
-            {{ option.label }}
-            <AppIcon v-if="query.sortBy === option.value" name="check" :size="14" />
-          </button>
-
-          <div class="sort-panel__divider" aria-hidden="true" />
-
-          <div class="sort-panel__dir" role="group" aria-label="排序方向">
-            <button
-              class="sort-panel__dir-btn"
-              :class="{ 'sort-panel__dir-btn--active': isAsc }"
-              type="button"
-              @click="setDirection('asc')"
-            >
-              正序 <span aria-hidden="true">↑</span>
-            </button>
-            <button
-              class="sort-panel__dir-btn"
-              :class="{ 'sort-panel__dir-btn--active': !isAsc }"
-              type="button"
-              @click="setDirection('desc')"
-            >
-              倒序 <span aria-hidden="true">↓</span>
-            </button>
-          </div>
-        </div>
-      </el-popover>
-
-        <button class="filter-bar__ghost" type="button" @click="emit('toggle-select')">
-          {{ visualSelectMode ? '退出选择' : '批量选择' }}
-        </button>
-      </div>
-
-      <div v-if="$slots.actions" class="filter-bar__actions">
-        <slot name="actions" />
-      </div>
-    </div>
-
     <!--
-      批量操作条（2026-10-27 三改）：从工具栏里独立出来占一行 ——
-      选择模式下它有一整条宽度可用，不会把搜索和主按钮挤到折行。
+      两行同高叠放（2026-10-31）：常态一行、选择模式一行。
+      隐藏的那行用绝对定位脱离文档流 —— 父级高度始终由「正在显示的那行」决定（46px + 上下 padding），
+      切模式时高度一像素都不变，下面的任务列表原地不动。
+      旧实现把批量条当第二行插进来，工具栏从 68 长到 110，列表跟着下移 42px；
+      grid 的 `1fr → 0fr` 只让「长高」这件事平滑，长出来的高度仍然占位。
     -->
-    <div v-if="$slots['tabs-actions']" class="filter-bar__tabs-actions">
-      <slot name="tabs-actions" />
+    <div class="filter-bar__stack">
+      <!--
+        `inert`：不在当前模式的那一行整棵子树都不可聚焦、不可点、对读屏隐藏。
+        只靠 opacity: 0 的话，Tab 仍然会走进看不见的按钮里。
+      -->
+      <div
+        class="filter-bar__row"
+        :class="{ 'filter-bar__row--off': selecting }"
+        :inert="selecting"
+      >
+        <!-- 搜索：贴在最左，占满剩余宽度；它是一口「凹进去的井」，不是又一层白玻璃 -->
+        <el-input
+          v-model="query.keyword"
+          class="filter-bar__search"
+          placeholder="搜索标题或描述"
+          clearable
+        >
+          <template #prefix>
+            <AppIcon name="search" />
+          </template>
+        </el-input>
+
+        <!-- 状态分段控件 -->
+        <div ref="tabsRef" class="filter-bar__tabs" role="tablist" aria-label="任务状态">
+          <!-- 白色滑块：位置 / 宽高由 JS 量当前页签得出，切页签时滑过去 -->
+          <span
+            class="filter-bar__tab-indicator"
+            :class="{ 'filter-bar__tab-indicator--ready': indicatorReady }"
+            :style="indicatorStyle"
+            aria-hidden="true"
+          />
+
+          <button
+            v-for="(tab, index) in tabs"
+            :key="tab.value"
+            :ref="(el) => setTabRef(el, index)"
+            class="filter-bar__tab"
+            :class="{ 'filter-bar__tab--active': activeTab === tab.value }"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === tab.value"
+            @click="activeTab = tab.value"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <div class="filter-bar__tools">
+          <el-popover
+            v-model:visible="sortOpen"
+            trigger="click"
+            placement="bottom"
+            :width="176"
+            popper-class="todone-sort-pop"
+          >
+            <template #reference>
+              <button
+                class="filter-bar__ghost"
+                type="button"
+                :aria-expanded="sortOpen"
+                @click="caretOpen = !caretOpen"
+              >
+                排序
+                <!--
+                  小三角随展开方向转：字符本身是 ▾，展开转 180° 就成了 ▴（顺时针），
+                  收起再原路转回来（逆时针）。用旋转而不是换字符 —— 换字符是瞬切，转不完这一程。
+                -->
+                <span
+                  class="filter-bar__caret"
+                  :class="{ 'filter-bar__caret--open': caretOpen }"
+                  aria-hidden="true"
+                >▾</span>
+              </button>
+            </template>
+
+            <div class="sort-panel" role="menu" aria-label="排序方式">
+              <p class="sort-panel__title">排序方式</p>
+              <button
+                v-for="option in SORT_OPTIONS"
+                :key="option.value"
+                class="sort-panel__item"
+                :class="{ 'sort-panel__item--active': query.sortBy === option.value }"
+                type="button"
+                role="menuitemradio"
+                :aria-checked="query.sortBy === option.value"
+                @click="pickSort(option.value)"
+              >
+                {{ option.label }}
+                <AppIcon v-if="query.sortBy === option.value" name="check" :size="14" />
+              </button>
+
+              <div class="sort-panel__divider" aria-hidden="true" />
+
+              <div class="sort-panel__dir" role="group" aria-label="排序方向">
+                <button
+                  class="sort-panel__dir-btn"
+                  :class="{ 'sort-panel__dir-btn--active': isAsc }"
+                  type="button"
+                  @click="setDirection('asc')"
+                >
+                  正序 <span aria-hidden="true">↑</span>
+                </button>
+                <button
+                  class="sort-panel__dir-btn"
+                  :class="{ 'sort-panel__dir-btn--active': !isAsc }"
+                  type="button"
+                  @click="setDirection('desc')"
+                >
+                  倒序 <span aria-hidden="true">↓</span>
+                </button>
+              </div>
+            </div>
+          </el-popover>
+
+          <button class="filter-bar__ghost" type="button" @click="emit('toggle-select')">
+            批量选择
+          </button>
+        </div>
+
+        <div v-if="$slots.actions" class="filter-bar__actions">
+          <slot name="actions" />
+        </div>
+      </div>
+
+      <!--
+        选择模式：整行换内容 —— 搜索 / 分段 / 排序 / 批量选择 / 新建任务 全部让位，
+        换成「已选 N 条 + 四个动作 + 全选」，右端挂「退出选择」。
+        不保留搜索与排序是有意的：边筛边选时，被筛掉的行会从视觉上消失，却仍在选中集里被提交。
+      -->
+      <div
+        v-if="$slots['tabs-actions']"
+        class="filter-bar__row filter-bar__row--batch"
+        :class="{ 'filter-bar__row--off': !selecting }"
+        :inert="!selecting"
+      >
+        <slot name="tabs-actions" />
+        <button
+          v-if="selecting"
+          class="filter-bar__ghost filter-bar__exit"
+          type="button"
+          @click="emit('toggle-select')"
+        >
+          退出选择
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -304,9 +345,6 @@ onUnmounted(() => {
 .filter-bar {
   /* 按容器宽度降级（与任务行的 @container 同一套思路）：窄侧栏 + 窄窗口时不看视口看这一条自己 */
   container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--glass-panel-border);
   /* 2026-10-30 归并：写死的 20 改走令牌，与概览 / 任务卡同一档 */
@@ -316,12 +354,62 @@ onUnmounted(() => {
   box-shadow: var(--shadow-card);
 }
 
-/* 常驻的一行控件：搜索 / 分段 / 工具 / 主操作 */
+/*
+ * 两行同高叠放（2026-10-31）：
+ * 两条都**恒定定位**、叠在同一个 grid 格子里 —— 高度交给较大的一行决定，
+ * 切模式时这条工具栏的高度一像素都不变，下面的列表不会被推。
+ *
+ * ⚠ 不用 `position: absolute` 藏行：position 不可过渡，藏着的那行从 absolute 变回 static 时
+ * 会重新参与布局，transform 的过渡直接被打断 —— 滑动就变成瞬移。grid 叠放让两行始终是同一种
+ * 定位方式，只切 opacity / transform，位移才是连续的。
+ */
+.filter-bar__stack {
+  display: grid;
+  grid-template-areas: 'row';
+}
+
+/* 一行控件：搜索 / 分段 / 工具 / 主操作（选择模式下是批量条 + 退出） */
 .filter-bar__row {
   display: flex;
+  grid-area: row;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px 12px;
+  /* 46 = 搜索井的高度；批量条里的按钮只有 30，也撑到同一档，两行才一样高 */
+  min-height: 46px;
+  /* 显示态不裁任何东西，还留 8px 余量给 focus 环 —— 免得键盘焦点被裁掉半圈 */
+  clip-path: inset(-8px);
+  transition:
+    opacity 180ms var(--ease),
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    clip-path 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * 退场的那一行：往右让开 + 淡出。
+ * 「右」正是常态行里「批量选择」按钮所在的方向 —— 所以读起来是
+ * **批量条从那个按钮的位置推出来**，而不是整条交叉淡化。
+ */
+.filter-bar__row--off {
+  opacity: 0;
+  transform: translateX(26px);
+  pointer-events: none;
+}
+
+/*
+ * 批量行退得更远（72px），并且**从左侧被裁光**（`inset(0 0 0 100%)`）。
+ * 两者叠加的效果不是「整条淡入」，而是像被人从右边「拉开」——
+ * 从「批量选择」按钮那一端起始、向左铺满整条工具栏，正好对上点击的位置。
+ * 退出时反向：先往右缩、同时从左边收回去。
+ */
+.filter-bar__row--batch.filter-bar__row--off {
+  transform: translateX(72px);
+  clip-path: inset(0 0 0 100%);
+}
+
+/* 批量条整行：动作靠左排，「退出选择」推到最右 */
+.filter-bar__exit {
+  margin-left: auto;
 }
 
 /*
@@ -530,28 +618,6 @@ onUnmounted(() => {
   margin-left: auto;
 }
 
-/*
- * 批量操作条从这里滑进滑出（2026-10-27）。
- * 用 grid 的单行做「占位」过渡：退出时把 `1fr` 收到 `0fr`，高度是**连续收**的 ——
- * 否则操作条滑走后整块空间瞬塌，工具栏会突然变矮（看着就是闪一下）。
- * overflow: hidden 顺便裁掉横向滑动探出的那一截。
- */
-.filter-bar__tabs-actions {
-  display: grid;
-  grid-template-rows: 1fr;
-  justify-items: end;
-  align-items: center;
-  gap: 8px;
-  overflow: hidden;
-  /* 先让操作条滑出去（0~110ms），这块空间再收（110~310ms），两者不互相「吃掉」 */
-  transition: grid-template-rows 200ms cubic-bezier(0.4, 0, 0.2, 1) 110ms;
-}
-
-/* 不在选择模式时插槽里没有节点：整行收掉，连 gap 都不占 */
-.filter-bar__tabs-actions:empty {
-  display: none;
-}
-
 /* 文字按钮（排序 / 批量选择）：无框无底，悬停才浮一层微光 */
 .filter-bar__ghost {
   display: inline-flex;
@@ -586,10 +652,31 @@ onUnmounted(() => {
   outline-offset: 2px;
 }
 
+/*
+ * 展开指示三角（2026-10-31）：`inline-block` 是必需的 —— 父级虽然是 inline-flex、
+ * flex item 会被 blockify，但这里仍显式写出来，避免以后父级改成 block 时 rotate 静默失效。
+ * 展开时转 180°，颜色抬一档，和面板的展开是同一个动作。
+ */
 .filter-bar__caret {
+  display: inline-block;
   font-size: 11px;
   line-height: 1;
   color: var(--color-text-3);
+  transition: transform var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.filter-bar__caret--open {
+  transform: rotate(180deg);
+  color: var(--color-text-2);
+}
+
+/* 悬停时按钮文字变深，三角跟着走一档，别一大一小两种灰 */
+.filter-bar__ghost:hover .filter-bar__caret {
+  color: var(--color-text-2);
+}
+
+.filter-bar__ghost:hover .filter-bar__caret--open {
+  color: var(--color-text);
 }
 
 /* 工具栏自己真的放不下时，搜索井再收一档（按容器算，与侧栏收没收无关） */

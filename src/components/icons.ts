@@ -35,6 +35,8 @@ export type IconName =
   | 'zoom'
   /* 配图删除（2026-10-27）：右上角的红色 × */
   | 'close'
+  /* 配图说明（2026-10-30）：圆圈里一个 i */
+  | 'info'
 
 export const ICON_PATHS: Record<IconName, string[]> = {
   monitor: ['M3 4h18v12H3z', 'M8 20h8', 'M12 16v4'],
@@ -94,4 +96,6 @@ export const ICON_PATHS: Record<IconName, string[]> = {
   zoom: ['M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12z', 'M15.6 15.6 20 20', 'M11 8.5v5', 'M8.5 11h5'],
   /* 两条交叉的线：配图删除按钮（比垃圾桶更轻、更贴「×」的直觉） */
   close: ['M6 6l12 12', 'M18 6L6 18'],
+  /* 圆圈 + 竖线 + 点：i 形，用在「配图」标签旁交代用法 */
+  info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 11v5.5', 'M12 7.8h.01'],
 }

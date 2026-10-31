@@ -4,7 +4,7 @@
  * + 「初始密码」一次性展示弹窗。
  */
 import { onMounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
 import AdminUserTable from '@/components/admin/AdminUserTable.vue'
 import AdminUserToolbar from '@/components/admin/AdminUserToolbar.vue'
@@ -16,6 +16,7 @@ import ResetPasswordDialog from '@/components/admin/ResetPasswordDialog.vue'
 import UserEditDialog from '@/components/admin/UserEditDialog.vue'
 import { PAGE_SIZE } from '@/constants'
 import { useAdminStore } from '@/stores/admin'
+import { formatDateTime } from '@/utils/date'
 import type { AdminUser, AdminUserCreatePayload, AdminUserUpdatePayload, FreezePayload } from '@/types'
 
 const adminStore = useAdminStore()
@@ -116,6 +117,36 @@ async function handleResetPassword(newPassword: string) {
   }
 }
 
+/**
+ * 解禁登录锁定（2026-10-31）：接口幂等，走一次二次确认就够 ——
+ * 解禁会清掉连续失败计数与 Redis 里的图形码计数，之后该用户用原密码即可登录。
+ */
+const unlocking = ref(false)
+
+async function handleUnlock(user: AdminUser) {
+  if (unlocking.value) return
+  const name = user.name || user.email
+  try {
+    await ElMessageBox.confirm(
+      `「${name}」连续密码错误 ${user.failedLoginCount} 次，锁定至 ${formatDateTime(user.lockedUntil)}。` +
+        '解禁后计数清零，可立即用原密码登录，也不再要求图形码。',
+      '确认解禁',
+      { confirmButtonText: '解禁', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  unlocking.value = true
+  try {
+    await adminStore.unlock(user.id)
+    ElMessage.success('已解禁，该用户可立即登录')
+  } catch {
+    // 提示已由 http 层给出
+  } finally {
+    unlocking.value = false
+  }
+}
+
 async function handleFreeze(payload: FreezePayload) {
   const target = activeUser.value
   if (!target) return
@@ -152,11 +183,11 @@ function handlePageChange(page: number) {
 </script>
 
 <template>
-  <div class="admin-users">
-    <header class="page-header">
+  <div class="page admin-page">
+    <header class="admin-hero">
       <div>
-        <h1 class="page-title">用户管理</h1>
-        <p class="page-header__hint">管理员只看账号状态，看不到任何人的任务与配图。</p>
+        <h1 class="admin-hero__title">用户管理</h1>
+        <p class="admin-hero__hint">管理员只看账号状态，看不到任何人的任务与配图。</p>
       </div>
       <el-button type="primary" @click="openCreate">
         <AppIcon name="plus" />
@@ -164,29 +195,34 @@ function handlePageChange(page: number) {
       </el-button>
     </header>
 
-    <AdminUserToolbar
-      :query="adminStore.query"
-      @change="guard(() => adminStore.fetchUsers(1))"
-      @refresh="guard(() => adminStore.fetchUsers(adminStore.query.page))"
-    />
+    <!-- 工具条 / 表格 / 分页整块住在一块玻璃里：后台是浏览与检索，不做「一行一卡」 -->
+    <section class="admin-panel">
+      <AdminUserToolbar
+        :query="adminStore.query"
+        @change="guard(() => adminStore.fetchUsers(1))"
+        @refresh="guard(() => adminStore.fetchUsers(adminStore.query.page))"
+      />
 
-    <AdminUserTable
-      :users="adminStore.users"
-      :loading="adminStore.loading"
-      @edit="openDialog('edit', $event)"
-      @reset-password="openDialog('reset', $event)"
-      @toggle-freeze="openDialog('freeze', $event)"
-      @remove="openDialog('delete', $event)"
-    />
+      <AdminUserTable
+        :users="adminStore.users"
+        :loading="adminStore.loading"
+        @edit="openDialog('edit', $event)"
+        @reset-password="openDialog('reset', $event)"
+        @toggle-freeze="openDialog('freeze', $event)"
+        @unlock="handleUnlock"
+        @remove="openDialog('delete', $event)"
+      />
 
-    <el-pagination
-      class="pagination"
-      layout="total, prev, pager, next"
-      :total="adminStore.total"
-      :page-size="PAGE_SIZE"
-      :current-page="adminStore.query.page"
-      @current-change="handlePageChange"
-    />
+      <div class="admin-panel__foot">
+        <el-pagination
+          layout="total, prev, pager, next"
+          :total="adminStore.total"
+          :page-size="PAGE_SIZE"
+          :current-page="adminStore.query.page"
+          @current-change="handlePageChange"
+        />
+      </div>
+    </section>
 
     <CreateUserDialog
       v-model:visible="createVisible"
@@ -229,23 +265,8 @@ function handlePageChange(page: number) {
 </template>
 
 <style scoped>
-/* 与「管理员管理」同版式：标题在左、主操作按钮在右 */
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 16px;
-}
-
-.page-header__hint {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--color-text-2);
-}
-
-.pagination {
-  justify-content: flex-end;
-  padding-top: 16px;
-}
+/*
+ * 版式全在 main.css 的 `.admin-page` / `.admin-hero` / `.admin-panel` 里 ——
+ * 与「管理员管理」共用同一套，两个页面不再各写一份页头样式。
+ */
 </style>

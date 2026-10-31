@@ -225,23 +225,22 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
       </li>
     </ul>
 
-    <!-- 2026-10-21：上传入口改成虚线框 + 大号「＋」，下方只留一行极简提示 -->
-    <div class="images__add-wrap">
-      <button
-        class="images__add"
-        type="button"
-        :disabled="submitting || slots.length >= TASK_MAX_IMAGES"
-        :aria-label="slots.length ? '继续添加配图' : '添加配图'"
-        @click="inputRef?.click()"
-        @dragover.prevent
-        @drop.prevent="handleDrop"
-        >
-        <span class="images__add-plus" aria-hidden="true">＋</span>
-      </button>
-      <p class="images__add-hint">
-        点击看大图 · 拖动调整顺序 · 支持 JPG/PNG/WEBP，最多 {{ TASK_MAX_IMAGES }} 张
-      </p>
-    </div>
+    <!--
+      2026-10-21：上传入口是虚线框 + 大号「＋」。
+      2026-10-30：原来旁边那行「点击看大图 · 拖动调整顺序 · 支持…」已收进「配图」标签旁的 i 图标，
+      这里只留入口本身。
+    -->
+    <button
+      class="images__add"
+      type="button"
+      :disabled="submitting || slots.length >= TASK_MAX_IMAGES"
+      :aria-label="slots.length ? '继续添加配图' : '添加配图'"
+      @click="inputRef?.click()"
+      @dragover.prevent
+      @drop.prevent="handleDrop"
+    >
+      <span class="images__add-plus" aria-hidden="true">＋</span>
+    </button>
 
     <input
       ref="inputRef"
@@ -265,26 +264,26 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
 </template>
 
 <style scoped>
+/*
+ * 2026-10-30：说明文字收走之后，缩略图下面那行「＋」空出了半行 —— 改成同一个 flex 流：
+ * `ul` 用 `display: contents` 把 li 交给外层，缩略图与「＋」自然排成一行、一起折行。
+ * 只有 1 张图时高度从 84+84+8 收到 84，配图区不再撑高弹窗。
+ */
 .images {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
   width: 100%;
 }
 
 .images__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 0 8px;
-  padding: 0;
+  display: contents;
+  /* display: contents 会吃掉 margin / padding，list-style 是继承属性，仍能传到 li */
   list-style: none;
 }
 
 /* 虚线添加区（2026-10-21）：84×84 与缩略图同尺寸，虚线 + 居中大号加号 */
-.images__add-wrap {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
 .images__add {
   display: flex;
   flex: none;
@@ -316,13 +315,6 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
 .images__add-plus {
   font-size: 26px;
   line-height: 1;
-}
-
-.images__add-hint {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--color-text-3);
 }
 
 /* 缩略图块：拖动抓取区 + 点击看大图，两个语义靠光标与悬停角标提示 */

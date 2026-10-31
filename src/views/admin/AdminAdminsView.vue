@@ -58,11 +58,11 @@ async function handleCreate(payload: CreateAdminPayload) {
 </script>
 
 <template>
-  <div class="admin-admins">
-    <header class="page-header">
+  <div class="page admin-page">
+    <header class="admin-hero">
       <div>
-        <h1 class="page-title">管理员管理</h1>
-        <p class="page-header__hint">
+        <h1 class="admin-hero__title">管理员管理</h1>
+        <p class="admin-hero__hint">
           已有管理员不可改名、不可改密、不可删除；忘记密码只能手工改库。
         </p>
       </div>
@@ -72,7 +72,10 @@ async function handleCreate(payload: CreateAdminPayload) {
       </el-button>
     </header>
 
-    <AdminTable :admins="adminStore.admins" :loading="loading" />
+    <!-- 整张表住在一块玻璃里，不做「一行一卡」 -->
+    <section class="admin-panel">
+      <AdminTable :admins="adminStore.admins" :loading="loading" />
+    </section>
 
     <CreateAdminDialog
       v-model:visible="createVisible"
@@ -84,17 +87,5 @@ async function handleCreate(payload: CreateAdminPayload) {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 16px;
-}
-
-.page-header__hint {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--color-text-2);
-}
+/* 版式见 main.css 的 `.admin-page` / `.admin-hero` / `.admin-panel`，与「用户管理」共用 */
 </style>

@@ -6,6 +6,9 @@
  * 前两次直接提交。计数在 `utils/loginAttempts`（本地 / 按邮箱 / 30 分钟过期 / 成功清零），
  * 后端按同一规则判定 —— 本地计数没跟上时后端回 4008，这里再把弹窗递上来（口径见 `docs/CHANGELOG.md` 项目约定 25）。
  *
+ * 账号锁定（1009，2026-10-31）：连续 10 次密码错后台锁 2 小时，**密码正确**时才返回 1009
+ * （密码错仍是 1003）。这里的原话直接展示、不改写，详见下方 `lockedNotice`。
+ *
  * 排版（2026-10-16）与注册页**共用同一套**：左栏 `AuthAside`（同一份产品预览、同样可点）、
  * 右侧表单卡片（外壳的分栏分支给的），差别只有主张文案与场景标签那一行 ——
  * 两页放一起看应该像同一套东西，而不是"注册页好看、登录页是另一张白表"。
@@ -16,7 +19,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import AuthAside from '@/components/AuthAside.vue'
 import AuthShell from '@/components/AuthShell.vue'
 import CaptchaDialog from '@/components/CaptchaDialog.vue'
-import { isCaptchaError, isCaptchaRequiredError, isCredentialError } from '@/api/http'
+import { isCaptchaError, isCaptchaRequiredError, isCredentialError, isLockedError } from '@/api/http'
 import { pickLoginWelcome } from '@/constants'
 import {
   clearLoginFailures,
@@ -42,6 +45,13 @@ const welcome = pickLoginWelcome()
  * 常驻一行反而看得清，提交一次后自然消失。
  */
 const expiredNotice = ref(false)
+
+/**
+ * 账号被锁定（1009，2026-10-31）时后端给的原话，**原样展示、不改写**：
+ * 文案里带着「请 X 分钟后再试，或联系管理员解禁」，比任何自己拼的提示都准。
+ * 用常驻提示而不是 toast —— 气泡三秒就没了，用户看不到还得等多久。
+ */
+const lockedNotice = ref('')
 
 onMounted(() => {
   if (!route.query.expired) return
@@ -92,6 +102,7 @@ async function submitLogin(captcha?: { captchaId: string; captchaCode: string })
     await auth.login({ email: form.email, password: form.password, ...(captcha ?? {}) })
     clearLoginFailures(form.email)
     captchaVisible.value = false
+    lockedNotice.value = ''
     ElMessage.success('登录成功')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tasks'
     await router.push(redirect)
@@ -101,6 +112,16 @@ async function submitLogin(captcha?: { captchaId: string; captchaCode: string })
       captchaDialogRef.value?.markError()
       return
     }
+    // 锁定（1009）：密码是对的，只是账号在锁定期。后端原话常驻展示（见 lockedNotice）。
+    // 顺手清掉本地的「连续失败」计数 —— 管理员解禁时后端会把 Redis 里的计数一起清掉，
+    // 本地若还停在 2 次以上，解禁后第一次登录会白弹一次图形码。
+    if (isLockedError(error)) {
+      lockedNotice.value = error instanceof Error ? error.message : ''
+      clearLoginFailures(form.email)
+      captchaVisible.value = false
+      return
+    }
+    lockedNotice.value = ''
     // 只有「邮箱或密码错」才累计连续失败：冻结 / 注销是账号状态问题，不该顺带把图形码逼出来
     if (isCredentialError(error)) recordLoginFailure(form.email)
     // 其它失败由 http 层提示；关掉弹窗，免得密码填错时逼用户为一次提交连填两次图形码。
@@ -133,7 +154,16 @@ async function submitLogin(captcha?: { captchaId: string; captchaCode: string })
       <AuthAside lead="回到你的清单，保持专注。" />
     </template>
 
-    <p v-if="expiredNotice" class="expired-notice">登录状态已失效，请重新登录</p>
+    <p v-if="expiredNotice" class="notice">登录状态已失效，请重新登录</p>
+
+    <!--
+      账号被锁定（1009）：第一行是后端原话（含剩余分钟），第二行给「能做什么」。
+      锁定是系统自动做的（连续 10 次密码错锁 2 小时），自己等不到头也可以找管理员解禁。
+    -->
+    <p v-if="lockedNotice" class="notice" role="status">
+      <span class="notice__text">{{ lockedNotice }}</span>
+      <span class="notice__extra">可联系管理员在后台解禁，不必等到锁定结束。</span>
+    </p>
 
     <!--
       `@submit.prevent` 接住原生提交：按钮是 `native-type="submit"`，所以在任一输入框里按回车
@@ -191,8 +221,8 @@ async function submitLogin(captcha?: { captchaId: string; captchaCode: string })
 </template>
 
 <style scoped>
-/* 失效提示与表单同宽，用次要底色区分于校验错误（那是红字，这是状态说明） */
-.expired-notice {
+/* 状态说明（登录失效 / 账号锁定）与表单同宽，用次要底色区分于校验错误（那是红字） */
+.notice {
   margin-bottom: 16px;
   padding: 10px 12px;
   border: 1px solid var(--color-border);
@@ -201,6 +231,18 @@ async function submitLogin(captcha?: { captchaId: string; captchaCode: string })
   font-size: 13px;
   line-height: 1.6;
   color: var(--color-text-2);
+}
+
+/* 第二行是「接下来能做什么」，比原话再淡一档，两行不抢成一段 */
+.notice__text,
+.notice__extra {
+  display: block;
+}
+
+.notice__extra {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--color-text-3);
 }
 
 /* 与注册页同一套尺度：主按钮 44px、15px 字 */

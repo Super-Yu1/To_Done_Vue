@@ -328,11 +328,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
         </el-button>
       </template>
 
-      <!-- 批量操作条并到第二行右侧（选择模式才出现）；进入时从右往左滑入、退出时原路滑回 -->
+      <!--
+        批量操作条（2026-10-31）：不再滑进滑出 —— FilterBar 把它和常规行同高叠放，
+        整条工具栏在原地换内容，下面的列表不会被推下去。
+      -->
       <template #tabs-actions>
-        <Transition name="batch-slide">
-          <BatchActionBar
-            v-if="selectMode"
+        <BatchActionBar
+          v-if="selectMode"
           :selected-count="selectedIds.length"
           :total-count="visibleTasks.length"
           :all-selected="allSelected"
@@ -344,8 +346,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           @remove="handleBatchRemove"
           @change-priority="handleBatchPriority"
           @toggle-all="toggleAll"
-          />
-        </Transition>
+        />
       </template>
     </FilterBar>
 

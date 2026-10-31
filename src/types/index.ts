@@ -233,8 +233,12 @@ export interface EmailCodeResult {
   resendAfterSeconds: number
 }
 
-/** 后台：用户状态筛选（6.5 ⑫） */
-export type UserStatus = 'NORMAL' | 'FROZEN' | 'DELETED'
+/**
+ * 后台：用户状态筛选（6.5 ⑫）。
+ * `LOCKED`（2026-10-31）是**叠加**在 NORMAL 上的临时状态 —— 被锁的账号同时算正常，
+ * 只是暂时登录不了（后端 `AdminUserFilter.LOCKED` 的口径）。
+ */
+export type UserStatus = 'NORMAL' | 'FROZEN' | 'LOCKED' | 'DELETED'
 
 /** 后台用户列表元素（6.5 ⑫） */
 export interface AdminUser {
@@ -246,6 +250,10 @@ export interface AdminUser {
   frozenAt: string | null
   frozenReason: string | null
   deletedAt: string | null
+  /** 连续密码错误次数（后端口径：达到阈值即锁定；0 = 没有失败记录） */
+  failedLoginCount: number
+  /** 登录锁定截止时间；非空且晚于现在 = 此刻登录会被拒（1009） */
+  lockedUntil: string | null
   taskCount: number
   taskCountInTrash: number
   imageCount: number
@@ -307,4 +315,46 @@ export interface AdminAuthResult {
 export interface CreateAdminPayload {
   name: string
   password: string
+}
+
+/**
+ * 登录审计（2026-10-31 后端新增）：每次登录尝试一行，**只有元数据**（结果 / IP / UA），
+ * 不含密码与验证码明文。
+ */
+export type LoginAuditActorType = 'USER' | 'ADMIN'
+
+/**
+ * 六类结果里前五类同时可能是用户与管理员，`CAPTCHA_FAILED` 两端都有；
+ * `LOCKED` 只可能来自用户侧（管理员没有锁定），`FROZEN` / `NO_SUCH_ACCOUNT` 两端都有。
+ */
+export type LoginAuditResult =
+  | 'SUCCESS'
+  | 'WRONG_PASSWORD'
+  | 'NO_SUCH_ACCOUNT'
+  | 'FROZEN'
+  | 'LOCKED'
+  | 'CAPTCHA_FAILED'
+
+export interface LoginAudit {
+  id: string
+  actorType: LoginAuditActorType
+  /** 账号 id；输入的是不存在的账号时为 null */
+  actorId: string | null
+  /** 输入的那串凭据（用户侧是邮箱，管理员侧是登录名） */
+  account: string
+  result: LoginAuditResult
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
+}
+
+/** 审计查询：时间区间用后端格式（`yyyy-MM-dd'T'HH:mm:ss`，含端点） */
+export interface LoginAuditQuery {
+  page: number
+  size: number
+  actorType?: LoginAuditActorType
+  result?: LoginAuditResult
+  account?: string
+  from?: string
+  to?: string
 }
