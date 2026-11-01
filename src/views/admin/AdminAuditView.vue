@@ -10,11 +10,12 @@
  * - 上界**含整秒**由后端负责（`< to + 1 秒`），前端**不要**自己加 1 秒，否则会多算一秒；
  * - 接口固定时间倒序，不传 `sortBy` / `sortDirection`（后端已把这两个参数从文档里隐藏）。
  */
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
 import LoginAuditTable from '@/components/admin/LoginAuditTable.vue'
+import SegmentedControl from '@/components/SegmentedControl.vue'
 import {
-  LOGIN_AUDIT_ACTOR_OPTIONS,
+  LOGIN_AUDIT_ACTOR_LABEL,
   LOGIN_AUDIT_RESULT_OPTIONS,
   PAGE_SIZE,
   SEARCH_DEBOUNCE_MS,
@@ -58,12 +59,31 @@ watch(range, (value) => {
 
 onUnmounted(() => window.clearTimeout(debounceTimer))
 
-onMounted(() => void guard(() => adminStore.fetchAudits(1)))
+onMounted(() => {
+  // 两段没有「全不选」，首次进入把默认值落到 store 上，第一发请求就带 actorType
+  if (!adminStore.auditQuery.actorType) adminStore.auditQuery.actorType = 'ADMIN'
+  void guard(() => adminStore.fetchAudits(1))
+})
 
-function handleActorType(value: LoginAuditActorType | '' | undefined) {
-  adminStore.auditQuery.actorType = value || undefined
-  reload()
-}
+/**
+ * 登录方（2026-11-02 二改）：复用前台筛选栏的 `SegmentedControl`，只留两段。
+ * 去掉了「全部」—— 两段恒有一个选中，界面不会出现「谁都没亮」的空档；
+ * 代价是看不到两种混排，但审计页的两类记录本来就不该混在一起读（管理员只有几个人）。
+ * 默认给「管理员」：进后台先看的是谁登过后台。
+ */
+const ACTOR_TABS: { value: LoginAuditActorType; label: string }[] = [
+  { value: 'ADMIN', label: LOGIN_AUDIT_ACTOR_LABEL.ADMIN },
+  { value: 'USER', label: LOGIN_AUDIT_ACTOR_LABEL.USER },
+]
+
+/** 两段里恒有一个选中，所以这里不再接受空值 */
+const actorTab = computed<LoginAuditActorType>({
+  get: () => adminStore.auditQuery.actorType ?? 'ADMIN',
+  set: (value: LoginAuditActorType) => {
+    adminStore.auditQuery.actorType = value
+    reload()
+  },
+})
 
 function handleResult(value: LoginAuditResult | '' | undefined) {
   adminStore.auditQuery.result = value || undefined
@@ -103,20 +123,13 @@ function handlePageChange(page: number) {
           </template>
         </el-input>
 
-        <el-select
-          class="audit-toolbar__select"
-          :model-value="adminStore.auditQuery.actorType"
-          placeholder="全部登录方"
-          clearable
-          @change="handleActorType"
-        >
-          <el-option
-            v-for="item in LOGIN_AUDIT_ACTOR_OPTIONS"
-            :key="item.value"
-            :label="item.label"
-            :value="item.value"
-          />
-        </el-select>
+        <SegmentedControl
+          v-model="actorTab"
+          class="audit-toolbar__seg"
+          :items="ACTOR_TABS"
+          aria-label="登录方"
+          size="small"
+        />
 
         <el-select
           class="audit-toolbar__select"
@@ -176,6 +189,11 @@ function handlePageChange(page: number) {
 
 .audit-toolbar__search {
   width: 240px;
+}
+
+.audit-toolbar__seg {
+  /* 与搜索井、下拉同一基线：分段自带 4px 槽内边距，这里不再补 */
+  margin-bottom: 0;
 }
 
 .audit-toolbar__select {

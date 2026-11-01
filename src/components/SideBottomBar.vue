@@ -52,7 +52,11 @@ const emit = defineEmits<{ toggle: [] }>()
  */
 .side-row {
   position: relative;
-  height: 40px;
+  /*
+   * 展开态的高度可被调用方覆盖（2026-11-02）：后台的身份位是「头像 + 上次登录」两行，
+   * 比前台的「头像 + 用户名」高 20px。默认仍是 40，前台什么都不用传。
+   */
+  height: var(--row-height, 40px);
   transition: height 280ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 

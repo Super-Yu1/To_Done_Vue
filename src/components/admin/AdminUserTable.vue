@@ -71,7 +71,8 @@ const isEmpty = computed(() => !props.loading && props.users.length === 0)
       · 去掉「操作」列的 fixed —— 固定列需要一层不透明底才遮得住滚过去的内容，
         而这块底在玻璃上是块死白；侧栏加宽后列宽也收窄了，1600 宽下不再溢出。
     -->
-    <el-table :data="users" v-loading="loading">
+    <el-table :data="users" v-loading="loading && !users.length"
+    element-loading-background="transparent">
       <el-table-column label="头像" width="56">
         <template #default="{ row }">
           <img v-if="row.avatarUrl" class="avatar" :src="row.avatarUrl" alt="头像" />

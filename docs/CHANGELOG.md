@@ -30,7 +30,7 @@
 12. **蓝色四件套（2026-10-29 改自 logo，2026-10-30 再拆主按钮）**：`--color-brand`（#69adff）只做「面」—— 进度主体、选中块、侧栏计数底、悬停光晕；白底上的字 / 图标一律 `--color-brand-ink`（4.98:1），压在浅蓝块上的字与勾走 `--color-brand-fg`（6.25:1）。`--color-accent`（#2a6fc9）管**功能蓝**：搜索聚焦环、勾选框、环形进度的深端。**主按钮单独一支 `--color-cta`**：**浅色用浅蓝 #69adff + 深字 #0b2a4a（6.25:1），深色用深蓝 #2a6fc9 + 白字（4.98:1）** —— 与「界面越暗、颜色越亮」的常规做法相反，但浅色界面里深蓝像补丁、深色界面里深蓝反而收得住。⚠ **功能蓝 `--color-accent` 不跟着反**：聚焦环与勾选框在深色下必须亮蓝（#8fcbff）、浅色下必须深蓝（#2a6fc9）才有 3:1 —— 两支蓝各管各的，别合并。浅蓝与白卡的明度对比只有约 2.1:1，边界靠按钮自己的内高光（上沿 .45 + 一圈 `inset 0 0 12px -6px`）撑，**不许加外投影**。主按钮是**胶囊**（与胶囊搜索井、分段控件同一套形状语言），高 46、横向留白 18、字号 14.5。四个变量各有分工，**别互相顶替**。完成勾选独立成 `--color-check-bg / -fg`（浅绿底 + 深绿勾）：白勾压在浅绿上只有 1.86:1。**「完成」这一支绿也管环形进度的 100% 态**（`--color-check-bg → --color-status-done` 做渐变两端、百分比数字用 `--color-status-done`），勾选圈与进度环是同一个语汇，不要再另起一套绿。玻璃上的输入井仍用 `--color-field-*`。
 13. 品牌资源只有两枚且同源：`public/logo.svg` + `public/logo.png`（200×200）；`favicon.ico` **已删除、不要再生成**。
 14. 认证页：`>1240px` 按 4:6、`901–1240` 收到 45:55、`≤900` 折成上下；高度 `≤880` 另有一档短屏（收内边距，保证页脚在首屏）。左栏内容是一个整体，标题 / 示例行 / 提示 / 三条说明一律左对齐；**品牌块例外** —— 落线的是 `logo.svg` 里那颗蓝圆（44px 画布内有 7.8px 透明边，要对齐得扣掉），蓝圆与示例行的勾选圈落在同一条垂直线上（尺子 `--aside-check-rail` − `--aside-brand-inset`）；两页共用 `AuthAside`，差别只有 `lead` 一句。**表单是原生 `<form>`**：主按钮 `native-type="submit"` + `@submit.prevent` 接住，任一输入框回车即提交；表单带 `novalidate`（关掉浏览器原生的英文校验气泡，校验只走 Element Plus），按钮不再挂 `@click`（否则点击会既走 click 又走 submit，请求发两遍）；三个页面都在入口判 `loading` 防连点。表单卡按**大面玻璃**取值（`--glass-card-bg` + `--glass-panel-blur` + 26px + `--glass-panel-shadow` + `--glass-card-sheen`），分栏版在卡片**后面**垫一团很淡的品牌蓝 / 苹果蓝透光（`::before`，浅色 0.8 / 深色 0.45，否则右栏整片纯白、玻璃没东西可折射）；四个认证页的输入框统一走约定 9 的凹井。
-15. **后台不露头**：用户可见界面不放任何后台入口、也不提「管理员」，后台靠直接访问 `/admin/login`。**后台的骨架与前台同源**（2026-10-30）：用 `.app-layout` + `AppSidebar` 的玻璃浮岛（侧栏分区标题传「管理」），页面只有「页头玻璃 `.admin-hero` + 一块表格面板 `.admin-panel`」；表格**不做一行一卡**（那是待勾选任务的密度，后台是浏览与检索），但铺在玻璃上时要把 EP 的 `--el-table-bg-color / tr-bg-color / header-bg-color` 全部改透明，行悬停走 `--glass-row-hover`，并且**不要用 `fixed` 列**（固定列需要一层不透明底，在玻璃上就是块死白）。
+15. **后台不露头**：用户可见界面不放任何后台入口、也不提「管理员」，后台靠直接访问 `/admin/login`。**后台的骨架与前台同源**（2026-10-30）：用 `.app-layout` + `AppSidebar` 的玻璃浮岛（侧栏分区标题传「管理」），页面只有「页头玻璃 `.admin-hero` + 一块表格面板 `.admin-panel`」；表格**不做一行一卡**（那是待勾选任务的密度，后台是浏览与检索），但铺在玻璃上时要把 EP 的 `--el-table-bg-color / tr-bg-color / header-bg-color` 全部改透明，行悬停走 `--glass-row-hover`，并且**不要用 `fixed` 列**（固定列需要一层不透明底，在玻璃上就是块死白）。⚠ **这批变量必须写在 `.admin-panel .el-table` 上，不能写在 `.admin-panel` 上**（2026-11-02 踩过）：EP 在 `.el-table` **自身**也声明了 `--el-table-bg-color: var(--el-fill-color-blank)`，元素自身的声明优先于继承 —— 写在父级等于没写，白底一直挂着，只是被面板的白玻璃盖住看不出来（读计算样式才会发现 `table / th / tr` 全是 `#fff`）。**后台的表格底部只留一条线**：EP 在 `.el-table` 上挂了 `::before` 做底边，`.admin-panel__foot` 又用 `border-top` 画一条 —— 两条叠在分页上方就是双线。要**同时**关掉三处：`.el-table::before`、`.el-table__inner-wrapper::before`、以及 **`.el-table__body tr:last-child td` 的 `border-bottom`**（第三处最容易漏，前两处关了之后线还在）。**首屏不要跳高**：加载中表格只有表头、数据一到就长一截，观感就是闪 —— 给 `.el-table__body-wrapper` 一个 `min-height`（约两行）让高度恒定；**别用 `el-table` 的 `min-height` 属性**，EP 2.x 那个 prop 不落到 `body-wrapper` 的 `min-height` 上（实测传 220、计算值仍是 `auto`）。遮罩用 `element-loading-background="transparent"`，只留 spinner。**切页不要闪**：`v-loading` 写成 `loading && !list.length`，只在真正没数据时遮罩；store 里已有数据时静默刷新，否则每次切导航都会盖一层遮罩闪一下。**后台的左下角与前台同源**（2026-11-02）：`SideBottomBar`（身份位 + 主题 + 折叠）+ `useSidebarCollapse`，`AppSidebar` 传 `:collapsed`；后台身份位多一行「上次登录」，靠 `--row-height: 60px` 撑高，且那一行要**绝对定位横跨整条侧栏居中**（塞在 70% 宽的身份位里，长日期会被省略号截掉半截）。
 16. 设置类页面一行一项（项名 / 当前值 / 动作），分组用 `.settings-group`，默认态**不出现常驻输入框**。**只有右侧动作按钮可点**（2026-10-31）：原来整行都能点，命中区大但会和行内编辑打架 —— 输入框里点一下就把编辑关掉了；行悬停的浅底保留，但那是「这一行」的反馈，不是「可点」的暗示。**用户名 / 手机号走行内编辑**（`SettingRow` 的 `editing` + `saving` + `editor` 插槽，Enter 确认、Esc 取消、切行丢弃草稿），邮箱与密码这类涉及登录凭证的仍进 420–460px 弹窗。⚠ `editor` 必须是**独立具名插槽** —— 默认插槽要留给「外观」「删除二次确认」那种常驻控件，两者共用会让 `value` 文本永远不渲染。
 17. 演示模式的气泡引导只在 `/demo` 首次进入时出现（写 `localStorage`）；「全部划掉」彩蛋用 **`stats` 全量**判定，粒子走共享 `ConfettiLayer`，动画结束整层销毁。
 18. 任务区是**一行一卡的玻璃卡**（20px 圆角、卡间距 12px、跨距 99px）：卡高 87px（padding 18/22、前置位 40px 放 24px 勾选圈、标题 17px/600、描述 14px），右侧元信息 236px（**有配图时 292px**：44 缩略 + 12 列间距，只在有图的行加宽），操作列 32px（只剩删除）悬停显现且只在 `@media (hover: hover)` 下收起，**右侧常态留 40px 给它**（`.task-row__side` 的 `padding-right`）—— 按钮显形时整列不位移，否则缩略图会跟着滑走、鼠标点空；**右列三件东西互不推挤**：配图缩略图在 flex 流里（与优先级 12px）、优先级也留在流里、**时间绝对定位在 `right: 40px`**（让开删除按钮那 40px），所以时间展开时推不动任何东西；`.task-row__meta` 的 `padding-right: 61px` = 常态时间宽，优先级到那里为止，悬停时时间宽到 95、向左盖住优先级，优先级 `opacity: 0`（纯文字直接叠在「高 / 中」上会糊成一片，必须有一方让出可见性）；`.task-row__due` 用 **`min-width` 过渡**（61 ↔ 103），**常态 `justify-content: flex-start`、悬停才 `center`**：容器恒 61 站得下最长的短日期，左对齐才能让图标紧贴容器左缘（居中会在左侧留 9.5，图标于是离优先级 21.5，和「缩略图 ↔ 优先级」的 12 对不上）；**103 不是随手取的** —— 优先级中心距右缘 = 40（right）+ 73（meta padding）+ 20 = 133，展开内容 = 图标 12 + 间距 5 + 完整时刻 78 = 95，只有把容器加宽到 103（居中后左空 4）图标中心才落在 133；字体或日期格式一变，这两个数都要重算；`padding-right` 必须等于「时间常态宽 + 12」，否则「优先级 ↔ 时间」的间距和「缩略图 ↔ 优先级」对不上；完整时刻同年省略年份（`10-30 18:00`）是为了让这个上限尽量小，跨年任务仍带年份；**配图缩略（2026-10-31）**：有图才渲染，**44px / `--radius-md`**（32 在真机上只读成一块灰），放在优先级左边；**只显示首张封面** —— 不叠底卡、不挂角标，多图也长一样，张数点开大图自己看；圆角裁切在按钮上（`overflow: hidden`），hover 的 `scale(1.06)` 是「在框内轻推」，不向右边的优先级溢出；点击**必须 `.stop`** 再开大图灯箱（2026-11-01 起是 `ImageSlideshow` + `Teleport to="body"`，不再用 `ElImageViewer`），否则同一次点击会顺带打开整行的编辑弹窗；悬停 / 键盘焦点 = 上浮 2px + 影更深 + 高光边更亮（焦点再加 2px 苹果蓝环）。快速录入是最后一张**虚线卡**（同圆角、同栅格、30% 白底），不是组内的一行。回收站共用这一套卡：前置位是 24px 圆形「彻底删除」按钮（红悬停），右侧是 22px / 12.5px 的剩余天数胶囊 + 12.5px 删除时间 + 32px 恢复按钮，没有优先级；列表与任务区共用哨兵触底加载，恢复 / 彻底删除只摘本行，不整表回查。两处底部提示共用 `ListMoreHint`，默认关闭，页面按需传 `loading-more`。页面右侧留 `--scroll-rail`（32px）给回到顶部：按钮 34px 居中，两侧各 9px，窄窗口不再与卡片相切。**逾期标记（2026-10-29 九改）**：卡片不染色 —— 在左边框与 24px 勾选圈之间**居中**悬一枚 5px 宽、高 54%（≈46px）、两端全圆角的红胶囊（`::before` + `--row-edge`，只有逾期有），左右各余 13px、垂直与勾选圈同线；逾期只在时间前把时钟换成 `alert` 三角，**不再挂标题徽标**；已完成不显示标记，只保留绿勾与划线。勾选圈是浅绿实底 + 深绿勾，悬停直接预览完成态。
@@ -60,68 +60,67 @@
 
 ## 三、修订记录
 
-### 2026-11-01 23:42 · 演示模式左下角与前台统一：也有折叠按钮，注册 / 登录只占身份位
+### 2026-11-02 01:19 · 分段控件抽成公共组件，审计页只留「管理员 / 用户」两段
 
-用户口径：演示模式的左下角要和正式系统一致 —— **要有折叠按钮**；**登录 / 注册只取代头像的位置**（原来它们霸着整行，主题被挤到旁边）。
+用户两条：① 复用主页「未完成 / 已完成 / 全部」那个组件；② 去掉「全部」，只留两段。
 
-改动：
+**抽组件**：新增 `components/SegmentedControl.vue` —— 把 `FilterBar` 里写死的那套（白色滑块 + 量 `offset*` + `ResizeObserver` 重量 + 首帧 `--ready` 才开过渡）整段搬过去，props 是 `items / modelValue / ariaLabel / size`，`size="small"` 是后台工具栏那一档（30 高 / 13 号字）。`FilterBar` 改为 `<SegmentedControl :items="tabs" v-model="activeTab" />`，删掉 `tabsRef / tabEls / indicator / indicatorStyle / updateIndicator / tabsObserver` 那一整套脚本与 `.filter-bar__tab*` 样式（模板里只剩一行）。**以后别再复制第二份分段控件** —— 复制的第一天就一样，三个月后走样的就是它。
 
-- **新增 `src/components/SideBottomBar.vue`**：把侧栏底部那一行抽成共用骨架 —— **身份位（插槽）+ 主题 + 折叠**，`.side-row` / `.side-tool` 的定位与折叠动画一并从 `DefaultLayout` 搬过来。前台的身份位放「头像 + 用户名」（点开用户菜单），演示模式放「注册 / 登录」两枚按钮，除此之外两边完全一致。
-- **新增 `src/composables/useSidebarCollapse.ts`**：折叠状态 + 窄窗自动收起（阈值 1150，与 CSS 的 `@media (max-width: 1149.98px)` 对齐）从 `DefaultLayout` 抽出来，两边共用同一份本地偏好 —— 在前台折叠过，演示里也是折叠的。
-- `src/layouts/DemoLayout.vue`：改用上面两个；身份位 `.side-auth` 绝对定位在左边那一格（前台的头像位），主题与折叠按钮由 `SideBottomBar` 摆在 77.5% / 92.5% 两格。
-- 折叠态（76px 宽）演示的身份位横排放不下两枚按钮，改成**竖排**：行高与主题 / 折叠的落点用 `--stacked-row-height` / `--stacked-theme-top` / `--stacked-collapse-top` 三个变量覆盖（`SideBottomBar` 里只给默认值：120 / 48 / 88）。
-- `src/layouts/DefaultLayout.vue`：换成 `SideBottomBar`，只保留身份位自己的样式（`.side-user*`）；挪走的 `.side-row*` / `.side-tool` 规则一并删掉，不留两份。
+`AdminAuditView.vue`：改用 `SegmentedControl`（small），`ACTOR_TABS` 去掉了「全部」；`actorTab` 写成 `computed` 读写 store 的 `actorType`，getter 兜底 `'ADMIN'`；`onMounted` 补一次默认值，保证首屏第一发请求就带 `actorType`。
 
-验证：`npm run build` EXIT=0；CDP 无头（5173）实测 —— **演示模式展开态**：侧栏 272、身份位（注册 / 登录）在 x 35..137、主题 207..239、折叠 243..275，与前台**同一组坐标**；**演示模式折叠态**：侧栏 76、身份位竖排 38×28 两枚、主题落在 680、折叠落在 720，互不重叠；**前台（打桩接口 + 假 token 进 /tasks）**：展开态身份位 169px 宽 + 主题 207 + 折叠 243，折叠态 `.side-row` 高 120、主题 48 / 折叠 88 —— 与改动前逐像素同位；两侧截图确认。
+**去掉「全部」的取舍**：两段恒有一个选中，界面不会出现「谁都没亮」的空档，代价是看不到两类混排 —— 但审计页里管理员只有几个人、用户是另一回事，本来也不该混着读。默认给「管理员」：进后台先看的是谁登过后台。
 
-### 2026-11-01 23:23 · 修引导误弹：判定改成「账号 < 7 天 + 一条任务都没有」
+验证：`npm run build` EXIT=0；审计页读到 `["管理员","用户"]`、默认选中「管理员」、滑块宽 67；前台回归读到 `["未完成","已完成","全部"]`、滑块 76，点「已完成」后滑块 `x: 1018 → 1096` 跟过去（同一套组件，两处都没坏）。
 
-用户反馈：漫游应该只对「没使用过的新账号」出现，但**在新设备上登录旧账号也会弹**。随后给出最终口径：**只要满足两条就显示** ——
-① 账号创建时间 < 7 天；② 该账号下没有任何任务（**含回收站**）。
+### 2026-11-02 01:15 · 登录审计的「登录方」从下拉改成三段按钮
 
-定位：原来「看过了」只能记在 localStorage（键里带账号 id），那是**按设备**记的 —— 旧账号换台电脑本机没有记录，于是又讲一遍。而「这个账号到底用没用过」本来就有现成信号：**有没有任务**。
+用户要求把「全部登录方」那个下拉换成按钮切换。
 
-改动：
+`AdminAuditView.vue`：`el-select` 换成 `.audit-switch`（全部 / 管理员 / 用户），沿用前台筛选栏那套分段语言 —— `--seg-track-bg` 浅底槽 + 选中项 `--seg-thumb-bg` 白滑块 + `--seg-thumb-shadow`，深色主题自动换成半透明白，**不写死颜色**。顺序按用户口径「管理员 / 用户」排。
 
-- `src/composables/useOnboarding.ts`：`FRESH_ACCOUNT_DAYS` 定 **7**；新增 `isAccountUntouched(stats)` = `total === 0 && trashCount === 0`（数据来自首屏本来就拉的 `/tasks/stats`，不额外发请求；统计还没回来时返回 `false`）。**删掉整套 localStorage 记账**（`hasSeenOnboarding` / `markOnboardingSeen` / `resetOnboarding` / 键前缀），现在这条判断不依赖设备 —— 换哪台机器结论都一样，也再没有「看过了」这层状态要维护。
-- `src/views/TaskListView.vue`：`startOnboardingIfNeeded()` = 账号未满 7 天 && 一条任务都没有（`!user` / `!stats` 时不弹，判不了就别打扰）；关闭 / 走完只关面板，不再写字。
-- `docs/后端修改说明.md` 撤回上一版提的 `guideDone` 建议：这条口径用现有字段就能精确判定，不需要后端配合。
+**「全部」必须留着**：去掉它就再也回不到「两种都看」的默认视图，而那是进页面时的初始状态。三个按钮一次点击切换，比「点开下拉 → 认两项 → 再点一次」少一步。
 
-验证：`npm run build` EXIT=0；浏览器里 `import('/src/composables/useOnboarding.ts')` 调真实函数 —— `FRESH_ACCOUNT_DAYS=7`，`isAccountUntouched({0,0})→true`、`{3,0}→false`、`{0,1}→false`（只放回收站也不行）、`null→false`。端到端用 CDP `Fetch` 打桩 `/api/users/me` 与 `/api/tasks/stats`（假 token 进 `/tasks`）：
-**刚注册 + 空 → 弹「第 1 / 5 步」**；**刚注册 + 3 条任务 → 不弹**；**刚注册 + 只有 1 条在回收站 → 不弹**；**6 天前注册 + 空 → 弹**；**8 天前 → 不弹**；**30 天前 → 不弹**。各次 `/api/tasks*`、`/api/users/me` 均正常放行，统计卡照常渲染。
+不做 JS 量位置的滑动指示块（前台 `FilterBar` 那套）：这里只有三格、宽度固定，选中项自己带底就够了，多一层 JS 只会多一处要维护的测量。
 
-### 2026-11-01 22:12 · 逾期标记挂上气泡：悬停显示「逾期」
+`LOGIN_AUDIT_ACTOR_OPTIONS` 是下拉专用的（USER 在前），换按钮后不再被引用，import 改成 `LOGIN_AUDIT_ACTOR_LABEL`。
 
-用户口径：指针放到卡片左侧那枚红色逾期标记上时，显示「逾期」二字。
+验证：`npm run build` EXIT=0；读 DOM —— 按钮文案 `["全部","管理员","用户"]`、默认「全部」选中；依次点击，选中态 `全部 → 管理员 → 用户 → 全部`，每次都会重新取数。
 
-改动（`src/components/TaskItem.vue`）：
+### 2026-11-02 01:10 · 首屏不再跳高、表格只剩一条线
 
-- 逾期标记从**伪元素换成真实元素** —— `::before` 挂不了气泡。模板里 `<AppTooltip content="逾期" placement="left"><span class="task-row__edge" /></AppTooltip>`，只在 `showOverdue` 时渲染。
-- **命中区比红条宽**：外层 `.task-row__edge` 14×54%（46px）、`cursor: help`，内层 `::before` 才是那枚 5px 红胶囊。5px 的悬停目标鼠标根本停不住，所以左右各让出 4.5px 透明区；位置反算过 `left: 12 + 2.5 − 14/2 = 7.5px`，**红条左缘仍是距卡外缘 13px**，视觉零变化。
-- 顺手把 `.task-row--overdue` 这个 class 与 `--row-edge` 变量删掉（现在靠 `v-if` 决定渲染，不再需要「透明占位」）；`.task-row__edge` 的注释把「为什么是 5px / 13px / 54%」的旧推导保留下来。
-- `AppTooltip.vue` 的文档注释补一句：气泡除了按钮，也用于**没有文字的标记**（这枚红胶囊就是），文字类信息仍然不挂气泡。
+上一版两处都没修干净。
 
-验证：`npm run build` EXIT=0；CDP 无头（5173 / demo，1600×900）实测 —— 三条逾期任务各有一个 `.task-row__edge`（14×46），红条左缘距卡外缘 **13px**、宽 **5px**、色 `rgb(192, 69, 60)` = `--color-danger`（与改前完全一致）；合成 `mouseenter` 后 `.el-popper.is-dark` 文本为「逾期」、白卡（`bg #fff` / 字 `#111827` / 圆角 12 / 13px），`placement: left` 落在卡片左侧空白处，不遮标题与复选框；放大截图确认。
+**① 双横线** —— `::before` 关掉之后，**数据行最后一格的 `border-bottom`** 还在，它和 `.admin-panel__foot` 的 `border-top` 仍然是两道。补 `.el-table__body tr:last-child td.el-table__cell { border-bottom: none }`（行与行之间的细线保留，只去掉最后一行的）。
 
-### 2026-11-01 21:42 · 漫游收尾滚回顶部
+**② 首屏还是闪** —— `v-loading` 改成「无数据才遮罩」只解决了**切页**；首屏本来就没数据，遮罩照旧。真正让它跳的是**高度**：加载中表格只有表头（96px），数据一到变成 164px，观感就是闪。给 `.el-table__body-wrapper` 一个 `min-height: 120px`（约两行），加载前后高度恒定，只有内容在原地替换。
 
-用户口径：引导结束后应该滚回顶部（最后一步为了讲「快速录入」会把列表滚到底）。
+⚠ 不能用 `el-table` 的 `min-height` 属性：EP 2.x 里那个 prop 不落到 `.el-table__body-wrapper` 的 `min-height` 上（实测传 220 后计算值仍是 `auto`、表格总高 96），必须走 CSS。
 
-改动（`src/components/OnboardingTour.vue`）：新增 `restoreScroll()`，在 `finish` / `close`（含 Esc、右上角 ×）里调用 —— 从**最后对齐过的目标**往上找最近的滚动容器（站内就是 `.app-layout__main`），`scrollTop > 0` 时平滑滚回 0；`prefers-reduced-motion` 命中时改成瞬时（那条偏好只影响 CSS 过渡，JS 的 `behavior` 得自己判断）。
+遮罩本身同步改成 `element-loading-background="transparent"`，只留 spinner，不再铺一层白。
 
-实现上踩了一个小坑：一开始想「只还原我们滚过的容器」，用 `align()` 前后比较 `scrollTop` 来判定 —— 但最后一步 **EP 自己也会先滚一次**，轮到我们时 `scrollTop` 已经到底，差值恒为 0，判定永远不成立、收尾不还原（实测滚到底后停在 1266）。改成「按最后一个目标找容器」就稳了，也不再需要区分是谁滚的。
+验证：`npm run build` EXIT=0；playwright-cli 读到 `body-wrapper` 的 `min-height: 120px`、表格总高 **164**（上一版 96）、最后一行 `td` 的 `border-bottom: 0px`、`foot` 的 `border-top: 1px` —— 只剩一条线。
 
-验证：`npm run build` EXIT=0；CDP 无头（5173 / demo，1400×900）实测 —— 走完六步后点「结束导览」：`scrollTop 1224 → 200ms 时 455（平滑进行中）→ 1.4s 后 0`；在第 1 步按 Esc（没滚过）：`scrollTop` 仍是 0，不会莫名跳动；走到第 6 步按 Esc：`1224 → 0`。
+### 2026-11-02 01:06 · 后台三处收尾：脚注位、双横线、切页闪烁
 
-### 2026-11-01 21:14 · 去掉漫游卡片外圈的黑框（全站 `:focus-visible` 聚焦环误伤）
+用户三条：① 「上次登录」放在底下太突兀，要挪到横线上面；② 表格底部有两条横线；③ 切「用户 / 管理员 / 审计」时表格会闪一下。
 
-用户反馈：初次进入系统时，漫游卡片外面有一圈黑色边框。
+`AppSidebar.vue`：新增 **`footnote` 具名插槽**，夹在导航与 `.sidebar__settings` 之间、压在横线上方；`.sidebar__footnote` 自己吃 `margin-top: auto`，并用 `+ .sidebar__settings { margin-top: 0 }` 把设置区那条 auto 让掉 —— 两个 auto 会**均分**剩余空间，横线上下各空一大截。前台不传这个插槽，settings 仍是 `margin-top: auto`，行为不变。
 
-定位：EP 打开卡片时会主动 `focus` 它（`tabindex="-1"`，为读屏与键盘接管），于是它吃到了 main.css 末尾那条
-`:focus-visible { outline: 2px solid var(--color-text) }` —— 近黑色 2px + 2px offset。EP 自己在 `.el-tour__content`
-上写了 `outline: none`，但 main.css 在 EP 样式**之后**加载、权重也压得过（`:focus-visible` 与本项目这条同权重、靠顺序取胜），所以照样画出来。
+`AdminLayout.vue`：「上次登录」从身份位（横线下方）挪到 `#footnote`，折叠时 `v-if` 不渲染（54px 宽放不下）；身份位缩回单行，`--row-height: 60` 一并去掉。
 
-改动（`src/assets/main.css`，`el-tour` 那一段内）：加 `.el-tour__content:focus, .el-tour__content:focus-visible { outline: none }` ——
-卡片本身已有玻璃边 + `--shadow-panel` 落影，且它不是用户能用 Tab 聚焦到的元素（Tab 走的是里面的按钮），这圈环只有噪声。
+`main.css`：`.admin-panel .el-table::before` 与 `.el-table__inner-wrapper::before` 关掉 —— EP 在表格上挂了 `::before` 做底边，而 `.admin-panel__foot` 又用 `border-top` 画了一条，两条叠在分页上方就是双线；表格那条去掉，由 foot 承担。
 
-验证：`npm run build` EXIT=0；CDP 无头（5173 / demo，1400×900）实测 —— 修前 `getComputedStyle('.el-tour__content').outline` = `rgb(17, 24, 39) solid 2px`、`activeElement` 就是它；修后 `outline-style: none`，2× 放大截图确认卡片外圈只剩玻璃边与柔和落影，文字与按钮不受影响。
+三个表格组件：`v-loading` 从 `loading` 改成 **`loading && !list.length`** —— 切换页面时 store 里的数据还在，遮罩一盖就变成「闪一下」；只有在真正没有数据（首次进入）时才遮罩。
+
+验证：`npm run build` EXIT=0；把 mock 的 users 放最后注册（playwright 的 route 后注册优先）后实测 —— 从「用户管理」切到「管理员管理」再切回，逐帧采样 5 次全是 `1 行 / 无遮罩`；截图确认「上次登录」在横线上方居中、表格底部只剩一条线。
+
+### 2026-11-02 01:00 · 后台补齐折叠与主题；表格去掉那层一直没生效的白底
+
+用户三条：后台也要折叠侧栏与深浅色切换、「上次登录」居中放到头像下方、表格不要白底。
+
+`AdminLayout.vue`：左下角从「自写的 meta + 用户按钮」换成 **`SideBottomBar`**（身份位 + 主题 + 折叠三格，与前台同一个组件），折叠走同一份 `useSidebarCollapse`（状态存本地、窄屏自动收起），`AppSidebar` 传 `:collapsed`、`.app-layout` 挂 `--collapsed`。身份位改成「头像 + 名字一行」；**「上次登录」移出身份位、绝对定位横跨整条侧栏居中** —— 那一格只有 70% 宽，`上次登录 2026-11-02 00:53` 会被省略号截掉半截日期；折叠时它 `opacity: 0`（54px 宽放不下）。`SideBottomBar` 新增 `--row-height` 变量（默认 40），后台传 60 撑出第二行，主题 / 折叠仍与头像行对齐。
+
+`main.css` 修掉一个**一直没生效**的问题：`--el-table-bg-color` 那批变量原来写在 `.admin-panel` 上，而 Element Plus 在 `.el-table` **自身**也声明了同名变量 —— 元素自身的声明优先于继承，所以「改成 transparent」从来没起过作用，只是被面板的白玻璃盖住、肉眼看不出来（读计算样式：`.el-table` / `th` / `tr` 全是 `#fff`）。现在变量写到 `.admin-panel .el-table` 上，三者才真的透明；面板恢复玻璃底，与页头同一档。
+
+验证：`npm run build` EXIT=0；假 JWT（带合法 `exp`，`readTokenState` 已收紧）+ `playwright-cli route` mock 用户列表 —— 表格 `table / th / tr` 背景均为 `rgba(0, 0, 0, 0)`；折叠 `侧栏 76 / meta opacity 0`、展开 `272 / 1`；「上次登录 2026-11-02 00:53」在 242px 的整行里 `scrollWidth === width`（不截断）、居中显示；亮 / 深两套截图确认主题按钮可用、表格与面板融为一体。
+

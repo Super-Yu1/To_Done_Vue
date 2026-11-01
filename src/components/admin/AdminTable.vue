@@ -7,7 +7,8 @@ defineProps<{ admins: AdminInfo[]; loading?: boolean }>()
 </script>
 
 <template>
-  <el-table :data="admins" v-loading="loading">
+  <el-table :data="admins" v-loading="loading && !admins.length"
+    element-loading-background="transparent">
     <el-table-column label="用户名" min-width="160" prop="name" />
     <el-table-column label="上次登录时间" width="200">
       <template #default="{ row }">

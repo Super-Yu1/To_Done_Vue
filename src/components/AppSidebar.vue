@@ -156,6 +156,14 @@ onUnmounted(() => {
       </RouterLink>
     </nav>
 
+    <!--
+      脚注位（2026-11-02）：夹在导航与底部设置区之间、压在横线上方。
+      后台用它放「上次登录」—— 放进 settings 会掉到横线下面、贴着侧栏底边，显得很突兀。
+    -->
+    <div v-if="$slots.footnote" class="sidebar__footnote">
+      <slot name="footnote" />
+    </div>
+
     <div class="sidebar__settings">
       <slot name="settings" />
     </div>
@@ -507,6 +515,20 @@ html.dark .sidebar__link:hover {
   margin-top: auto;
   padding-top: 14px;
   border-top: 1px solid var(--separator);
+}
+
+/*
+ * 脚注（2026-11-02）：自己吃掉「推到最底」的那份 auto margin，
+ * 否则两个 auto 会均分剩余空间，横线上方和下方各空一大截。
+ * `+` 相邻选择器足够精确 —— 没有脚注时（前台），settings 仍然是 `margin-top: auto`。
+ */
+.sidebar__footnote {
+  margin-top: auto;
+  padding: 0 4px 10px;
+}
+
+.sidebar__footnote + .sidebar__settings {
+  margin-top: 0;
 }
 
 /* 窄屏：整条收回成顶部横条（品牌左、导航中、设置右） */

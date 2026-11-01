@@ -29,7 +29,8 @@ const isEmpty = computed(() => !props.loading && props.audits.length === 0)
 
 <template>
   <div class="audit-table">
-    <el-table :data="audits" v-loading="loading">
+    <el-table :data="audits" v-loading="loading && !audits.length"
+    element-loading-background="transparent">
       <el-table-column label="时间" width="150">
         <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
       </el-table-column>
