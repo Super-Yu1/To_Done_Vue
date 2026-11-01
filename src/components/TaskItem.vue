@@ -9,12 +9,13 @@
  * 行尾只保留删除。本组件只发事件，落接口由调用方负责。
  * 批量选择（F）：前置位换成方形多选框，行尾操作隐藏、点击整行 = 勾选。
  */
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { ElImageViewer } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import AppTooltip from './AppTooltip.vue'
 import { TASK_PRIORITY_LABEL } from '@/constants'
 import { formatDateTime, formatDueDay, isOverdue } from '@/utils/date'
+import { forgetImageUrl, resolveImageUrl } from '@/utils/imageUrl'
 import type { Task, TaskStatus } from '@/types'
 
 const props = defineProps<{
@@ -116,12 +117,43 @@ function handleRowClick() {
  * 绑定时必须 `.stop` —— 否则同一次点击会顺带触发整行的「打开编辑弹窗」。
  */
 const imagePreviewOpen = ref(false)
-const imageUrls = computed(() => props.task.images.map((image) => image.url))
+/**
+ * 大图预览的地址列表：**点开的那一刻**才解析（2026-10-31）。
+ * 列表渲染阶段只解析封面那一张 —— 一个任务可能挂 9 张图，没点开就不该进 URL 缓存、
+ * 更不该被算成「用过的」（`utils/imageUrl` 的 LRU 按使用顺序淘汰）。
+ */
+const viewerUrls = ref<string[]>([])
 /** 封面：第一张（模板里的 `v-if` 已经保证有图，这里仍取可选链，类型上才收得住） */
-const coverUrl = computed(() => props.task.images[0]?.url ?? '')
+const cover = computed(() => props.task.images[0])
+/** 封面实际用的地址：走 `utils/imageUrl` 的 URL 复用，切页签时不换 src，浏览器才不会重下 */
+const coverUrl = ref('')
+/** 当前封面已经重试过一次：同一条地址再失败就认了，避免 error 循环 */
+const coverRetried = ref(false)
+
+watch(
+  cover,
+  (image) => {
+    coverRetried.value = false
+    coverUrl.value = image ? resolveImageUrl(image) : ''
+  },
+  { immediate: true },
+)
+
+/**
+ * 封面加载失败（旧 URL 刚好过期 / 对象被删）：作废缓存里那条，换成这次响应给的最新地址再试一次。
+ * 两次都失败说明地址本身不可用，不再重试。
+ */
+function handleCoverError() {
+  const image = cover.value
+  if (!image || coverRetried.value) return
+  coverRetried.value = true
+  forgetImageUrl(image.objectKey)
+  coverUrl.value = resolveImageUrl(image)
+}
 
 function openImages() {
   if (!props.task.images.length) return
+  viewerUrls.value = props.task.images.map((image) => resolveImageUrl(image))
   imagePreviewOpen.value = true
 }
 </script>
@@ -196,7 +228,16 @@ function openImages() {
           :aria-label="`查看配图，共 ${task.images.length} 张`"
           @click.stop="openImages"
         >
-          <img class="task-thumbs__img" :src="coverUrl" alt="" draggable="false" />
+          <!-- lazy + async decode：44px 的封面不该和首屏任务抢带宽 -->
+          <img
+            class="task-thumbs__img"
+            :src="coverUrl"
+            alt=""
+            draggable="false"
+            loading="lazy"
+            decoding="async"
+            @error="handleCoverError"
+          />
         </button>
 
         <!-- 2026-10-27：优先级只展示，修改统一走编辑弹窗 -->
@@ -240,7 +281,7 @@ function openImages() {
     <!-- 大图预览：teleported 是硬要求，否则会被卡片自身的层叠上下文压住 -->
     <el-image-viewer
       v-if="imagePreviewOpen"
-      :url-list="imageUrls"
+      :url-list="viewerUrls"
       :initial-index="0"
       teleported
       hide-on-click-modal

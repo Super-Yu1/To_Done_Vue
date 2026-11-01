@@ -8,8 +8,12 @@
  * 运行时真正的 401 由 `api/http.ts` 处理（清 token + 回登录页），那时证据消失，
  * 之后再进站走演示模式 —— 与需求一致（过期的那一刻回登录页，之后视同未登录）。
  *
- * 三态返回值：'valid' 可用 / 'expired' 过期 / 'none' 没有票（从没登录过或已登出）。
- * 不是标准 JWT（解不出 exp）按 'valid' 处理：交给后端判，避免误伤。
+ * 三态返回值：'valid' 可用 / 'expired' 无效或过期 / 'none' 没有票（从没登录过或已登出）。
+ *
+ * <p><b>2026-11-01 收紧</b>：只有「三段式 JWT + 数值 exp 且未过期」才算 'valid'。
+ * 原来「解不出 exp 就当可用」是错的 —— 随手 `localStorage.setItem('todone_admin_token','x')`
+ * 就能把后台外壳（空数据）渲染出来，虽然接口全 401、拿不到任何数据，但看起来像「进去了」。
+ * 后端签的就是标准 JWT，收紧不会误伤真实登录态。
  */
 export type TokenState = 'valid' | 'expired' | 'none'
 
@@ -19,15 +23,16 @@ export function readTokenState(key: string): TokenState {
   return isExpired(raw) ? 'expired' : 'valid'
 }
 
+/** 只有「三段 JWT + 数值 exp 且在将来」返回 false；其余（乱写的串、缺 payload、解不出 exp）一律当无效 */
 function isExpired(token: string): boolean {
-  const payload = token.split('.')[1]
-  if (!payload) return false
+  const parts = token.split('.')
+  if (parts.length !== 3 || !parts[1]) return true
   try {
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
     const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
     const exp: unknown = JSON.parse(atob(padded)).exp
-    return typeof exp === 'number' && exp * 1000 <= Date.now()
+    return typeof exp !== 'number' || exp * 1000 <= Date.now()
   } catch {
-    return false
+    return true
   }
 }

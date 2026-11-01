@@ -53,7 +53,7 @@ const isEdit = computed(() => !!props.task)
 
 /** 平铺的优先级胶囊：按「高 → 中 → 低」展示（2026-10-21 弹窗改版，下拉换成胶囊） */
 const PRIORITY_PILLS = [...TASK_PRIORITY_OPTIONS].reverse()
-const dialogTitle = computed(() => (isEdit.value ? '编辑任务' : '新建任务'))
+const dialogTitle = computed(() => (isEdit.value ? '任务详细' : '新建任务'))
 
 /**
  * 配图用法（2026-10-30）：原来这行字常住在添加框右边，占一行宽度、又和「＋」抢注意力。
@@ -61,6 +61,29 @@ const dialogTitle = computed(() => (isEdit.value ? '编辑任务' : '新建任�
  */
 const IMAGE_HINT = `点击看大图，拖动可调整顺序。
 支持 JPG / PNG / WEBP，最多 ${TASK_MAX_IMAGES} 张。`
+
+/* ---------- 窗口内的配图查看器（2026-10-31） ---------- */
+
+/**
+ * TaskImageField 把全部槽位的预览地址抛上来，这里只负责「正在看哪一张」。
+ * 增删图之后列表会变短，下标越界时收到 previews 的地方会把它收回边界内。
+ */
+const imagePreviews = ref<string[]>([])
+const activeImageIndex = ref(0)
+
+function handleImagePreviews(list: string[]) {
+  console.log('[debug] parent got previews', list.length)
+  imagePreviews.value = list
+  if (activeImageIndex.value >= list.length) {
+    activeImageIndex.value = Math.max(0, list.length - 1)
+  }
+}
+
+function stepImage(delta: number) {
+  const total = imagePreviews.value.length
+  if (total < 2) return
+  activeImageIndex.value = (activeImageIndex.value + delta + total) % total
+}
 
 /* ---------- 优先级胶囊的滑动指示块（2026-10-27） ---------- */
 
@@ -185,7 +208,7 @@ async function handleSubmit() {
 <template>
   <el-dialog
     v-model="visible"
-    width="512px"
+    width="680px"
     append-to-body
     align-center
     class="task-form-dialog"
@@ -236,6 +259,35 @@ async function handleSubmit() {
         </span>
       </el-form-item>
 
+      <!--
+        ②.5 配图查看器（2026-10-31）：有图才出现，16:9。
+        点击下方缩略图切换到这里显示；多图时左右箭头翻页。删图后由 previews 的回调收回下标。
+      -->
+      <div v-if="imagePreviews.length" class="task-form__viewer">
+        <img class="task-form__viewer-img" :src="imagePreviews[activeImageIndex]" alt="任务配图" />
+        <button
+          v-if="imagePreviews.length > 1"
+          class="task-form__viewer-nav"
+          type="button"
+          aria-label="上一张"
+          @click="stepImage(-1)"
+        >
+          ‹
+        </button>
+        <button
+          v-if="imagePreviews.length > 1"
+          class="task-form__viewer-nav task-form__viewer-nav--next"
+          type="button"
+          aria-label="下一张"
+          @click="stepImage(1)"
+        >
+          ›
+        </button>
+        <span v-if="imagePreviews.length > 1" class="task-form__viewer-count">
+          {{ activeImageIndex + 1 }} / {{ imagePreviews.length }}
+        </span>
+      </div>
+
       <!-- ③ 属性区：整块浅灰面板，与正文分开（2026-10-30 起顺序为 配图 → 优先级 → 截止时间） -->
       <div class="task-form__panel">
         <div class="task-form__row task-form__row--stack">
@@ -262,6 +314,8 @@ async function handleSubmit() {
             v-model="images"
             :images="task?.images"
             :submitting="submitting"
+            @select="activeImageIndex = $event"
+            @previews="handleImagePreviews"
           />
         </div>
 
@@ -699,6 +753,84 @@ async function handleSubmit() {
   margin-top: 12px;
 }
 
+/*
+ * 配图查看器（2026-10-31）：16:9 的固定比例，图片用 contain 完整呈现（不裁切）。
+ * 放在描述与属性面板之间 —— 它是「查看」的主体，编辑控件在它下面。
+ */
+.task-form__viewer {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: var(--color-hover);
+}
+
+.task-form__viewer-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background-color: var(--color-surface);
+}
+
+.task-form__viewer-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background-color: rgba(17, 24, 39, 0.45);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.task-form__viewer-nav:hover {
+  background-color: rgba(17, 24, 39, 0.65);
+}
+
+.task-form__viewer-nav--next {
+  right: 12px;
+}
+
+.task-form__viewer-nav:not(.task-form__viewer-nav--next) {
+  left: 12px;
+}
+
+.task-form__viewer-count {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(17, 24, 39, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+</style>
+
+<style>
+/*
+ * 弹窗加宽 + 内容可滚（2026-10-31）：查看器是 16:9 的大块，小屏上整窗会超出视口，
+ * 让 body 自己滚，头部与页脚保持可见。
+ * 注意这里必须是非 scoped 块 —— `.task-form-dialog` 挂在 el-dialog 根上，scoped 属性够不到。
+ */
+.task-form-dialog .el-dialog__body {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+}
 </style>
 
 <style>

@@ -175,8 +175,28 @@ router.beforeEach((to) => {
     : { path: '/demo' }
 })
 
+/**
+ * 后台页不参与搜索引擎索引（2026-11-01）：给 `<head>` 挂/摘一条 `noindex, nofollow`。
+ * 它只防「被收录后被人逛到」，**防不住扫描器** —— 真正的边界是后端 admin token，
+ * 部署层还应限制 `/admin` 与 `/api/admin` 的来源（见 docs/前端修改说明.md「后台入口」）。
+ */
+function setNoIndex(noindex: boolean) {
+  const existing = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]')
+  if (!noindex) {
+    existing?.remove()
+    return
+  }
+  const meta = existing ?? document.createElement('meta')
+  if (!existing) {
+    meta.setAttribute('name', 'robots')
+    document.head.appendChild(meta)
+  }
+  meta.setAttribute('content', 'noindex, nofollow')
+}
+
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} · ${APP_NAME}` : APP_NAME
+  setNoIndex(to.path.startsWith('/admin'))
 })
 
 export default router
