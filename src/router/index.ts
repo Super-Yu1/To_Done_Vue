@@ -152,6 +152,26 @@ const router = createRouter({
   },
 })
 
+/**
+ * 上一次导航从哪来（2026-11-01）：只给「演示模式的漫游」判断是不是**从演示区之外**进来的 ——
+ * 站内在 `/demo` ↔ `/demo/trash` 之间来回切，不该每次都弹一遍漫游（见约定 33）。
+ *
+ * 为什么在守卫里记、而不是组件里读 `history.state.back`：跟浏览器后退走的时候，
+ * 那份 state 是**这条历史记录当初进来时**的旧值（可能是 `/`），会误判成「从站外进来」；
+ * `from.path` 是这一次导航真实的来源。另外 `afterEach` 跑得比组件挂载晚，`onMounted` 时还拿不到。
+ */
+let lastFromPath = '/'
+
+/** 本次导航的来源路径（组件在 `onMounted` 里读到的就是「刚刚那一步是从哪儿来的」） */
+export function previousRoutePath(): string {
+  return lastFromPath
+}
+
+router.beforeEach((to, from) => {
+  lastFromPath = from.path
+  return true
+})
+
 router.beforeEach((to) => {
   // 后台是另一套守卫：/admin/** 不参与演示模式，没有管理员 token 一律按未登录处理
   if (to.path.startsWith('/admin')) {
@@ -175,8 +195,28 @@ router.beforeEach((to) => {
     : { path: '/demo' }
 })
 
+/**
+ * 后台页不参与搜索引擎索引（2026-11-01）：给 `<head>` 挂/摘一条 `noindex, nofollow`。
+ * 它只防「被收录后被人逛到」，**防不住扫描器** —— 真正的边界是后端 admin token，
+ * 部署层还应限制 `/admin` 与 `/api/admin` 的来源（见 docs/前端修改说明.md「后台入口」）。
+ */
+function setNoIndex(noindex: boolean) {
+  const existing = document.head.querySelector<HTMLMetaElement>('meta[name="robots"]')
+  if (!noindex) {
+    existing?.remove()
+    return
+  }
+  const meta = existing ?? document.createElement('meta')
+  if (!existing) {
+    meta.setAttribute('name', 'robots')
+    document.head.appendChild(meta)
+  }
+  meta.setAttribute('content', 'noindex, nofollow')
+}
+
 router.afterEach((to) => {
   document.title = to.meta.title ? `${to.meta.title} · ${APP_NAME}` : APP_NAME
+  setNoIndex(to.path.startsWith('/admin'))
 })
 
 export default router

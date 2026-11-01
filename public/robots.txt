@@ -1,0 +1,6 @@
+# 后台不进搜索引擎索引（2026-11-01）。
+# 注意：这只挡「被收录后被人逛到」，挡不住扫描器 —— 真正的边界是后端 admin token 鉴权，
+# 部署层还应对 /admin 与 /api/admin 做来源限制（见 docs/前端修改说明.md「后台入口」条）。
+User-agent: *
+Disallow: /admin
+Disallow: /admin/

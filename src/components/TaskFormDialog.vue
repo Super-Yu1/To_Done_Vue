@@ -9,9 +9,10 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { TASK_MAX_IMAGES, TASK_PRIORITY_OPTIONS } from '@/constants'
+import { TASK_PRIORITY_OPTIONS } from '@/constants'
 import AppIcon from './AppIcon.vue'
 import AppTooltip from './AppTooltip.vue'
+import ImageSlideshow from './ImageSlideshow.vue'
 import TaskImageField from './TaskImageField.vue'
 import type { Task, TaskPayload, TaskPriority } from '@/types'
 
@@ -53,14 +54,33 @@ const isEdit = computed(() => !!props.task)
 
 /** 平铺的优先级胶囊：按「高 → 中 → 低」展示（2026-10-21 弹窗改版，下拉换成胶囊） */
 const PRIORITY_PILLS = [...TASK_PRIORITY_OPTIONS].reverse()
-const dialogTitle = computed(() => (isEdit.value ? '编辑任务' : '新建任务'))
+const dialogTitle = computed(() => (isEdit.value ? '任务详细' : '新建任务'))
 
 /**
- * 配图用法（2026-10-30）：原来这行字常住在添加框右边，占一行宽度、又和「＋」抢注意力。
- * 现在收进「配图」标签旁的 i 图标里 —— 需要时才展开，表单干净一档。
+ * 配图用法（2026-10-30，2026-11-01 收短）：这行字原来常住在添加框右边，占一行宽度、
+ * 又和「＋」抢注意力，于是收进「配图」标签旁的 i 图标里 —— 需要时才展开，表单干净一档。
+ * 2026-11-01 用户口径：正文只留「拖动进行排序」—— 格式与张数上限在选图时由
+ * `TaskImageField` 自己拦并提示（`assertUploadable` / `TASK_MAX_IMAGES`），气泡里再写一遍是重复。
  */
-const IMAGE_HINT = `点击看大图，拖动可调整顺序。
-支持 JPG / PNG / WEBP，最多 ${TASK_MAX_IMAGES} 张。`
+const IMAGE_HINT = '拖动进行排序'
+
+/* ---------- 窗口内的配图查看器（2026-10-31） ---------- */
+
+/**
+ * TaskImageField 把全部槽位的预览地址抛上来，这里只负责「正在看哪一张」。
+ * 增删图之后列表会变短，下标越界时收到 previews 的地方会把它收回边界内。
+ */
+const imagePreviews = ref<string[]>([])
+const activeImageIndex = ref(0)
+
+function handleImagePreviews(list: string[]) {
+  imagePreviews.value = list
+  if (activeImageIndex.value >= list.length) {
+    activeImageIndex.value = Math.max(0, list.length - 1)
+  }
+}
+
+/* 上一张 / 下一张、首尾夹住、箭头置灰：都搬进 `ImageSlideshow`（2026-11-01） */
 
 /* ---------- 优先级胶囊的滑动指示块（2026-10-27） ---------- */
 
@@ -185,7 +205,7 @@ async function handleSubmit() {
 <template>
   <el-dialog
     v-model="visible"
-    width="512px"
+    width="680px"
     append-to-body
     align-center
     class="task-form-dialog"
@@ -236,35 +256,60 @@ async function handleSubmit() {
         </span>
       </el-form-item>
 
-      <!-- ③ 属性区：整块浅灰面板，与正文分开（2026-10-30 起顺序为 配图 → 优先级 → 截止时间） -->
-      <div class="task-form__panel">
-        <div class="task-form__row task-form__row--stack">
-          <div class="task-form__label-row">
-            <span class="task-form__label">配图</span>
-            <!-- 用法说明从「添加框旁边的一行字」收进这枚 i 图标 -->
-            <AppTooltip
-              :content="IMAGE_HINT"
-              placement="top"
-              :show-after="200"
-              popper-class="task-form__hint-pop"
-            >
-              <button class="task-form__hint" type="button" aria-label="配图的使用说明">
-                <AppIcon name="info" :size="14" />
-              </button>
-            </AppTooltip>
-          </div>
-          <!--
-            key 让每次打开都拿到全新的字段实例：弹窗体关闭后仍留在 DOM 里，
-            编辑同一个任务时 props.images 不变，光靠 props 重建清不掉上一次选的新文件。
-          -->
-          <TaskImageField
-            :key="`${task?.id ?? 'new'}-${visible}`"
-            v-model="images"
-            :images="task?.images"
-            :submitting="submitting"
-          />
+      <!--
+        ②.5 配图区（2026-11-01 归并）：查看器 + 「配图」标签 + 缩略图**同住一块浅灰面板**。
+        原来查看器浮在面板外面（一块白、一块灰），读起来像两块互不相干的东西；
+        它俩本来就是同一件事，现在一个色块。
+        标签**放在最上面**（2026-11-01 三改，用户口径）：它与查看器、缩略图是同一组的领头，
+        读的时候先看到「这是什么」，再看到图；原来夹在图和缩略图之间，把一组东西劈成了两段。
+        查看器有图才出现，16:9，点缩略图切换到这里显示、多图用左右箭头翻页，
+        删图后由 previews 的回调收回下标。
+      -->
+      <div class="task-form__panel task-form__panel--images">
+        <div class="task-form__label-row">
+          <span class="task-form__label">配图</span>
+          <!-- 排序说明收进这枚 i 图标（默认不占版面） -->
+          <AppTooltip
+            :content="IMAGE_HINT"
+            placement="top"
+            :show-after="200"
+            popper-class="task-form__hint-pop"
+          >
+            <button class="task-form__hint" type="button" aria-label="配图的使用说明">
+              <AppIcon name="info" :size="14" />
+            </button>
+          </AppTooltip>
         </div>
 
+        <!--
+          轮播本身抽在 `ImageSlideshow` 里（2026-11-01）：主页点缩略图的灯箱用的是同一个组件，
+          这里只是「嵌进色块」的那一份。下标仍由本组件持有 —— 删图后要把越界值收回来。
+        -->
+        <ImageSlideshow
+          v-if="imagePreviews.length"
+          v-model:index="activeImageIndex"
+          :urls="imagePreviews"
+        />
+
+        <!--
+          key 让每次打开都拿到全新的字段实例：弹窗体关闭后仍留在 DOM 里，
+          编辑同一个任务时 props.images 不变，光靠 props 重建清不掉上一次选的新文件。
+        -->
+        <TaskImageField
+          :key="`${task?.id ?? 'new'}-${visible}`"
+          v-model="images"
+          :images="task?.images"
+          :submitting="submitting"
+          @select="activeImageIndex = $event"
+          @previews="handleImagePreviews"
+        />
+      </div>
+
+      <!--
+        ③ 属性区（2026-11-01 拆出）：优先级与截止时间单独一块浅灰面板。
+        原来它俩和配图挤在同一块里，一块面板装了三种语义；现在「配图」归配图、「属性」归属性。
+      -->
+      <div class="task-form__panel task-form__panel--meta">
         <div class="task-form__row">
           <span class="task-form__label">优先级</span>
           <div ref="priosRef" class="task-form__prios" role="radiogroup" aria-label="优先级">
@@ -438,7 +483,12 @@ async function handleSubmit() {
   box-shadow: inset 0 0 0 1px var(--color-text);
 }
 
-/* ③ 属性面板：整块浅灰，和正文明确分开 */
+/*
+ * 面板（2026-11-01 起弹窗里有两块）：整块浅灰，把一组同义字段框在一起。
+ * 原来的单块面板同时装着「配图 / 优先级 / 截止时间」三种语义，一块灰里塞三件事；
+ * 现在按语义拆成两块 —— `.task-form__panel--images`（查看器 + 标签 + 缩略图）
+ * 与 `.task-form__panel--meta`（优先级 + 截止时间）。两块之间靠表单的 14px 间距分开。
+ */
 .task-form__panel {
   display: flex;
   flex-direction: column;
@@ -449,16 +499,21 @@ async function handleSubmit() {
   background-color: var(--color-hover);
 }
 
+/* 配图块：查看器与「标签 + 缩略图」是同一件事，间距比默认收一档 */
+.task-form__panel--images {
+  gap: 12px;
+}
+
+/* 属性块：两行单行控件，上下内边距比默认收 2px，否则两块并排时它显得比配图块「胖」 */
+.task-form__panel--meta {
+  gap: 12px;
+  padding: 14px 16px;
+}
+
 .task-form__row {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.task-form__row--stack {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
 }
 
 .task-form__label {
@@ -468,7 +523,10 @@ async function handleSubmit() {
   color: var(--color-text-2);
 }
 
-/* 「配图」那一行的标题：文字 + i 图标，纵向排列的 stack 行里单独占一行 */
+/*
+ * 「配图」标签（文字 + i 图标）：2026-11-01 起是配图块的**第一行**（原先夹在查看器与缩略图之间，
+ * 把一组东西劈成两段），所以它不再是某个 `.task-form__row` 的子项，宽度也不用跟 64px 的标签列。
+ */
 .task-form__label-row {
   display: flex;
   align-items: center;
@@ -481,9 +539,9 @@ async function handleSubmit() {
 }
 
 /*
- * 「配图」旁的 i（2026-10-30）：原来添加框右边常驻一行「点击看大图 · 拖动调整顺序 · 支持…」，
- * 它占掉半个添加区的宽度、又和「＋」抢注意力。收进这枚 18px 的图标里，
- * 悬停 200ms 展开说明（见 script 里的 IMAGE_HINT）。
+ * 「配图」旁的 i（2026-10-30）：原来添加框右边常驻一行说明文字，它占掉半个添加区的宽度、
+ * 又和「＋」抢注意力。收进这枚 18px 的图标里，悬停 200ms 展开（见 script 里的 IMAGE_HINT，
+ * 2026-11-01 起正文只有「拖动进行排序」一句）。
  */
 .task-form__hint {
   display: flex;
@@ -703,12 +761,24 @@ async function handleSubmit() {
 
 <style>
 /*
+ * 弹窗加宽 + 内容可滚（2026-10-31）：查看器是 16:9 的大块，小屏上整窗会超出视口，
+ * 让 body 自己滚，头部与页脚保持可见。
+ * 注意这里必须是非 scoped 块 —— `.task-form-dialog` 挂在 el-dialog 根上，scoped 属性够不到。
+ */
+.task-form-dialog .el-dialog__body {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+}
+</style>
+
+<style>
+/*
  * 「配图」说明气泡（2026-10-30）：tooltip 会 teleport 到 body，scoped 够不到，只能写全局。
- * 两行文案靠 `white-space: pre-line` 认 `\n`，再限一个 240px 的宽度 —— 否则它会铺成一条很长的横条。
- * 其余（白卡、圆角、指针穿透）沿用 main.css 里 `.el-popper.is-dark` 那一套。
+ * 2026-11-01 起正文只有一句「拖动进行排序」，宽度由内容自己撑；`pre-line` 与 `max-width`
+ * 仍然留着 —— 以后要换回多行文案时不用再改样式。其余（白卡、圆角、指针穿透）沿用
+ * main.css 里 `.el-popper.is-dark` 那一套。
  */
 .task-form__hint-pop.el-popper {
-  /* 280 = 两行文案刚好不折行；再窄第一行就会被拆开 */
   max-width: 280px;
   line-height: 1.65;
   white-space: pre-line;

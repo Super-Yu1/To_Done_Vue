@@ -13,7 +13,6 @@ export type IconName =
   | 'clock'
   | 'collapse'
   | 'expand'
-  | 'help'
   | 'trash'
   | 'check'
   | 'restore'
@@ -64,8 +63,6 @@ export const ICON_PATHS: Record<IconName, string[]> = {
     'M9.5 4v16',
     'M16.5 9.5L13.5 12l3 2.5',
   ],
-  /** 帮助中心：圆圈里一个问号（线框） */
-  help: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M9.5 9.2a2.6 2.6 0 0 1 5 .7c0 1.7-2.5 1.8-2.5 3.3', 'M12 17h.01'],
   expand: [
     'M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13A1.5 1.5 0 0 1 18.5 20h-13A1.5 1.5 0 0 1 4 18.5v-13z',
     'M9.5 4v16',

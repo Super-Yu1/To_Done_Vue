@@ -111,6 +111,11 @@
     0 2px 6px -2px rgba(24, 36, 74, 0.05), var(--glass-sheen);
   --color-mask: rgba(0, 0, 0, 0.28);
   /*
+   * 重遮罩（2026-11-01）：给「大图灯箱」用。弹窗那层 0.28 是让背后的页面还看得出轮廓，
+   * 但看照片时背景不该抢注意力 —— 照片是唯一主角，所以压得更狠，页面只剩一点暗影。
+   */
+  --color-mask-strong: rgba(0, 0, 0, 0.62);
+  /*
    * 液态玻璃（2026-10-26 起）：页面底色 + 玻璃三件套。
    * 玻璃只定义「填色 / 描边 / 模糊」三件事，卡片、侧栏、弹窗共用同一组取值，深色主题整体换一组。
    *
@@ -194,7 +199,28 @@
   --glass-card-bg-hover: rgba(255, 255, 255, 0.58);
   --glass-card-border: rgba(255, 255, 255, 0.78);
   --glass-card-border-hover: rgba(255, 255, 255, 0.92);
-  --glass-card-blur: blur(38px) saturate(165%) brightness(1.02);
+  /*
+   * 2026-11-01 修「列表顶部那层灰色阴影」：**卡片的空间模糊归零，只留着色**。
+   *
+   * 起因（用户截图）：打开弹窗、点「配图」让 16:9 查看器出现之后，列表最上面那一行整张卡
+   * 变成一块深灰板（内容还在、20px 圆角还在，只是不再透亮）。查下来没有多的 DOM 节点
+   * （`elementsFromPoint` 的栈就是 `.task-row` → `.task-list__rows` → `.app-layout__main`），
+   * 是**这张卡自己的 backdrop-filter 采到了空/黑底**。
+   *
+   * 为什么只坏最上面那一行：卡片是「宽而扁」的一条（1720 × 87），`blur(38px)` 在合成时
+   * 要按 3σ ≈ 114px 向四周采样 —— 114px 比卡高还大。列表住在外壳的**内层滚动容器**
+   * `.app-layout__main`（overflow-y: auto）里，最上面那一行贴着容器的裁切边时，
+   * 这张卡的采样区有一大截落到滚动区之外（合成层之外），个别显卡驱动在这里读到
+   * 未初始化/黑色的数据，`saturate / brightness` 再乘上去就只剩灰 → 整卡变灰板。
+   * 弹窗 + 查看器那一下是全页重栅格，正好把这张卡的层重新采样一次，所以「点完配图才出现」。
+   *
+   * 为什么可以归零：卡片背后只有 600~1300px 的平滑渐变 + 1.5% 噪点，38px 模糊对它是恒等变换
+   * —— 实测把半径换成 `0px`（其余 `saturate / brightness` 不变），整卡区域逐像素差 = 0，
+   * 观感完全一致；而采样半径没了，越界读也就不存在了。
+   * ⚠ 面板（侧栏 / 概览 / 工具栏 / 弹窗）的 `--glass-panel-blur` **不要跟着改**：
+   *   它们的背后会滚过卡片与文字，模糊是真的看得见的。
+   */
+  --glass-card-blur: blur(0px) saturate(165%) brightness(1.02);
   --glass-card-sheen: inset 0 24px 24px -24px rgba(255, 255, 255, 0.9);
   /*
    * 玻璃内部渐变：纯色填色怎么调都是「一张半透明的纸」，
@@ -289,6 +315,12 @@
   --dur-theme: 800ms;
   /* 弹窗开合：比常规动效慢一点，让"从卡片点开浮窗"这件事看得清 */
   --dur-dialog: 320ms;
+  /*
+   * 整块横向滑动（2026-11-01，弹窗里的配图轮播）：比常规 200ms 慢一档 ——
+   * 一次要位移整个画面宽度，200ms 会像「跳过去」；420ms（--dur-reorder）又太拖，
+   * 连点时手感发滞。比它慢的那两档语义都不对（重排 / 弹窗开合），所以单开一支。
+   */
+  --dur-slide: 320ms;
   /* 勾选完成时横线自左向右划掉的时长；JS 也读它，用来决定何时让卡片下移 */
   --dur-strike: 300ms;
   --ease: cubic-bezier(0.2, 0.8, 0.3, 1);
@@ -383,6 +415,8 @@ html.dark {
   --shadow-panel: 0 16px 40px -26px rgba(0, 0, 0, 0.9), 0 2px 8px -6px rgba(0, 0, 0, 0.7),
     var(--glass-sheen);
   --color-mask: rgba(0, 0, 0, 0.6);
+  /* 深色主题本来就近黑，只再压一档：0.78 再往上是纯黑，照片边缘会糊成一块 */
+  --color-mask-strong: rgba(0, 0, 0, 0.78);
   --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.5);
   /*
    * 液态玻璃·深色（2026-10-30 二改）：上一版为了「把视觉中心拉回中间」压得太狠 ——
@@ -642,6 +676,65 @@ html.theme-transition *::after {
     opacity: 0;
     transform: translateY(-10px) scale(0.99);
   }
+}
+
+/*
+ * 新手漫游（2026-11-01）：Element Plus 的 Tour 只借用「遮罩挖洞 + 跟随定位 + 滚动进视口 +
+ * Esc 关闭 + 焦点管理」，皮换成站内那一套 —— 白玻璃卡、13px 正文、右侧一组按钮。
+ * 变量与类名都来自 el-tour.css，覆盖必须写在 main.css（EP 之后加载）；
+ * 浮层 teleport 到 body，scoped 够不到，只能写全局。
+ */
+.el-tour {
+  /* 320 是「一句话 + 一行副文案」刚好不折得太碎的宽度（默认 520 太空旷） */
+  --el-tour-width: 320px;
+  --el-tour-padding-primary: 18px;
+  --el-tour-bg-color: var(--color-surface);
+  --el-tour-border-radius: var(--radius-md);
+  --el-tour-title-font-size: 15px;
+  --el-tour-title-font-weight: 600;
+  --el-tour-title-text-color: var(--color-text);
+  --el-tour-text-color: var(--color-text-2);
+  --el-tour-font-size: 13px;
+  --el-tour-close-color: var(--color-text-3);
+  --el-tour-font-line-height: 1.7;
+}
+
+/* 卡片与站内其他浮层同一档：一圈玻璃边 + 大而散的落影，不再另加装饰 */
+.el-tour__content {
+  border: 1px solid var(--glass-card-border);
+  box-shadow: var(--shadow-panel);
+}
+
+/* 标题与正文之间收一点：正文只有一两行，默认的 12px 会显得断开 */
+.el-tour__header {
+  padding-bottom: 10px;
+}
+
+/* 底部按钮靠右成一组（EP 默认是「指示器占满宽度、按钮分列两侧」） */
+.el-tour__footer {
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/*
+ * 小圆点关掉：进度已经在正文末尾用「第 N / M 步」写清楚了，
+ * 两套指示器并排出现，读起来像两个不同的东西。
+ */
+.el-tour__content .el-tour-indicators {
+  display: none;
+}
+
+/*
+ * 卡片会吃到全站的 `:focus-visible` 聚焦环（2026-11-01 用户反馈「初次进入系统时有一圈黑色边框」）。
+ * 起因：EP 打开卡片时会主动 `focus` 它（`tabindex="-1"`，为了读屏与键盘接管），而 main.css 末尾那条
+ * `:focus-visible { outline: 2px solid var(--color-text) }` 在 EP 样式**之后**加载、
+ * 权重也压过 EP 自己的 `outline: none` —— 于是那圈 2px 近黑描边就落在卡片外圈。
+ * 这里显式关掉：卡片本身已有玻璃边 + 落影，它也不是用户能用键盘聚焦到的元素（Tab 走的是里面的按钮）。
+ */
+.el-tour__content:focus,
+.el-tour__content:focus-visible {
+  outline: none;
 }
 
 /*
@@ -1175,6 +1268,7 @@ img {
     --dur-theme: 0ms;
     --dur-dialog: 0ms;
     --dur-strike: 0ms;
+    --dur-slide: 0ms;
   }
 
   *,

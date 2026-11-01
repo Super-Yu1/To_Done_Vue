@@ -7,21 +7,22 @@
  *   - order：有序数组，已有图填它的 id，新选的图填占位符 'NEW'（按出现次序对应 images 段）；
  *   - files：新选的图（每个 'NEW' 一个），顺序与 order 里 'NEW' 的出现次序一致。
  *
- * 点开看大图（2026-10-27 按方案 A 加）：缩略图同时是**拖动排序的抓取区**，两者靠位移阈值区分 ——
- * `mousedown` 记坐标，`click` 时位移 > 4px 就当「这是一次拖动」不做预览（原生拖拽成功后浏览器本来就
+ * 点缩略图（2026-10-31 改为「窗口内查看器」）：缩略图同时是**拖动排序的抓取区**，两者靠位移阈值区分 ——
+ * `mousedown` 记坐标，`click` 时位移 > 4px 就当「这是一次拖动」不切换（原生拖拽成功后浏览器本来就
  * 不派 click，这条只挡「几乎没动就松手」那种误触）。三处配套细节：
  *   ① 内层 `<img>` 必须 `draggable="false"` —— 否则浏览器会拖那张图、抢走外层 `<li>` 的 dragstart，
  *      排序会静默失效（这就是不用 `el-image` 做缩略图的原因）；
- *   ② 删除按钮的 click 要 `.stop`，否则点删除会顺带弹一次大图；
- *   ③ 预览层用 `ElImageViewer`（`teleported`），否则会被 el-dialog 的层叠上下文压住。
- * 预览列表包含全部槽位（新选的图有 objectURL，同样能看）。
+ *   ② 删除按钮的 click 要 `.stop`，否则点删除会顺带切一次图；
+ *   ③ 点缩略图不再弹 `ElImageViewer`，改为向父级抛 `select`（下标）—— 大图直接显示在弹窗内部的
+ *      16:9 查看器里，不再另开一层。槽位列表（各图的预览地址）通过 `previews` 抛给父级，供查看器用。
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { ElImageViewer, ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import AppTooltip from './AppTooltip.vue'
 import { TASK_MAX_IMAGES, UPLOAD_MAX_BYTES } from '@/constants'
 import { ImageRejectedError, assertUploadable, compressImage } from '@/utils/image'
+import { resolveImageUrl } from '@/utils/imageUrl'
 import type { TaskImage } from '@/types'
 
 interface Slot {
@@ -41,6 +42,15 @@ const props = defineProps<{
 }>()
 const model = defineModel<{ order: string[]; files: File[] }>({ required: true })
 
+/**
+ * `select`：点了第几张（父级把它显示在弹窗内的查看器里）；
+ * `previews`：全部槽位的预览地址（新增 / 删除 / 排序后都会重新抛一次）。
+ */
+const emit = defineEmits<{
+  select: [index: number]
+  previews: [list: string[]]
+}>()
+
 const slots = ref<Slot[]>([])
 const inputRef = ref<HTMLInputElement | null>(null)
 const dragKey = ref('')
@@ -48,37 +58,44 @@ const dragKey = ref('')
 /** 判定「点击」的位移阈值：超过它就算拖动意图，不弹预览 */
 const CLICK_MOVE_TOLERANCE = 4
 
-/* ---------- 看大图 ---------- */
+/* ---------- 选中（窗口内查看器用） ---------- */
 
-const previewVisible = ref(false)
-const previewIndex = ref(0)
 /** 按下时的坐标：用来区分「点击」与「拖动」 */
 let pressPoint: { x: number; y: number } | null = null
-
-/** 预览列表 = 全部槽位（已有图是直链，新选的图是 objectURL，都能看） */
-const previewList = computed(() => slots.value.map((slot) => slot.preview))
 
 function onPress(event: MouseEvent) {
   pressPoint = { x: event.clientX, y: event.clientY }
 }
 
-function openPreview(slot: Slot, event?: MouseEvent) {
+function selectSlot(slot: Slot, event?: MouseEvent) {
   if (event && pressPoint) {
     const moved = Math.hypot(event.clientX - pressPoint.x, event.clientY - pressPoint.y)
     if (moved > CLICK_MOVE_TOLERANCE) return
   }
   pressPoint = null
   const index = slots.value.findIndex((item) => item.key === slot.key)
-  if (index < 0 || !previewList.value.length) return
-  previewIndex.value = index
-  previewVisible.value = true
+  if (index < 0) return
+  emit('select', index)
 }
 
-/** 键盘打开：只有焦点在缩略图本身时才响应（焦点在删除按钮上时交给那个按钮） */
-function onKeyPreview(slot: Slot, event: KeyboardEvent) {
+/** 键盘选中：只有焦点在缩略图本身时才响应（焦点在删除按钮上时交给那个按钮） */
+function onKeySelect(slot: Slot, event: KeyboardEvent) {
   if (event.target !== event.currentTarget) return
-  openPreview(slot)
+  selectSlot(slot)
 }
+
+/**
+ * 槽位一变（增 / 删 / 排序 / 重置）就把预览地址表抛给父级，弹窗里的查看器靠它取图。
+ *
+ * ⚠ 必须放在「images → slots」那个 watch **之前**，且带 `immediate` ——
+ * 那个 watch 是 `immediate: true`，会在 setup 阶段就给 `slots` 赋值；如果这个 watch 注册得比赋值晚，
+ * 它拿到的「初始值」就已经是赋值后的数组，从此再也不触发，`previews` 一次都发不出去（已踩）。
+ */
+watch(
+  slots,
+  (list) => emit('previews', list.map((slot) => slot.preview)),
+  { immediate: true },
+)
 
 /** 已有图（编辑时）同步成槽位；新选的图不动 */
 watch(
@@ -87,7 +104,8 @@ watch(
     const existings: Slot[] = (images ?? []).map((image) => ({
       key: `id-${image.id}`,
       ref: image.id,
-      preview: image.url,
+      // 与列表封面共用同一份 URL 缓存：弹窗里这几张刚在列表上加载过，不该再下一遍
+      preview: resolveImageUrl(image),
     }))
     // 只用 props 重建，不保留此前新选的图：新选的图属于「这一次打开」，
     // 调用方重置 images 时就该丢弃——否则上一次选过的文件会残留在下一次编辑里（已踩过）
@@ -194,9 +212,9 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
         tabindex="0"
         aria-label="查看大图（拖动可调整顺序）"
         @mousedown="onPress"
-        @click="openPreview(slot, $event)"
-        @keydown.enter.prevent="onKeyPreview(slot, $event)"
-        @keydown.space.prevent="onKeyPreview(slot, $event)"
+        @click="selectSlot(slot, $event)"
+        @keydown.enter.prevent="onKeySelect(slot, $event)"
+        @keydown.space.prevent="onKeySelect(slot, $event)"
         @dragstart="onDragStart(slot)"
         @dragend="dragKey = ''"
         @dragover.prevent
@@ -249,16 +267,6 @@ onUnmounted(() => slots.value.forEach(releaseSlot))
       accept="image/jpeg,image/png,image/webp"
       multiple
       @change="handleChange"
-    />
-
-    <!-- 大图预览：teleported 是硬要求，否则会被 el-dialog 的层叠上下文压住 -->
-    <el-image-viewer
-      v-if="previewVisible"
-      :url-list="previewList"
-      :initial-index="previewIndex"
-      teleported
-      hide-on-click-modal
-      @close="previewVisible = false"
     />
   </div>
 </template>
