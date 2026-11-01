@@ -5,15 +5,18 @@
  * 但只存在内存里——刷新页面即还原。
  * 2026-10-15 起与真实页一样有：行内快捷改（E）、批量选择（F）、底部快速录入（H）。
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { previousRoutePath } from '@/router'
 import { confirmDestructive } from '@/composables/usePreferences'
+import { taskTourSteps } from '@/composables/useOnboarding'
 import AppIcon from '@/components/AppIcon.vue'
 import BackToTop from '@/components/BackToTop.vue'
 import BatchActionBar from '@/components/BatchActionBar.vue'
 import ConfettiLayer from '@/components/ConfettiLayer.vue'
 import FilterBar from '@/components/FilterBar.vue'
+import OnboardingTour from '@/components/OnboardingTour.vue'
 import QuickAddTask from '@/components/QuickAddTask.vue'
 import StatBar from '@/components/StatBar.vue'
 import TaskFormDialog from '@/components/TaskFormDialog.vue'
@@ -118,8 +121,27 @@ const GUIDE_KEY = 'todone_demo_guide_seen'
 /** 只在没看过的时候出现；点勾选圈或点它的 × 都记成看过 */
 const guideVisible = ref(false)
 
-onMounted(() => {
+/* ---------- 新手漫游（2026-11-01） ---------- */
+
+/**
+ * 演示模式的漫游**每次进来都放一遍**（用户口径）：演示就是给人看的样板间，
+ * 不记「看过了」，也不写 localStorage —— 关掉就走，下次再进来还是完整一遍。
+ * 它和上面那条气泡是同一件事的两层：漫游讲全局，气泡只催「点一下勾选圈」，
+ * 所以**漫游开着的时候气泡让位**（否则第一次进来两层叠在一起），漫游关掉后气泡才出现。
+ */
+const demoTour = ref(false)
+const demoTourSteps = taskTourSteps('demo')
+
+onMounted(async () => {
   guideVisible.value = window.localStorage.getItem(GUIDE_KEY) !== '1'
+  /*
+   * **只在从演示区之外进来时放**（2026-11-01 用户口径）：首次进站、从登录页点「演示」、
+   * 直接输地址都算；站内 `/demo` ↔ `/demo/trash` 来回切不算 —— 只是换个子页面，
+   * 又弹一次等于挡路。来源由路由守卫记着（见 `router` 的 `previousRoutePath`）。
+   */
+  if (previousRoutePath().startsWith('/demo')) return
+  await nextTick()
+  demoTour.value = true
 })
 
 function dismissGuide() {
@@ -364,8 +386,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
     <!-- 列表外面这层只管两件事：给气泡引导当定位参照、给彩蛋粒子当活动范围 -->
     <div class="demo-list">
-      <!-- 气泡引导：首次进演示模式时指向第一行的勾选圈，点 × 或动手勾选即记成看过 -->
-      <p v-if="guideVisible" class="guide" role="note">
+      <!-- 气泡引导：首次进演示模式时指向第一行的勾选圈；漫游开着时让位（见 script 的说明） -->
+      <p v-if="guideVisible && !demoTour" class="guide" role="note">
         <span>点这个方框，任务就完成了</span>
         <button class="guide__close" type="button" aria-label="知道了" @click="dismissGuide">✕</button>
       </p>
@@ -409,6 +431,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     <ConfettiLayer ref="confetti" />
 
     <BackToTop />
+
+    <!-- 新手漫游：演示模式每次进来都放一遍（不记「看过了」） -->
+    <OnboardingTour
+      v-model="demoTour"
+      :steps="demoTourSteps"
+      @finish="demoTour = false"
+      @close="demoTour = false"
+    />
   </div>
 </template>
 

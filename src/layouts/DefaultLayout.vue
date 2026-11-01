@@ -5,55 +5,26 @@
  * 主内容区上限 1720px 居中（2026-10-17 从 1280 放宽）—— 防「单行太长」靠行内布局，不靠这层硬卡。
  * 原来顶栏的账号下拉收进侧栏底部：身份一行（点进个人中心）+ 主题开关 + 退出登录。
  */
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
-import AppTooltip from '@/components/AppTooltip.vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import SideBottomBar from '@/components/SideBottomBar.vue'
 import type { IconName } from '@/components/icons'
-import { usePreferences } from '@/composables/usePreferences'
+import { useSidebarCollapse } from '@/composables/useSidebarCollapse'
 import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todo'
 
 const auth = useAuthStore()
 const todo = useTodoStore()
 const router = useRouter()
-/** 侧栏折叠（2026-10-26）：底部第三个按钮在「折叠 / 展开」之间切换，状态存本地 */
-const { sidebarCollapsed, toggleSidebar, setSidebarCollapsed } = usePreferences()
-
 /**
- * 窗口宽度跨过阈值时自动折叠 / 自动展开（2026-10-26，按反馈改为双向）。
- * 阈值 1100px：272px 侧栏 + 内容区最小可用宽度（约 800px）之和。
- *
- * 关键点：只有「系统自动收起的」才在变宽时自动展开 —— 用一个标记区分，
- * 否则用户在宽屏手动折叠后，随便拖一下窗口就会被强制展开。
+ * 侧栏折叠（2026-10-26 起，2026-11-01 抽到 `useSidebarCollapse`）：
+ * 底部那枚按钮切「折叠 / 展开」，状态存本地；窗口变窄时自动收起。
+ * 演示模式现在也用同一套 —— 那边原来连折叠按钮都没有，左下角和前台不是一套。
  */
-/*
- * 2026-10-26 调到 1150：侧栏展开时，窗口 1100 附近列表宽约 716px，正好落进行布局的 720px 断点，
- * 于是「侧栏还没折叠、任务先变高」。1150 能保证侧栏总是先收起来、列表始终 ≥ 720，
- * 变高的时机被推到约 910px（那时侧栏早就折叠好了），顺序因此变成「先折叠、后变高」。
- */
-const NARROW_SIDEBAR_MAX = 1150
-const autoCollapsed = ref(false)
-
-function syncSidebarForWidth() {
-  const narrow = window.innerWidth < NARROW_SIDEBAR_MAX
-  if (narrow && !sidebarCollapsed.value) {
-    setSidebarCollapsed(true)
-    autoCollapsed.value = true
-  } else if (!narrow && autoCollapsed.value) {
-    setSidebarCollapsed(false)
-    autoCollapsed.value = false
-  }
-}
-
-/** 手动点折叠按钮：用户的选择优先，清掉「自动收起」标记，之后不再被宽度左右 */
-function handleToggleSidebar() {
-  autoCollapsed.value = false
-  toggleSidebar()
-}
+const { sidebarCollapsed, toggleSidebar: handleToggleSidebar } = useSidebarCollapse()
 
 /** 用户菜单（点头像 + 用户名向上弹出） */
 const userMenuVisible = ref(false)
@@ -61,12 +32,6 @@ const userMenuVisible = ref(false)
 function goProfile() {
   userMenuVisible.value = false
   void router.push('/profile')
-}
-
-function handleHelp() {
-  userMenuVisible.value = false
-  // 帮助中心还没有页面（会记进前端清单），先给一条明确提示，不做假入口
-  ElMessage.info('帮助中心正在建设中，稍后上线')
 }
 
 /**
@@ -91,15 +56,6 @@ const navItems = computed<{ to: string; label: string; icon: IconName; badge?: n
 
 const displayName = computed(() => auth.user?.name ?? '我的账号')
 const avatarText = computed(() => (auth.user?.name ?? '我').slice(0, 1))
-
-onMounted(() => {
-  syncSidebarForWidth()
-  window.addEventListener('resize', syncSidebarForWidth)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', syncSidebarForWidth)
-})
 
 onMounted(async () => {
   // 侧栏徽标要有数：进站时取一次统计（之后随任务操作自动刷新，见 stores/todo 的 refresh）
@@ -137,8 +93,12 @@ async function handleLogout() {
   <div class="app-layout" :class="{ 'app-layout--collapsed': sidebarCollapsed }">
     <AppSidebar :items="navItems" brand-to="/tasks" :collapsed="sidebarCollapsed">
       <template #settings>
-        <!-- 2026-10-26：身份 / 主题 / 折叠并成一行；点头像用户名向上弹出用户菜单 -->
-        <div class="side-row" :class="{ 'side-row--stacked': sidebarCollapsed }">
+        <!--
+          2026-11-01：底部这一行抽成 `SideBottomBar`（身份位 + 主题 + 折叠），
+          演示模式用的是同一份 —— 前台与演示的左下角从此是同一套布局。
+          这里只往「身份位」里放内容：点头像用户名向上弹出用户菜单。
+        -->
+        <SideBottomBar :collapsed="sidebarCollapsed" @toggle="handleToggleSidebar">
           <el-popover
             v-model:visible="userMenuVisible"
             placement="top"
@@ -168,10 +128,6 @@ async function handleLogout() {
                 <AppIcon name="user" :size="15" />
                 <span>个人中心</span>
               </button>
-              <button class="user-menu__item" type="button" role="menuitem" @click="handleHelp">
-                <AppIcon name="help" :size="15" />
-                <span>帮助中心</span>
-              </button>
               <div class="user-menu__divider" role="separator"></div>
               <button
                 class="user-menu__item user-menu__item--danger"
@@ -184,23 +140,7 @@ async function handleLogout() {
               </button>
             </div>
           </el-popover>
-
-          <!-- 主题按钮的定位写在 `.side-row :deep(.theme-toggle)` 里：
-               挂在组件上的 class 会穿过 AppTooltip，落不到这个 button 上 -->
-          <ThemeToggle />
-          <!-- 2026-10-27：悬浮说明用 EP 气泡（全局白卡样式，见 main.css 的 `.el-popper.is-dark`） -->
-          <AppTooltip :content="sidebarCollapsed ? '展开' : '折叠'" placement="top">
-            <button
-              class="side-tool side-row__tool side-row__collapse"
-              type="button"
-              :aria-label="sidebarCollapsed ? '展开侧栏' : '折叠侧栏'"
-              :aria-expanded="!sidebarCollapsed"
-              @click="handleToggleSidebar"
-            >
-              <AppIcon :name="sidebarCollapsed ? 'expand' : 'collapse'" :size="16" />
-            </button>
-          </AppTooltip>
-        </div>
+        </SideBottomBar>
       </template>
     </AppSidebar>
 
@@ -285,53 +225,9 @@ async function handleLogout() {
 }
 
 /*
- * 底部三格（2026-10-29 重做）：容器只负责高度，三枚按钮各自绝对定位。
- * 用户名 70%、主题 / 折叠钮各占 15% 的两格中线；折叠态容器长到 120
- * （40 + 8 + 32 + 8 + 32），三枚按钮的 left / top 一起滑过去 —— 是位移，不是淡出重画。
+ * 底部那一行（身份 / 主题 / 折叠）的骨架与折叠动画都在 `SideBottomBar` 里
+ * （2026-11-01 抽出，演示模式共用）。这里只剩**身份位**自己的样式。
  */
-.side-row {
-  position: relative;
-  height: 40px;
-  transition: height 280ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-/* 用 .side-row 提权：`.side-tool` 自己那条 transition（颜色 / transform）写在后面，
-   同权重会把这里的 left / top 过渡顶掉 —— 那样折叠钮就是直接跳过去的。
-   transition 是整条覆盖，所以悬停变色与按下缩放要一起抄过来。 */
-.side-row .side-row__tool {
-  position: absolute;
-  top: 4px;
-  transition:
-    left 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    top 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    color var(--dur-fast) var(--ease),
-    background-color var(--dur-fast) var(--ease),
-    transform 120ms var(--ease);
-}
-
-/* 主题按钮的 class 落不到组件根节点上（穿过 AppTooltip），这里从父级点名它 */
-.side-row :deep(.theme-toggle) {
-  position: absolute;
-  top: 4px;
-  left: calc(77.5% - 16px);
-  /* 同理：整条 transition 会覆盖组件自带的那条，颜色与按下缩放要一起带上 */
-  transition:
-    left 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    top 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    color var(--dur-fast) var(--ease),
-    background-color var(--dur-fast) var(--ease),
-    transform 120ms var(--ease);
-}
-
-.side-row__collapse {
-  left: calc(92.5% - 16px);
-}
-
-/* 折叠态：三枚按钮竖排居中，40 / 48 / 88 的节奏与 76px 浮岛一致 */
-.side-row--stacked {
-  height: 120px;
-}
-
 .side-row--stacked .side-user {
   /*
    * 这里写 7px 而不是 `calc(50% - 20px)`：折叠态内容宽恒为 54（76 − 2×10 内边距 − 2 描边），
@@ -345,39 +241,7 @@ async function handleLogout() {
   justify-content: center;
 }
 
-.side-row--stacked :deep(.theme-toggle) {
-  left: calc(50% - 16px);
-  top: 48px;
-}
-
-.side-row--stacked .side-row__collapse {
-  left: calc(50% - 16px);
-  top: 88px;
-}
-
-.side-tool {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-control);
-  background-color: transparent;
-  color: var(--color-text-2);
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease),
-    transform 120ms var(--ease);
-}
-
-.side-tool:hover {
-  color: var(--color-text);
-  background-color: var(--control-hover);
-}
-
 /* 按下就缩一下：反馈发生在 pointer-down，不等 click（2026-10-27 三改） */
-.side-tool:active,
 .side-user:active {
   transform: scale(0.97);
 }

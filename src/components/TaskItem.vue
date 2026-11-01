@@ -10,9 +10,9 @@
  * 批量选择（F）：前置位换成方形多选框，行尾操作隐藏、点击整行 = 勾选。
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { ElImageViewer } from 'element-plus'
 import AppIcon from './AppIcon.vue'
 import AppTooltip from './AppTooltip.vue'
+import ImageSlideshow from './ImageSlideshow.vue'
 import { TASK_PRIORITY_LABEL } from '@/constants'
 import { formatDateTime, formatDueDay, isOverdue } from '@/utils/date'
 import { forgetImageUrl, resolveImageUrl } from '@/utils/imageUrl'
@@ -113,7 +113,10 @@ function handleRowClick() {
 /**
  * 只显示第一张，其余靠右上角 `+N` 交代 —— 一列缩略图会把「标题 + 描述」挤走，
  * 而这一行真正要读的还是文字。
- * 点击打开大图：`ElImageViewer` + `teleported`（否则会被卡片的层叠上下文压住），
+ * 点击打开大图（2026-11-01 换掉 `ElImageViewer`）：改成与任务弹窗同一套 `ImageSlideshow`，
+ * 放进灯箱里放大展示 —— 同一份「配图」在列表、弹窗、大图三处长得一样，
+ * 而不是列表里一种皮肤、点开又是另一种（EP 那套是全屏黑底 + 系统箭头，和这套液态玻璃不搭）。
+ * 灯箱必须 `Teleport` 到 body：卡片的 `backdrop-filter` 会给 fixed 后代造包含块，不传送就会被压在卡片里。
  * 绑定时必须 `.stop` —— 否则同一次点击会顺带触发整行的「打开编辑弹窗」。
  */
 const imagePreviewOpen = ref(false)
@@ -123,6 +126,8 @@ const imagePreviewOpen = ref(false)
  * 更不该被算成「用过的」（`utils/imageUrl` 的 LRU 按使用顺序淘汰）。
  */
 const viewerUrls = ref<string[]>([])
+/** 灯箱里正在看第几张：每次打开都从封面（0）开始 */
+const viewerIndex = ref(0)
 /** 封面：第一张（模板里的 `v-if` 已经保证有图，这里仍取可选链，类型上才收得住） */
 const cover = computed(() => props.task.images[0])
 /** 封面实际用的地址：走 `utils/imageUrl` 的 URL 复用，切页签时不换 src，浏览器才不会重下 */
@@ -154,8 +159,29 @@ function handleCoverError() {
 function openImages() {
   if (!props.task.images.length) return
   viewerUrls.value = props.task.images.map((image) => resolveImageUrl(image))
+  viewerIndex.value = 0
   imagePreviewOpen.value = true
 }
+
+function closeImages() {
+  imagePreviewOpen.value = false
+}
+
+/**
+ * 灯箱的键盘出口：Esc 关。
+ * 左右键不在这里接 —— 那是「换第几张」的事，由 `ImageSlideshow` 的 `keyboard` 参数统一管，
+ * 边界（首尾夹住）只写一处。
+ */
+function onViewerKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeImages()
+}
+
+watch(imagePreviewOpen, (open) => {
+  if (open) window.addEventListener('keydown', onViewerKeydown)
+  else window.removeEventListener('keydown', onViewerKeydown)
+})
+
+onUnmounted(() => window.removeEventListener('keydown', onViewerKeydown))
 </script>
 
 <template>
@@ -163,7 +189,6 @@ function openImages() {
     class="task-row"
     :class="{
       'task-row--done': displayDone,
-      'task-row--overdue': showOverdue,
       'task-row--select': selectMode,
       'task-row--selected': selected,
       'task-row--leaving': pending !== null,
@@ -175,6 +200,15 @@ function openImages() {
     @keydown.enter.prevent="handleRowClick"
     @keydown.space.prevent="handleRowClick"
   >
+    <!--
+      逾期标记（2026-11-01）：从伪元素改成**真实元素**，因为伪元素挂不了气泡。
+      视觉仍是那枚 5px 红胶囊（内层 `::before` 画）；外面这层 14px 是**命中区** ——
+      5px 的悬停目标鼠标根本停不住。气泡里那句「逾期」补的就是「这枚红条是什么意思」。
+    -->
+    <AppTooltip v-if="showOverdue" content="逾期" placement="left">
+      <span class="task-row__edge" aria-hidden="true" />
+    </AppTooltip>
+
     <!-- 批量选择模式：方形多选框（完成态是绿底，这里是黑底，两种语义不混） -->
     <span
       v-if="selectMode"
@@ -278,15 +312,57 @@ function openImages() {
       </div>
     </div>
 
-    <!-- 大图预览：teleported 是硬要求，否则会被卡片自身的层叠上下文压住 -->
-    <el-image-viewer
-      v-if="imagePreviewOpen"
-      :url-list="viewerUrls"
-      :initial-index="0"
-      teleported
-      hide-on-click-modal
-      @close="imagePreviewOpen = false"
-    />
+    <!--
+      大图灯箱（2026-11-01）：与弹窗共用 `ImageSlideshow`，只把尺寸放大一档。
+      `Teleport` 是硬要求 —— 卡片的 `backdrop-filter` 会给 fixed 后代造包含块，
+      不传送到 body 的话，灯箱会被压在卡片里（EP 的 `teleported` 干的就是这件事）。
+      下方缩略图条（2026-11-01 追加）：点一张就滑到那张，与弹窗里的缩略图同一套语义。
+      三个出口：点遮罩、右上角 ×、Esc。
+    -->
+    <Teleport to="body">
+      <Transition name="lightbox">
+        <div
+          v-if="imagePreviewOpen"
+          class="lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="查看配图"
+          @click.self="closeImages"
+        >
+          <div class="lightbox__body">
+            <div class="lightbox__stage">
+              <ImageSlideshow
+                v-model:index="viewerIndex"
+                :urls="viewerUrls"
+                label="任务配图"
+                large
+                keyboard
+              />
+              <button class="lightbox__close" type="button" aria-label="关闭" @click="closeImages">
+                ×
+              </button>
+            </div>
+
+            <!-- 只有一张时不摆这条：一枚缩略图既没有「切」的作用，也只是一层噪声 -->
+            <div v-if="viewerUrls.length > 1" class="lightbox__thumbs" role="tablist" aria-label="配图列表">
+              <button
+                v-for="(url, index) in viewerUrls"
+                :key="index"
+                class="lightbox__thumb"
+                :class="{ 'lightbox__thumb--on': index === viewerIndex }"
+                type="button"
+                role="tab"
+                :aria-selected="index === viewerIndex"
+                :aria-label="`第 ${index + 1} 张`"
+                @click="viewerIndex = index"
+              >
+                <img class="lightbox__thumb-img" :src="url" alt="" draggable="false" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </article>
 </template>
 
@@ -333,25 +409,38 @@ function openImages() {
 }
 
 /*
- * 状态标记（2026-10-29 八改）：居中悬在「卡片左边缘 ↔ 勾选圈」之间。
- * 量过：卡片左边到 24px 勾选圈的左边是 31px（1px 描边 + 22px 内边距 + 40px 命中区里 8px 的居中留白），
- * 胶囊取 5px 宽、左缘 13px（相对内边距盒 12px），左右各余 13px，整数像素、不落半格。
- * 高 54%（≈46px）、两端全圆角（pill）、垂直居中与勾选圈同线；伪元素不占布局、不碰底色与阴影。
+ * 逾期标记（2026-10-29 八改定位置，2026-11-01 从伪元素换成真实元素）：
+ * 居中悬在「卡片左边缘 ↔ 勾选圈」之间。量过：卡片左边到 24px 勾选圈的左边是 31px
+ * （1px 描边 + 22px 内边距 + 40px 命中区里 8px 的居中留白），胶囊取 5px 宽、左缘 13px
+ * （相对内边距盒 12px），左右各余 13px、整数像素不落半格；高 54%（≈46px）、两端全圆角、
+ * 垂直居中与勾选圈同线。
+ *
+ * 外层这 14px 是**命中区**（红条左右各 4.5px 透明）：`left: 12 + 2.5 − 14/2 = 7.5`。
+ * 为什么要命中区：伪元素挂不了气泡，而 5px 宽的悬停目标鼠标停不住 —— 现在悬停会显示「逾期」。
+ * 只有逾期那一行才渲染这个元素（`v-if`），不再用 `--row-edge` 变量做「透明占位」。
  */
-.task-row::before {
-  content: '';
+.task-row__edge {
   position: absolute;
   top: 50%;
-  left: 12px;
-  width: 5px;
+  left: 7.5px;
+  width: 14px;
   height: 54%;
   transform: translateY(-50%);
-  border-radius: var(--radius-pill);
-  background-color: var(--row-edge, transparent);
+  /* 悬停目标不是按钮，用 help 光标提示「这里有个说明」 */
+  cursor: help;
 }
 
-.task-row--overdue {
-  --row-edge: var(--color-danger);
+/* 真正的红胶囊：5px 宽，画在命中区正中 */
+.task-row__edge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 5px;
+  transform: translateX(-50%);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger);
 }
 
 /* 批量选择：选中行留一层品牌浅蓝，和悬停的浮起区分开 */
@@ -824,6 +913,166 @@ function openImages() {
  */
 .task-row--leaving {
   pointer-events: none;
+}
+
+/* ---------- 大图灯箱（2026-11-01） ---------- */
+
+/*
+ * 灯箱 = 全屏遮罩 + 一块 16:9 的舞台。轮播的样式全在 `ImageSlideshow` 里，
+ * 这里只管「多大、放哪儿、怎么进出」。
+ * 层级取 3000：与 TitleTip / IdentityRow 同一档，压在弹窗遮罩（2000+）之上。
+ */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-mask-strong);
+
+  /*
+   * 灯箱自己的三个量都定在这一层，别处一律引用，不写第二遍：
+   *   · `--lightbox-pad`：遮罩四周留白（宽度预算里也要减掉它，所以必须是变量）；
+   *   · `--lightbox-thumb`：缩略图边长，跟着视口高度走（`clamp(56px, 7vh, 96px)`）——
+   *     1080 高 ≈ 76px、800 高 ≈ 56px、1440 高封顶 96px。画面按比例缩，缩略图不能停在固定 px，
+   *     否则 4K 上是一小排邮票，小窗上又显得笨重；
+   *   · `--lightbox-gap`：画面 ↔ 缩略图条的间距。
+   */
+  --lightbox-pad: 24px;
+  --lightbox-thumb: clamp(56px, 7vh, 96px);
+  --lightbox-gap: 12px;
+
+  padding: var(--lightbox-pad);
+}
+
+/*
+ * 灯箱里的一列：舞台 + 缩略图条，两块共用同一条左右边线（宽度定在这一层）。
+ *
+ * **整块占屏幕宽度的 80%**（2026-11-01 三改，用户口径）：原来是 `min(1560px, 94vw, …)`，
+ * 1560 这个绝对上限在大屏上把窗口卡得显小，而 `100vh - 150px` 那一项在小屏上又相对偏大 ——
+ * 两头都不对，因为一边是 px、一边是比例。现在两个约束都是视口：
+ *   ① **80vw** —— 主约束，屏幕越宽窗口越大，占比恒定；
+ *   ② `(100vh − 缩略图 − 间距 − 上下留白) × 16/9` —— 兜底：16:9 的窗口不能高过视口。
+ *      扣的都是变量（缩略图随视口变化），缩略图变大时这条不会算漏。
+ * 宽屏上 ① 生效（正好 80vw，上下各留 24px）；方屏 / 矮窗上 ② 生效（窗口贴满高度，占比略小于 80%）。
+ * 别指望 `aspect-ratio` 和 `max-height` 互相谦让（那样高度会赢，16:9 就破了）。
+ */
+.lightbox__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lightbox-gap);
+  width: min(
+    80vw,
+    calc(
+      (100vh - var(--lightbox-thumb) - var(--lightbox-gap) - var(--lightbox-pad) * 2) * 16 / 9
+    )
+  );
+}
+
+.lightbox__stage {
+  position: relative;
+  width: 100%;
+}
+
+/*
+ * 缩略图条（2026-11-01）：点一张就滑到那张，与弹窗里的缩略图同一套语义。
+ * 非当前项压到 0.55 —— 暗底上「哪张是当前」靠亮度比靠描边更快读懂；
+ * 当前项套一圈品牌蓝（深色主题里它是亮蓝，两套主题都看得见，不写死白色）。
+ */
+.lightbox__thumbs {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lightbox__thumbs::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* 边长跟着视口走（见 `.lightbox` 上的 `--lightbox-thumb`），画面放大缩小时它跟着变 */
+.lightbox__thumb {
+  flex: none;
+  width: var(--lightbox-thumb);
+  height: var(--lightbox-thumb);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background-color: rgba(255, 255, 255, 0.08);
+  opacity: 0.55;
+  cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+
+.lightbox__thumb:hover {
+  opacity: 0.85;
+}
+
+.lightbox__thumb--on {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--color-brand);
+}
+
+.lightbox__thumb:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.lightbox__thumb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 关闭：和翻页箭头同一套「深底白字浮在照片上」，只是贴在右上角 */
+.lightbox__close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background-color: rgba(17, 24, 39, 0.45);
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.lightbox__close:hover {
+  background-color: rgba(17, 24, 39, 0.68);
+}
+
+/* 进出场：遮罩淡入，舞台轻微放大归位（与弹窗开合同一个 320ms 曲线） */
+.lightbox-enter-active,
+.lightbox-leave-active {
+  transition: opacity var(--dur-dialog) var(--ease);
+}
+
+.lightbox-enter-from,
+.lightbox-leave-to {
+  opacity: 0;
+}
+
+.lightbox-enter-active .lightbox__stage,
+.lightbox-leave-active .lightbox__stage {
+  transition: transform var(--dur-dialog) var(--ease);
+}
+
+.lightbox-enter-from .lightbox__stage,
+.lightbox-leave-to .lightbox__stage {
+  transform: scale(0.985);
 }
 
 /* 窄容器：右侧元信息换到正文下方，左元信息、右操作 */

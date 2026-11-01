@@ -4,18 +4,25 @@
  * 2026-10-15 起多了三件事：行内快捷改（E）、批量选择（F）、底部快速录入（H）——
  * 数据动作全在 store（patchTask / batch*），页面只负责状态与提示。
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { confirmDestructive } from '@/composables/usePreferences'
+import {
+  isAccountUntouched,
+  isFreshAccount,
+  taskTourSteps,
+} from '@/composables/useOnboarding'
 import AppIcon from '@/components/AppIcon.vue'
 import BackToTop from '@/components/BackToTop.vue'
 import BatchActionBar from '@/components/BatchActionBar.vue'
 import FilterBar from '@/components/FilterBar.vue'
+import OnboardingTour from '@/components/OnboardingTour.vue'
 import QuickAddTask from '@/components/QuickAddTask.vue'
 import StatBar from '@/components/StatBar.vue'
 import TaskFormDialog from '@/components/TaskFormDialog.vue'
 import TaskList from '@/components/TaskList.vue'
 import { PAGE_SIZE } from '@/constants'
+import { useAuthStore } from '@/stores/auth'
 import { useTodoStore } from '@/stores/todo'
 import type { Task, TaskPayload, TaskPriority, TaskQuickFilter } from '@/types'
 
@@ -86,7 +93,46 @@ async function guard(action: () => Promise<unknown>) {
   }
 }
 
-onMounted(() => guard(() => todo.refresh()))
+onMounted(async () => {
+  await guard(() => todo.refresh())
+  startOnboardingIfNeeded()
+})
+
+/* ---------- 新手漫游（2026-11-01） ---------- */
+
+/**
+ * 步骤文案在两个入口共用（`taskTourSteps`），这里只决定**什么时候弹**。
+ * 登录后的任务页 = **两条同时满足才弹**（2026-11-01 用户口径）：
+ *   ① 账号创建不到 7 天（`isFreshAccount`）；
+ *   ② 这个账号一条任务都没有 —— 含回收站（`isAccountUntouched`，读首屏已拉过的 `/tasks/stats`）。
+ * 不记「看过了」：那玩意儿只能记在本机，换台设备就失灵（之前恰恰是这么误弹的）；
+ * 而「建了第一条任务」以后条件②永久不成立，引导自己就退役了。
+ */
+const auth = useAuthStore()
+const tourVisible = ref(false)
+const tourSteps = taskTourSteps('app')
+
+/**
+ * 前提：**数据先落地**（判空要看统计，讲「一张卡」那步也要有卡）、
+ * **DOM 先渲染**（`nextTick`），所以挂在 `onMounted` 的 refresh 之后。
+ * 账号信息要先将就位：没取到 profile 时先拉一次（`DefaultLayout` 也会拉，
+ * 但子组件的 `onMounted` 先跑，这里通常是第一个，后面那次会命中缓存直接返回）。
+ * 取不到 profile 或统计 → **不弹**：判不了就别打扰。
+ */
+async function startOnboardingIfNeeded() {
+  if (auth.isLoggedIn && !auth.user) {
+    try {
+      await auth.fetchProfile()
+    } catch {
+      // 判不了账号新旧，这一轮直接放弃
+    }
+  }
+  const user = auth.user
+  if (!user || !isFreshAccount(user.createdAt)) return
+  if (!isAccountUntouched(todo.stats)) return
+  await nextTick()
+  tourVisible.value = true
+}
 
 /**
  * 统计栏胶囊：点同一枚 = 取消；任意一枚都会把列表切回「未完成」，
@@ -388,6 +434,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     />
 
     <BackToTop />
+
+    <!-- 新手漫游：账号未满 7 天且一条任务都没有时自动开（判定见 script） -->
+    <OnboardingTour
+      v-model="tourVisible"
+      :steps="tourSteps"
+      @finish="tourVisible = false"
+      @close="tourVisible = false"
+    />
   </div>
 </template>
 
