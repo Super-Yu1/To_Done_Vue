@@ -57,7 +57,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="编辑用户资料" width="480px" append-to-body>
+  <el-dialog v-model="visible" title="编辑用户资料" width="480px" append-to-body align-center>
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top" @submit.prevent>
       <el-form-item label="用户名" prop="name">
         <el-input v-model="form.name" maxlength="32" />

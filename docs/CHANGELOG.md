@@ -6,127 +6,90 @@
 2. 时间精确到分钟，格式 `YYYY-MM-DD HH:mm`（本地时间），**最新写在最上面**。
 3. 一条记录 = 一次代码改动（同一轮需求里的多处改动合并成一条），格式固定为**标题 + 一段话**：这段话要写清「改了哪些文件、改了什么与为什么、怎么验证的」。
 4. 每次改完代码**立即追加**，不攒批；文档、流程、约定的调整**不进修订记录**，直接改第二部分的项目约定。
-5. 本文件是项目的**唯一**记录处：`.ai-memory/` 已废弃、不要再建，也别另开 daily / decisions 之类的新文件。
+5. 本文件是项目的**唯一**记录处：`.ai-memory/` 已废弃、不要再建，也别另开 daily / decisions 之类的新文件。引用约定时写**主题**（如「图形码」），不要写编号 —— 精简时会重排。
 
 ## 二、项目约定
 
-1. **只做电脑 + 平板（横屏）网页适配，不做手机端**：最窄按 **≈900px** 算，横屏平板常见 1024 / 1080 / 1194 / 1366。`≤900 / ≤760 / ≤640` 只是窄窗口兜底，落在这一档「要滚一段才看到内容」是接受的，不再花力气优化。
-2. 唯一例外是 `@container` 那几条（按**容器**宽度降级，与视口无关），照旧保留。**跟侧栏折叠有关**的降级（主操作收成图标方钮）一律走视口断点 **1150**：`composables/useSidebarCollapse.ts` 的 `NARROW_SIDEBAR_MAX`（2026-11-01 从 `DefaultLayout` 搬到这里，前台与演示模式共用）是判断式 `innerWidth < 1150`，CSS 侧写 `@media (max-width: 1149.98px)`（把小数宽度也算进去），**改一处必须同时改另一处**。
-3. 中文沟通，个人独立项目；开工前把不明确处问清楚，倾向接受带理由的推荐选项。
-4. `docs/系统设计说明书V8.11.md` 只是参考：与用户要求冲突时**以用户要求为准**，不要把「文档与代码不一致」当成阻塞项或待确认项。
-5. 后端实际在 **8081**；联调**必须用 5173**（后端 CORS 白名单只认它，换成 5174 会被判 403，而 curl 不带 Origin 所以看着像通的）。
-6. 进站三态：有效票 → 任务页；票过期（登录过期）→ 登录页（带 `redirect`）；没有票 → 演示模式。过期票**只判断、不删除**（`utils/token.ts` 的 `readTokenState` 是唯一依据）；`/admin/**` 是另一套守卫。
-7. 演示模式 `/demo` 免登录、不请求后端，数据是内置示范数据；写操作都是内存态真实生效、删除真的进演示回收站、刷新即还原；个人中心的资料 / 邮箱 / 密码只提示不保存。**左下角与前台同一套**（2026-11-01）：底部那一行由 `components/SideBottomBar.vue` 提供（身份位插槽 + 主题 + 折叠），前台的身份位是「头像 + 用户名」，演示的是「注册 / 登录」两枚按钮（**只占身份位那一格**，不再霸着整行）；折叠逻辑在 `composables/useSidebarCollapse.ts`（含窄窗自动收起），两处共用同一份本地偏好 —— 在前台折叠过，演示里也是折叠的。折叠态演示的身份位改为竖排（76px 宽横排放不下），行高与主题 / 折叠的落点用 `--stacked-row-height` / `--stacked-theme-top` / `--stacked-collapse-top` 覆盖。
-8. 前台骨架 = **左侧边栏 + 主内容区**（flex 外壳，`--sidebar-width: 272px`，主内容上限 **1720px** 居中）；两栏各自内滚、**整页不滚**、滚动条一律隐藏，只认窗口滚动的地方要一起改（`BackToTop`、路由 `scrollBehavior`）；`≤1024px` 回到文档流。
-9. **液态玻璃（2026-10-30 七改：一块画布、三层材质）**：页面没有纯白底。**铁律：文字对比度由文字色承担，不要靠压暗画布来救** —— 压画布只会让玻璃背后没有可折射的东西，整页变灰。（2026-10-30 就是这么翻过车的：底色连压三轮到 #dfe5ee、四角彩色从 .50 削到 .08，玻璃立刻成灰板。）
-
-   `html` 的画布分四层——① **四角彩色**（浅色 .30 / .26 / .18，坐标 -8% / 106%；侧栏与概览卡后各一团 .30 / .24，半径 720 / 680 摊开就看不见中心；深色 .36 / .30 / .24，推到 -12% 以外）。**`radial-gradient` 没有硬边**，看着像一块是 alpha 高 + 半径小，只能降 alpha、放大半径，**不要加 `filter: blur()`**。② **中段白光**当纸底（浅色 .35 / 1300×1000；深色 0.14 冷光 + 摊开的 vignette 1900×1400，中心 44% 透明 → 边缘 42% 黑，**不能压到 60% 以上**）。③ 一条 115deg 白折射光带（.18）。④ **磨砂噪点** `--page-noise`（`feTurbulence`，`html` 的 background-image 第一层 + `repeat`），**opacity 只给 1.5%** —— 它铺满可视区、分不清玻璃与空地，5% 就是一层灰纱。浅色底色 #e8edf6 → #e9e9f4 → #efe9f0，深色 #0d1018 → #0e0d18 → #141019（`--page-bg` #e8edf6 / #101319）。
-
-   玻璃只认 `--glass-*` / `--seg-*` 令牌，组件里**不写死白色**。**主内容区不铺底色、不加大外框**：悬浮感由五件事一起给 —— **面板与卡片同一档材质**：填色 `rgba(255,255,255,0.46)` + `blur(38px) saturate(165%) brightness(1.02)`（**saturate 不能高**：200% 会把透上来的蓝紫再加强一档）。**⚠ 2026-11-01：卡片的 `blur` 半径归零（`--glass-card-blur: blur(0px) …`），只有面板还是 38px** —— 卡片是宽扁条，38px 模糊要向外采样 3σ≈114px，贴着内层滚动容器的裁切边时会读到空底、整卡变灰板（见修订记录 2026-11-01 15:05）；卡片背后是平滑渐变，模糊本来就是恒等变换，实测像素差为 0。**新加卡片类玻璃面时不要自己写 blur(38px)**。2026-10-30 定稿：卡片曾经一路比面板更白（.55 / .66、描边 .90），结果「一行一卡」比工具栏更实、读起来是白纸 —— 现在两者是同一块材料，**层级交给内容与间距，不靠更白**；填色必须与画布亮度同步调，画布亮了填色跟着回，否则「比背后白多少」就没了。**玻璃面是「填色 × 内部渐变」两层**：`background-color` 只给基底，`--glass-surface`（`linear-gradient(180deg, .30 / .06 42% / .14)`）由 main.css 里一组全局选择器统一挂到 `.sidebar / .summary / .filter-bar / .trash-hero / .trash__toolbar / .task-row / .trash-row / .task-list__skeleton / .task-list__empty / .trash-skeleton / .trash__empty / .settings-group` 上，两者相乘后顶部 .62 / 中段 .49 / 底部 .54（**新增玻璃面要加进这张表**）；0.78 白描边 + 一圈 `--glass-edge` 5% 墨边（白边管高光、墨边管边界）；`--glass-sheen` 的「上沿强高光 + 下沿反光 + 一圈内发光（`inset 0 0 24px -10px`）+ 底部回光」；大而散的冷调落影（alpha 0.18 / 0.20）。**不要再加「圆角聚光」那类白色柔光块**（已删）：圆形渐变的边界在深色下一眼可辨，读起来是一块圆形磨砂贴纸。层级靠**面积与厚度**分，**不靠圆角**：所有玻璃面一律 20px（`--radius-lg` / `--radius-panel` 同值）。圆角只有四级 —— **面 20 / 控件 12 / 小件 8 / 胶囊 999**（2026-10-30 重排：26 与 20 只差 6px，同级并置反而像「做错了」；小件曾散成 6 / 7 / 8 / 9 / 12 / 14 六档）。**不要再往阶梯里塞新值**，也不要再分「大面 / 小面」两档圆角。深色面板 `rgba(255,255,255,0.09)` + **0.16 白边**，深色 `--glass-surface` 压到浅色的 1/6。
-
-   文字三级：标题 #111827 / 描述 #4b5563（卡底 6.6:1）/ 辅助 #626c7a（4.7:1），深色为纯白 / 60% 白 / 40% 白；**浅色主题必须 `-webkit-font-smoothing: subpixel-antialiased`**（`antialiased` 在 macOS 上把白底文字降级成灰度抗锯齿，深色比浅色清楚有一半是这个原因）。输入控件是**凹井**（墨色 5.5% + 内阴影）。控件层：圆角 12 / 30px 紧凑档 9，按钮**一律不投影**（唯一例外是回到顶部），主按钮用纯色 + 内高光、不做外发光；透明的图标 / 文字按钮悬停统一用 `--control-hover`。
-10. 侧栏导航、筛选页签、编辑弹窗的优先级胶囊都是**独立滑块**：JS 量 `offset*` 得位置再 `transform` 过渡；选中按钮**只改文字色与字重，不要再画底色**，否则和滑块叠成两层（侧栏的滑块是 0.78 白小玻璃，品牌色只留在图标与计数上）。
-11. 动作类提示**一律 `AppTooltip`**（透传 `el-tooltip`；默认 `show-after: 500`；白卡 + `pointer-events: none`），不写原生 `title`；**文字类信息不挂气泡**（任务标题的重复气泡已去掉）。默认只包按钮，例外有两处：后台用户表的「状态」（气泡里是冻结原因）、**表单里的 i 图标**（2026-10-30：配图的用法说明从常驻小字收进图标，`show-after` 提到 200）—— 两者都是「补充信息」，不是重复可见文字。popper 要改宽度 / 换行时加 `popper-class` 并写在**非 scoped** 的 style 块里（teleport 到 body，scoped 够不到）。样式收窄**只认 `.el-popper.is-dark`** —— 写成 `.el-popper.el-tooltip` 会把日期面板按成「看得见、点不动」。
-12. **蓝色四件套（2026-10-29 改自 logo，2026-10-30 再拆主按钮）**：`--color-brand`（#69adff）只做「面」—— 进度主体、选中块、侧栏计数底、悬停光晕；白底上的字 / 图标一律 `--color-brand-ink`（4.98:1），压在浅蓝块上的字与勾走 `--color-brand-fg`（6.25:1）。`--color-accent`（#2a6fc9）管**功能蓝**：搜索聚焦环、勾选框、环形进度的深端。**主按钮单独一支 `--color-cta`**：**浅色用浅蓝 #69adff + 深字 #0b2a4a（6.25:1），深色用深蓝 #2a6fc9 + 白字（4.98:1）** —— 与「界面越暗、颜色越亮」的常规做法相反，但浅色界面里深蓝像补丁、深色界面里深蓝反而收得住。⚠ **功能蓝 `--color-accent` 不跟着反**：聚焦环与勾选框在深色下必须亮蓝（#8fcbff）、浅色下必须深蓝（#2a6fc9）才有 3:1 —— 两支蓝各管各的，别合并。浅蓝与白卡的明度对比只有约 2.1:1，边界靠按钮自己的内高光（上沿 .45 + 一圈 `inset 0 0 12px -6px`）撑，**不许加外投影**。主按钮是**胶囊**（与胶囊搜索井、分段控件同一套形状语言），高 46、横向留白 18、字号 14.5。四个变量各有分工，**别互相顶替**。完成勾选独立成 `--color-check-bg / -fg`（浅绿底 + 深绿勾）：白勾压在浅绿上只有 1.86:1。**「完成」这一支绿也管环形进度的 100% 态**（`--color-check-bg → --color-status-done` 做渐变两端、百分比数字用 `--color-status-done`），勾选圈与进度环是同一个语汇，不要再另起一套绿。玻璃上的输入井仍用 `--color-field-*`。
-13. 品牌资源只有两枚且同源：`public/logo.svg` + `public/logo.png`（200×200）；`favicon.ico` **已删除、不要再生成**。
-14. 认证页：`>1240px` 按 4:6、`901–1240` 收到 45:55、`≤900` 折成上下；高度 `≤880` 另有一档短屏（收内边距，保证页脚在首屏）。左栏内容是一个整体，标题 / 示例行 / 提示 / 三条说明一律左对齐；**品牌块例外** —— 落线的是 `logo.svg` 里那颗蓝圆（44px 画布内有 7.8px 透明边，要对齐得扣掉），蓝圆与示例行的勾选圈落在同一条垂直线上（尺子 `--aside-check-rail` − `--aside-brand-inset`）；两页共用 `AuthAside`，差别只有 `lead` 一句。**表单是原生 `<form>`**：主按钮 `native-type="submit"` + `@submit.prevent` 接住，任一输入框回车即提交；表单带 `novalidate`（关掉浏览器原生的英文校验气泡，校验只走 Element Plus），按钮不再挂 `@click`（否则点击会既走 click 又走 submit，请求发两遍）；三个页面都在入口判 `loading` 防连点。表单卡按**大面玻璃**取值（`--glass-card-bg` + `--glass-panel-blur` + 26px + `--glass-panel-shadow` + `--glass-card-sheen`），分栏版在卡片**后面**垫一团很淡的品牌蓝 / 苹果蓝透光（`::before`，浅色 0.8 / 深色 0.45，否则右栏整片纯白、玻璃没东西可折射）；四个认证页的输入框统一走约定 9 的凹井。
-15. **后台不露头**：用户可见界面不放任何后台入口、也不提「管理员」，后台靠直接访问 `/admin/login`。**后台的骨架与前台同源**（2026-10-30）：用 `.app-layout` + `AppSidebar` 的玻璃浮岛（侧栏分区标题传「管理」），页面只有「页头玻璃 `.admin-hero` + 一块表格面板 `.admin-panel`」；表格**不做一行一卡**（那是待勾选任务的密度，后台是浏览与检索），但铺在玻璃上时要把 EP 的 `--el-table-bg-color / tr-bg-color / header-bg-color` 全部改透明，行悬停走 `--glass-row-hover`，并且**不要用 `fixed` 列**（固定列需要一层不透明底，在玻璃上就是块死白）。⚠ **这批变量必须写在 `.admin-panel .el-table` 上，不能写在 `.admin-panel` 上**（2026-11-02 踩过）：EP 在 `.el-table` **自身**也声明了 `--el-table-bg-color: var(--el-fill-color-blank)`，元素自身的声明优先于继承 —— 写在父级等于没写，白底一直挂着，只是被面板的白玻璃盖住看不出来（读计算样式才会发现 `table / th / tr` 全是 `#fff`）。**后台的表格底部只留一条线**：EP 在 `.el-table` 上挂了 `::before` 做底边，`.admin-panel__foot` 又用 `border-top` 画一条 —— 两条叠在分页上方就是双线。要**同时**关掉三处：`.el-table::before`、`.el-table__inner-wrapper::before`、以及 **`.el-table__body tr:last-child td` 的 `border-bottom`**（第三处最容易漏，前两处关了之后线还在）。**首屏不要跳高**：加载中表格只有表头、数据一到就长一截，观感就是闪 —— 给 `.el-table__body-wrapper` 一个 `min-height`（约两行）让高度恒定；**别用 `el-table` 的 `min-height` 属性**，EP 2.x 那个 prop 不落到 `body-wrapper` 的 `min-height` 上（实测传 220、计算值仍是 `auto`）。遮罩用 `element-loading-background="transparent"`，只留 spinner。**切页不要闪**：`v-loading` 写成 `loading && !list.length`，只在真正没数据时遮罩；store 里已有数据时静默刷新，否则每次切导航都会盖一层遮罩闪一下。**后台的左下角与前台同源**（2026-11-02）：`SideBottomBar`（身份位 + 主题 + 折叠）+ `useSidebarCollapse`，`AppSidebar` 传 `:collapsed`；后台身份位多一行「上次登录」，靠 `--row-height: 60px` 撑高，且那一行要**绝对定位横跨整条侧栏居中**（塞在 70% 宽的身份位里，长日期会被省略号截掉半截）。
-16. 设置类页面一行一项（项名 / 当前值 / 动作），分组用 `.settings-group`，默认态**不出现常驻输入框**。**只有右侧动作按钮可点**（2026-10-31）：原来整行都能点，命中区大但会和行内编辑打架 —— 输入框里点一下就把编辑关掉了；行悬停的浅底保留，但那是「这一行」的反馈，不是「可点」的暗示。**用户名 / 手机号走行内编辑**（`SettingRow` 的 `editing` + `saving` + `editor` 插槽，Enter 确认、Esc 取消、切行丢弃草稿），邮箱与密码这类涉及登录凭证的仍进 420–460px 弹窗。⚠ `editor` 必须是**独立具名插槽** —— 默认插槽要留给「外观」「删除二次确认」那种常驻控件，两者共用会让 `value` 文本永远不渲染。
-17. 演示模式的气泡引导只在 `/demo` 首次进入时出现（写 `localStorage`）；「全部划掉」彩蛋用 **`stats` 全量**判定，粒子走共享 `ConfettiLayer`，动画结束整层销毁。
-18. 任务区是**一行一卡的玻璃卡**（20px 圆角、卡间距 12px、跨距 99px）：卡高 87px（padding 18/22、前置位 40px 放 24px 勾选圈、标题 17px/600、描述 14px），右侧元信息 236px（**有配图时 292px**：44 缩略 + 12 列间距，只在有图的行加宽），操作列 32px（只剩删除）悬停显现且只在 `@media (hover: hover)` 下收起，**右侧常态留 40px 给它**（`.task-row__side` 的 `padding-right`）—— 按钮显形时整列不位移，否则缩略图会跟着滑走、鼠标点空；**右列三件东西互不推挤**：配图缩略图在 flex 流里（与优先级 12px）、优先级也留在流里、**时间绝对定位在 `right: 40px`**（让开删除按钮那 40px），所以时间展开时推不动任何东西；`.task-row__meta` 的 `padding-right: 61px` = 常态时间宽，优先级到那里为止，悬停时时间宽到 95、向左盖住优先级，优先级 `opacity: 0`（纯文字直接叠在「高 / 中」上会糊成一片，必须有一方让出可见性）；`.task-row__due` 用 **`min-width` 过渡**（61 ↔ 103），**常态 `justify-content: flex-start`、悬停才 `center`**：容器恒 61 站得下最长的短日期，左对齐才能让图标紧贴容器左缘（居中会在左侧留 9.5，图标于是离优先级 21.5，和「缩略图 ↔ 优先级」的 12 对不上）；**103 不是随手取的** —— 优先级中心距右缘 = 40（right）+ 73（meta padding）+ 20 = 133，展开内容 = 图标 12 + 间距 5 + 完整时刻 78 = 95，只有把容器加宽到 103（居中后左空 4）图标中心才落在 133；字体或日期格式一变，这两个数都要重算；`padding-right` 必须等于「时间常态宽 + 12」，否则「优先级 ↔ 时间」的间距和「缩略图 ↔ 优先级」对不上；完整时刻同年省略年份（`10-30 18:00`）是为了让这个上限尽量小，跨年任务仍带年份；**配图缩略（2026-10-31）**：有图才渲染，**44px / `--radius-md`**（32 在真机上只读成一块灰），放在优先级左边；**只显示首张封面** —— 不叠底卡、不挂角标，多图也长一样，张数点开大图自己看；圆角裁切在按钮上（`overflow: hidden`），hover 的 `scale(1.06)` 是「在框内轻推」，不向右边的优先级溢出；点击**必须 `.stop`** 再开大图灯箱（2026-11-01 起是 `ImageSlideshow` + `Teleport to="body"`，不再用 `ElImageViewer`），否则同一次点击会顺带打开整行的编辑弹窗；悬停 / 键盘焦点 = 上浮 2px + 影更深 + 高光边更亮（焦点再加 2px 苹果蓝环）。快速录入是最后一张**虚线卡**（同圆角、同栅格、30% 白底），不是组内的一行。回收站共用这一套卡：前置位是 24px 圆形「彻底删除」按钮（红悬停），右侧是 22px / 12.5px 的剩余天数胶囊 + 12.5px 删除时间 + 32px 恢复按钮，没有优先级；列表与任务区共用哨兵触底加载，恢复 / 彻底删除只摘本行，不整表回查。两处底部提示共用 `ListMoreHint`，默认关闭，页面按需传 `loading-more`。页面右侧留 `--scroll-rail`（32px）给回到顶部：按钮 34px 居中，两侧各 9px，窄窗口不再与卡片相切。**逾期标记（2026-10-29 九改）**：卡片不染色 —— 在左边框与 24px 勾选圈之间**居中**悬一枚 5px 宽、高 54%（≈46px）、两端全圆角的红胶囊（`::before` + `--row-edge`，只有逾期有），左右各余 13px、垂直与勾选圈同线；逾期只在时间前把时钟换成 `alert` 三角，**不再挂标题徽标**；已完成不显示标记，只保留绿勾与划线。勾选圈是浅绿实底 + 深绿勾，悬停直接预览完成态。
-19. **勾选 / 取消勾选的退场**走 `leaveOnToggle` + 本地停留 `SETTLE_MS` 160ms。`TaskItem` 里的本地状态是 `pending: TaskStatus | null`（存**目标状态**，不是布尔），`displayDone` 以它为准：完成时绿勾与划线划出、取消时褪色与划线收回，都要在这 160ms 里看得见。**`leaveOnToggle` 的语义是「这次切换会让这一行离开」**，未完成页与已完成页都要给 true（判 `activeFilter || onlyUnfinished || status`）—— 漏掉反方向就会出现「卡片直接消失」。行离开动画由 `TaskList` 的 leave transition 完成 —— **不要在离开元素上用 CSS animation**（会破坏 FLIP，剩余行直接跳位）。补位固定用 `--dur-reorder`（420ms）。
-20. 配图字段：缩略图**兼「点击看大图」与「拖动排序抓取区」**，靠 4px 位移阈值区分；`<img draggable="false">`、删除按钮 `click.stop`、大图预览走**同一套 `ImageSlideshow`**（2026-11-01：`ElImageViewer` 已退役，全屏黑底那套与液态玻璃不搭），这三条少一条就坏。**「配图」在列表 / 弹窗 / 大图三处必须是同一个组件、同一套观感** —— 弹窗里嵌在「配图」色块里（34px 箭头、圆角 12），列表点缩略图时放进灯箱放大（`large`：44px 箭头、圆角 20、遮罩 `--color-mask-strong`），只是尺寸不同；灯箱必须 `Teleport to="body"`（卡片的 `backdrop-filter` 会给 fixed 后代造包含块），出口三个：点遮罩 / 右上角 × / Esc，左右方向键由 `ImageSlideshow` 的 `keyboard` 参数接管（边界只写一处：首尾夹住、不循环）。角标只有右上角一个红色 ×（用 `el-tooltip`），最多 9 张。
-21. 配图压缩：**长边 >3840 或体积 >3MB** 才 canvas 重绘（质量 0.95、输出 JPEG、透明图先铺白底）；单张 >10MB 在选择时即拦；**只收 JPG/PNG/WebP，GIF 直接拒**（任务配图与头像同口径）。
-22. 优先级只有低 / 中 / 高三档（无「紧急」）：任务卡用 `.task-row__prio` 一组，弹窗与批量操作用 `.prio`；口径是高浅红 / 中浅橙 / **低蓝灰**（2026-10-27 从纯灰改过来，三档才分别读成红 / 橙 / 蓝灰），深色主题换成「高饱和亮字 + 同色 15% 底」。
-23. 行内改任务走 `todo.patchTask`（只替换本行、不整表刷新，否则无限滚动会缩回第 1 页）：`refreshRecordedAt` 恒 `false`、**不带 `imageOrder`**；批量动作 4 个并发。
-24. **点任务行 = 直接进编辑弹窗**（`TaskFormDialog`），没有「只读详情」这一层；回收站行不可点、没有详情入口。
-25. 图形码不常驻，只在发邮箱验证码 / 登录 / 后台登录时弹窗输入；**登录页的图形码是条件触发的**——同一邮箱连续输错 2 次密码，第 3 次起才弹（计数在 `utils/loginAttempts`，30 分钟过期、成功清零；后端同规则并用 4008 兜底）。本地计数只是「要不要先弹窗」的判断，落后于后端时用 `markCaptchaRequired` 按 4008 补到阈值；**注册成功也要清本地计数**（后端同时删 Redis 计数，注销后同邮箱重注册的新账号不继承旧账）。后台登录仍每次都要；更换邮箱的提交不需要图形码；弹窗失败一律关掉（`destroy-on-close`）。
-26. 验证手段：构建跑 `npm run build`（= `vue-tsc` 类型检查 + `vite build`），项目**没有 lint / test 脚本**；真实浏览器验证用系统 Edge + CDP 无头驱动写零依赖临时脚本，验完删脚本（给 Vue 表单赋值必须走原生 setter 再派发事件）。
-27. **文档待回写**：6.5 / 8.5 的两态与单列列表、优先级三档、8.7 的圆角·主题入口·内容宽自适应·滚动条隐藏·「弹窗锁屏不得改 body 宽度」、8.8 位置与主题 + 配图压缩阈值（3840 / 3MB / 0.95）与「不收 GIF」、UC-05、8.9 的创建用户入口（`POST /api/admin/users`）、3.2 的图形码出现位置与 6.5 ④ 登录页（含「连续错 2 次才出图形码」与 4008）、数据库说明书与 `todone.sql` 注释。
-28. **尚未接通**：头像 1:1 裁剪待真后端验收；配图上传链路已在 5173 联调通过（`imageOrder` 契约：`'NEW'` 个数必须与 images 段文件数一致）。
-29. **工具栏的模式切换不要改变高度，也不要靠 `position: absolute` 藏行**（2026-10-31）：批量选择这类「临时多出一组操作」的场景，**不要把它作为第二行插进来** —— 工具栏一变高，下面的列表整体下移；`grid-template-rows: 1fr → 0fr` 这类过渡只能让变化平滑，**解决不了占位**。做法是把两种模式的行**叠在同一个 grid 格子里**（`grid-template-areas: 'row'` + `grid-area: row`），两行始终是同一种定位方式，只切 `opacity / transform / clip-path`；再给行一个 `min-height`（46 = 搜索井高度），矮控件（30px 按钮）也撑到同一档。⚠ **不要用 `position: absolute` 藏行**：position 不可过渡，那行变回 static 时会重新参与布局，`transform` 的过渡直接被打断、滑动变成瞬移。隐藏行挂 `inert`（只靠 `opacity: 0` 的话 Tab 会走进看不见的按钮）。进出场用「位移 + 横向揭示」而不是交叉淡化：批量行从按钮那一侧滑入，并 `clip-path: inset(0 0 0 100%) → inset(-8px)` 从右往左拉开（-8px 是留给 focus 环的余量）。实测进 / 出选择模式：`.filter-bar` 恒 68px、首个任务卡 top 恒 365。
-
-30. **登录锁定（2026-10-31）**：连续 10 次密码错锁 2 小时（`app.auth.lockout.*` 可配，默认 10 / 120）。**锁定期内密码正确才回 1009**，密码错仍是 1003 —— 所以「连续失败计数」只在 1003 上累加，1009 不算密码错。1009 的文案由后端拼（含「还剩 X 分钟」与「或联系管理员解禁」），前端**只许原样展示，不许改写**；它**不走 http 拦截器的 toast**（气泡一闪就没），由登录页常驻一行（`isLockedError` 是唯一判定）。后台「解禁」走 `POST /api/admin/users/{id}/unlock`（幂等，无 body），解禁与重置密码都会清零失败计数 —— **含 Redis 那份**，所以解禁后第一次登录不该再要图形码：登录页收到 1009 时要顺手清掉本地计数（`utils/loginAttempts`）。`LOCKED` 是叠加在 `NORMAL` 上的临时状态（后端口径），默认列表里本来就看得到被锁的人。
-
-31. **配图直链保持预签名 30 分钟，不为缓存动后端**（2026-10-31 定稿）：有效期是刻意的泄露面控制（设计 §7.7），**不要**改成长期有效地址、**不要**让后端转发图片字节、**也不做缩略图**（原图点开即大图，省掉二次加载；嫌大就调前端压缩参数 `utils/image.ts` 的 3840 / 0.95）。跨刷新 / 跨标签页 / 换设备重下都在可接受范围内 —— 浏览器缓存只在本机，换设备本来就读不到。前端只做**同一页面生命周期内**的地址复用：`utils/imageUrl` 按 `objectKey` 缓存已签发 URL（解析 `X-Amz-Date + X-Amz-Expires`、留 60 秒余量、500 条 LRU），过期自动换新、`@error` 一次性回退。列表只下**每任务首张**封面（`TaskItem` 里只有一个 `<img>`），带 `loading="lazy"`；大图预览的 URL 在 `openImages()` 里才解析。
-
-32. **后台入口安全（2026-11-01）**：`/admin` 只是 SPA 路由 —— 未登录会被守卫送到 `/admin/login`，数据全靠后端 `hasRole("ADMIN")` 兜着；「藏路径」不是安全措施（bundle 公开，读代码就能拿到前缀），也别为它拆包 / 混淆。前端只做两层：① `utils/token.ts` 只认「三段 JWT + 数值 exp 未过期」，乱写的串一律当无效（**别再退回「解不出 exp 就当可用」**，那会让后台外壳被随手渲染）；② `/admin*` 挂 `noindex,nofollow` + `public/robots.txt` Disallow（只防收录，不防扫描）。真正的隔离在部署层：nginx 对 `/admin` 与 `/api/admin` 做来源限制 / Basic Auth（整段模板见 `docs/前端修改说明.md` 第 3 条），或后台不上公网；Swagger 公开与 admin 登录限流是后端的事（`docs/后端修改说明.md` 第 1 条）。
-
-33. **新手漫游（2026-11-01）**：`components/OnboardingTour.vue` 包 `el-tour`，只负责「按 DOM 过滤步骤 + 下标 + 三个出口（走完 / 关闭 / Esc）」；**文案与目标选择器统一在 `composables/useOnboarding` 的 `taskTourSteps(variant)`**（`'app'` / `'demo'` 只有「侧栏底部是什么」那句不同；选择器指向 `.sidebar / .summary / .filter-bar / .task-row / .quick-add`，目标留空 = 居中开场）。
-
-    **两个入口、两种口径**：① **演示模式：只在从站外进来时放**（`DemoView` 不写 localStorage，关掉就走；站内 `/demo` ↔ `/demo/trash`、浏览器后退都不再弹 —— 判断靠 `router` 的 `previousRoutePath()`，**不要用 `history.state.back`**，它跟后退走时是旧值）；② **登录后的任务页：账号创建 < 7 天 且 一条任务都没有（含回收站）**才放 —— 两条都由账号自身状态判定，**不记「看过了」**（localStorage 是按设备的，旧账号换台电脑必误弹，2026-11-01 踩过）。数据来源：`users/me` 的 `createdAt` + `/tasks/stats` 的 `total` / `trashCount`（首屏本来就会拉，别为此多发请求）；取不到 profile 或统计时**一律不弹**（判不了就别打扰）。「建了第一条任务」之后条件②永久不成立，引导自己退役 —— 也正因为如此，条件成立时**每次进任务页都会放一遍**，这是刻意取舍，不要再加「看过了」那层。
-
-    四条硬要求：`close-on-press-escape` **必须显式开**（EP 默认 false，而文案里写了 Esc）；对 `modelValue` 的 watch **必须带 `immediate`**（调用方一挂载就是打开状态时，不立即跑一次会弹出一张空白卡）；**弹之前先 `await refresh()` + `nextTick`**（数据与 DOM 都要先落地，否则前几步指空）；**每换一步都要 `syncPositionWithTarget()`**（`@change` 里自己滚 + 派发 `window` 的 `resize`）—— EP 是「`scrollIntoView` 后立刻量矩形」，目标需要滚动才看得见时（最后一步的快速录入在列表底部）会量到半路坐标，表现为「卡片不见了、高亮落在别的行，缩窗口才好」；`scroll-into-view-options` 也**不要**给 `behavior: 'smooth'`。目标是 CSS 选择器、**目标不存在就跳过那一步** —— 空态不必另写一套文案。**收尾（走完 / Esc / ×）要把引导期间滚走的列表滚回顶部**（`restoreScroll()`：按最后一个目标找滚动容器，`prefers-reduced-motion` 时改瞬时）。演示模式那条「点这个方框」气泡（约定 17）保留，但**漫游开着时让位**，两层不要同时出现。
+1. **只做电脑 + 平板横屏**：最窄按 ≈900px，不做手机端；`≤900 / ≤760 / ≤640` 只是窄窗兜底，落在这一档「要滚一段」可以接受，不再优化。`@container` 的降级照旧（按容器宽度，与视口无关）；侧栏折叠的视口断点 1150，`useSidebarCollapse.ts` 与 CSS 两处**必须同时改**。
+2. 中文沟通、个人独立项目：开工前把不明确处问清楚，倾向接受带理由的推荐选项。
+3. `docs/系统设计说明书V8.11.md` 只是参考：与用户要求冲突时**以用户要求为准**，「文档与代码不一致」不是阻塞项。
+4. 联调：后端在 **8081**，前端**必须用 5173**（后端 CORS 只认它，换 5174 会 403；curl 不带 Origin，看着像通的）。
+5. **进站三态**：有效票 → 任务页；票过期 → 登录页（带 `redirect`）；没有票 → 演示模式。过期票**只判断、不删除**（`utils/token.ts` 是唯一依据）；`/admin/**` 是另一套守卫。
+6. **演示模式**：免登录、不请求后端；写操作在内存里真实生效、刷新还原；资料 / 邮箱 / 密码只提示不保存。左下角与前台共用 `SideBottomBar` 和同一份折叠偏好。演示的引导气泡只在**从站外进来**时出现一次；「全部划掉」彩蛋按 `stats` 全量判定。
+7. **液态玻璃**：页面没有纯白底。**铁律：文字对比度由文字色承担，不要靠压暗画布来救**（压暗后玻璃背后没有可折射的东西，整页变灰）。玻璃只认 `--glass-*` / `--seg-*` 令牌，组件里不写死白色；面板与卡片**同一档材质**，层级靠面积与厚度，不靠更白、不靠圆角；**卡片不要自己加 `blur`**（宽扁条会采到内层滚动容器裁切边外的空底，整卡变灰板）。圆角只有四级 —— 面 20 / 控件 12 / 小件 8 / 胶囊 999，不要再加新值。文字三级；浅色主题必须 `subpixel-antialiased`；输入框是凹井；按钮一律不投影（唯一例外是回到顶部）。
+8. **颜色四支各管各的**：`--color-brand` 只做「面」（白底上的字用 `--color-brand-ink`，浅蓝块上的字用 `--color-brand-fg`）；`--color-accent` 管功能蓝（聚焦环 / 勾选框 / 进度深端），**深浅主题反向，别和 brand 合并**；主按钮单独 `--color-cta`（浅色浅蓝 + 深字，深色深蓝 + 白字，胶囊、无外投影）；完成态独立 `--color-check-*`，与环形进度 100% 共用同一支绿。
+9. 侧栏导航、筛选页签、优先级胶囊、后台分段控件都是**独立滑块**（量位置 + `transform` 过渡）：选中项**只改文字色与字重，不要再画底色**。
+10. 动作类提示一律 `AppTooltip`（不写原生 `title`），文字类信息不挂气泡。要改 popper 宽度 / 换行就加 `popper-class` 并写在**非 scoped** 样式里；收窄**只认 `.el-popper.is-dark`**（写成 `.el-popper.el-tooltip` 会把日期面板按成「看得见、点不动」）。
+11. **认证页**：原生 `<form>` + `novalidate`，`@submit.prevent` 接住回车，主按钮不再挂 `@click`（否则一次点击发两遍），入口判 `loading` 防连点。三个页面共用 `AuthAside`，差别只有一句 `lead`。
+12. **图形码不常驻**：只在发邮箱验证码 / 登录 / 后台登录时弹窗。登录页同一邮箱连错 2 次、第 3 次起才弹（本地计数在 `utils/loginAttempts`，30 分钟过期、成功清零；落后于后端时按 4008 补上）；注册成功与解禁后都要清本地计数。后台登录每次都要。锁定 **1009** 的文案由后端拼，前端**原样展示**、由登录页常驻一行，不走拦截器 toast。
+13. **后台入口安全**：`/admin` 只是 SPA 路由，「藏路径」不是安全措施（bundle 公开），别为它拆包 / 混淆。前端只做两层：token 必须是「三段 JWT + 数值 exp 未过期」，`/admin*` 挂 `noindex` + `robots.txt` Disallow（只防收录）。真正的隔离在部署层（nginx 来源限制 / Basic Auth，模板见 `docs/前端修改说明.md`）。
+14. **任务区**：一行一卡；**点任务行 = 直接进编辑弹窗**，没有只读详情，回收站行不可点。行内改动走 `todo.patchTask`（只替换本行，`refreshRecordedAt: false`、不带 `imageOrder`），批量动作 4 个并发。优先级只有低 / 中 / 高三档；逾期不整卡染色，只在左侧悬一枚红胶囊、时间前的时钟换成三角。勾选 / 取消勾选走 `leaveOnToggle` + 160ms 本地停留，离开动画交给列表的 leave transition（**不要在离开元素上用 CSS animation**，会破坏 FLIP）。
+15. **配图**：列表 / 弹窗 / 大图三处是同一个 `ImageSlideshow`，灯箱 `Teleport to="body"`；缩略图兼「看大图」与「拖动排序」，靠 4px 阈值区分，删除与开图都要 `click.stop`。只收 JPG/PNG/WebP（GIF 拒），单张 >10MB 直接拦，压缩阈值见 `utils/image.ts`。直链保持**预签名 30 分钟**（泄露面控制）：不做长期地址、不做后端转发、不做缩略图；前端只做同一页面生命周期内的 URL 复用，列表只下每任务首张。
+16. **设置页**：一行一项，默认不出现常驻输入框，**只有右侧按钮可点**；用户名 / 手机号走行内编辑，邮箱 / 密码进弹窗。
+17. **工具栏切模式不能改变高度**：两种模式的行叠在同一个 grid 格子里，只切 `opacity / transform / clip-path`，隐藏行挂 `inert`；**不要用 `position: absolute` 藏行**（position 不可过渡，会把滑动变成瞬移）。
+18. **后台**：不露头 —— 界面不放任何入口、也不提「管理员」，靠直接访问 `/admin/login`。骨架与前台同源；表格不一行一卡、**不用 `fixed` 列**；EP 的表格底色变量必须写在 `.el-table` 自身（写父级无效），底部只留一条线（`.el-table::before`、`__inner-wrapper::before`、最后一行 `td` 的 `border-bottom` 三处都要关）；首屏给 `body-wrapper` 固定 `min-height`（别用 `el-table` 的 `min-height` prop），`v-loading` 只在真没数据时挂。**弹窗一律 `align-center`**；没有输入项的动作只走一次 `ElMessageBox` 确认。
+19. **新手漫游**：入口由账号状态判定 —— 演示只从站外进来时放；登录后「账号创建 < 7 天且一条任务都没有」才放，**不记「看过了」**（localStorage 按设备记，旧账号换机必误弹）；取不到 profile / 统计就一律不弹。文案与选择器集中在 `useOnboarding`，目标不存在就跳过；换步自己滚 + 派发 `resize`，收尾把列表滚回顶部；漫游开着时演示气泡让位。
+20. **品牌资源**只有 `public/logo.svg` + `logo.png`（同源）；`favicon.ico` 已删除，不要再生成。
+21. **验证**：构建跑 `npm run build`（`vue-tsc` + `vite build`），项目没有 lint / test 脚本；真浏览器验证用系统 Edge + CDP 零依赖临时脚本，验完删脚本。
 
 ## 三、修订记录
 
-### 2026-11-02 16:40 · 后台三处：表格居中、用户表换列、UA 改简写
+### 2026-11-03 00:29 · 弹窗打开时收掉玻璃面板的外阴影
 
-用户三条：① 表格所有的列居中对齐表头；② 用户表任务数只显示总数、去掉图片数、增加上次登录时间；③ 审计页 User-Agent 太长放不下，换一种展示。
+用户指出：打开「新密码」弹窗后，表格面板正下方多出一条深色横条。
 
-**居中**：`main.css` 加 `.admin-panel .el-table .cell { text-align: center }` —— 表头与单元格都走这一条，三张后台表格共用，新增列不用再记得传 `align`。
+**原因**：它不是新元素，是面板自己的落影 `--shadow-panel`（`0 12px 30px -16px rgba(24, 36, 74, .18)`）。浅色页面上这圈阴影只有几个色阶；弹窗遮罩把整页压暗后，阴影同步变深，就在面板与弹窗之间显形成一条横带。实测把 `.admin-panel` 的 `box-shadow` 临时设成 `none`，横条消失；行高与表格高度都没变（不是布局问题）。
 
-**用户表**（`AdminUserTable.vue`）：删掉「图片数」列；任务数只给总数（在用 + 回收站），拆分收进 `AppTooltip` 气泡（「39 + 13」看着像故障码，合计又没法反推）；新增「上次登录时间」，`lastLoginAt` 为空显示「—」而不是「从未登录」（审计上线前登录过的账号查不到，写成「从未」会读错）。顺手把操作列从 inline 排列换成 `flex + gap` —— 模板换行会变成 4 个行内空白（约 16px），5 个按钮（有「解禁」时）正是被它挤到第二行、把行高撑高。为容下新列，手机号 130→120、用户名 120→110、任务数 96→88、状态 90→84、注册时间 / 上次登录 150→140、操作 240→236：1600 宽下表宽 1158 = 容器 1158，不横向滚动。`AdminUser` 类型加 `lastLoginAt?: string | null`。
+**改法**（`main.css`）：`body.el-popup-parent--hidden .admin-panel, body.el-popup-parent--hidden .sidebar { box-shadow: none }`。`el-popup-parent--hidden` 是 Element Plus 在弹窗 / 确认框锁滚动时挂到 body 上的类，所以只在遮罩在场时生效，关掉弹窗立刻恢复浮起感。
 
-**上次登录时间的数据不在前端**：`AdminUserVO` 没有该字段、`app_user` 也没有登录时间列，按用户要求把需求写进 `docs/后端修改说明.md` 第 1 条（推荐加 `last_login_at` 并在登录成功时写；备选是从 `login_audit` 聚合），后端补上即自动显示，前端无需再改。
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 两行数据）—— 弹窗打开时 `.admin-panel` 与 `.sidebar` 的 `box-shadow` 计算值都是 `none`，面板下方区域截图不再有暗带；点「我已复制，关闭」后 body 上的类移除、面板阴影恢复原值。
 
-**UA**：新增 `utils/userAgent.ts`（「浏览器 主版本 · 系统」；判断顺序 Edge → Opera → Chrome → Safari 不能反，Edge 的 UA 里也带 `Chrome/`），`LoginAuditTable.vue` 的列收成固定 180，列内是「Edge 137 · Windows 10」，悬停用 `AppTooltip` 看完整串（`popper-class="ua-popper"` 写在非 scoped 样式里，限宽 420 + `break-all`）。
+### 2026-11-03 00:22 · 重置密码改为服务端生成口令 + 一次性回显
 
-验证：`npm run build` EXIT=0；Edge + CDP 实测（三页接口 mock）—— 三张表的 `th .cell` / `td .cell` 计算值都是 `center`；用户表表头 9 列含「上次登录时间」、无「图片数」，任务数 52（39+13）、气泡「在用 39 · 回收站 13」，带「解禁」的 5 个按钮 `offsetTop` 只有一个值（同一行），表宽 1158 = 容器；审计 UA 列为 `Edge 137 · Windows 10` / `Chrome 137 · macOS 10` / `curl 8`，悬停气泡宽 420、`break-all`、内容为完整 UA。
+用户要求：重置用户密码不要手动输入，点一下生成随机串，弹一个可复制的窗口，用户登录后自行修改。口径定为**口令由后端生成**（与「创建用户」完全对称，密码策略只留一处）。
 
-### 2026-11-02 01:19 · 分段控件抽成公共组件，审计页只留「管理员 / 用户」两段
+**后端**（`docs/后端修改说明.md` 第 1 条，已实现）：`POST /api/admin/users/{id}/password/reset`，无请求体，`data.newPassword` 只回一次（12 位、字母 + 数字，与建号同一个生成器），带 `Cache-Control: no-store`，不写日志、不存明文；副作用与旧 PUT 一致（换密码 + 刷 `password_updated_at` 踢下线 + 顺带解禁）。
 
-用户两条：① 复用主页「未完成 / 已完成 / 全部」那个组件；② 去掉「全部」，只留两段。
+**前端**：`types/index.ts` 新增 `AdminUserResetPasswordResult`；`api/admin.ts` 用 `resetUserPasswordToGenerated(id)`（POST）替换原来的「指定口令」封装；`stores/admin.ts` 的 `resetPassword(id)` 改成「调接口 + 返回服务端口令」、不缓存；`ResetPasswordDialog.vue` 去掉两个密码输入框与校验，只留说明 + 「生成并重置」；`AdminUsersView` 直接拿返回值开回显弹窗（`pendingReveal`，等重置弹窗动画结束再开，两层遮罩不叠）；原 `InitialPasswordDialog.vue` 泛化为 `PasswordRevealDialog.vue`（`mode: 'create' | 'reset'`），建号与重置共用同一套「只显示一次 + 复制」。
 
-**抽组件**：新增 `components/SegmentedControl.vue` —— 把 `FilterBar` 里写死的那套（白色滑块 + 量 `offset*` + `ResizeObserver` 重量 + 首帧 `--ready` 才开过渡）整段搬过去，props 是 `items / modelValue / ariaLabel / size`，`size="small"` 是后台工具栏那一档（30 高 / 13 号字）。`FilterBar` 改为 `<SegmentedControl :items="tabs" v-model="activeTab" />`，删掉 `tabsRef / tabEls / indicator / indicatorStyle / updateIndicator / tabsObserver` 那一整套脚本与 `.filter-bar__tab*` 样式（模板里只剩一行）。**以后别再复制第二份分段控件** —— 复制的第一天就一样，三个月后走样的就是它。
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 接口）—— 重置弹窗 0 个输入框，点「生成并重置」只发一次 `POST /admin/users/u1/password/reset`（无请求体），弹窗显示的口令与响应里的 `SrvGen2pwdX9` 完全一致（证明没有本地生成）、只有 1 个可见弹窗，复制拿到同一串；建号回归仍是「初始密码（只显示这一次）」+ 响应里的 `initialPassword`。真实后端未登录验证（缺管理员口令），接口路径与字段按 `AdminUserController#resetPasswordToGenerated` 对齐。
 
-`AdminAuditView.vue`：改用 `SegmentedControl`（small），`ACTOR_TABS` 去掉了「全部」；`actorTab` 写成 `computed` 读写 store 的 `actorType`，getter 兜底 `'ADMIN'`；`onMounted` 补一次默认值，保证首屏第一发请求就带 `actorType`。
+### 2026-11-02 23:41 · 分页去掉白底，融进玻璃面板
 
-**去掉「全部」的取舍**：两段恒有一个选中，界面不会出现「谁都没亮」的空档，代价是看不到两类混排 —— 但审计页里管理员只有几个人、用户是另一回事，本来也不该混着读。默认给「管理员」：进后台先看的是谁登过后台。
+用户要求：后台表格右下角的翻页按钮不要白底。
 
-验证：`npm run build` EXIT=0；审计页读到 `["管理员","用户"]`、默认选中「管理员」、滑块宽 67；前台回归读到 `["未完成","已完成","全部"]`、滑块 76，点「已完成」后滑块 `x: 1018 → 1096` 跟过去（同一套组件，两处都没坏）。
+**来源**：EP 给翻页按钮和页码铺的是 `--el-pagination-bg-color`（默认白），32px 的方块并排就是一条白条，压在玻璃上很突兀；「共 N 条」本身是透明的。
 
-### 2026-11-02 01:15 · 登录审计的「登录方」从下拉改成三段按钮
+**改法**（`main.css`，只对 `.admin-panel__foot .el-pagination`）：把 `--el-pagination-bg-color` 与 `--el-pagination-button-disabled-bg-color` 都改成 `transparent`，白底连同禁用态的实心底一起消失；翻页按钮与页码在悬停时补一层 `--control-hover`（与站内图标按钮同一层反馈），当前页仍是深色加粗数字，靠字重和颜色分辨。
 
-用户要求把「全部登录方」那个下拉换成按钮切换。
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（1440，mock 单页数据）—— `--el-pagination-bg-color: transparent`，上一页 / 下一页 / 页码的背景都是 `rgba(0, 0, 0, 0)`；当前页是 `rgb(31, 36, 48)` + 字重 700；鼠标移到页码上背景变 `rgba(255, 255, 255, 0.44)`（`--control-hover`）。单页时「下一页」是禁用态，按设计不给悬停反馈。
 
-`AdminAuditView.vue`：`el-select` 换成 `.audit-switch`（全部 / 管理员 / 用户），沿用前台筛选栏那套分段语言 —— `--seg-track-bg` 浅底槽 + 选中项 `--seg-thumb-bg` 白滑块 + `--seg-thumb-shadow`，深色主题自动换成半透明白，**不写死颜色**。顺序按用户口径「管理员 / 用户」排。
+### 2026-11-02 23:38 · 后台表格不再被横向滚动条压住最后一行
 
-**「全部」必须留着**：去掉它就再也回不到「两种都看」的默认视图，而那是进页面时的初始状态。三个按钮一次点击切换，比「点开下拉 → 认两项 → 再点一次」少一步。
+用户选了方案 A：把后台表格的横向滚动条藏掉，滚动能力保留。
 
-不做 JS 量位置的滑动指示块（前台 `FilterBar` 那套）：这里只有三格、宽度固定，选中项自己带底就够了，多一层 JS 只会多一处要维护的测量。
+**根因**：9 列宽度合计 1154，而 1440 / 1366 下表格容器只有 1028 / 954 —— 后台表在常规笔记本上必然横滚。系统设成「总是显示滚动条」时它在底部占掉一截，最后一行看着突然变高；EP 自绘的悬浮条（6px、`bottom: 2px`）则直接压在最后一行底部。行本身高度没变（实测两行 67 / 66）。
 
-`LOGIN_AUDIT_ACTOR_OPTIONS` 是下拉专用的（USER 在前），换按钮后不再被引用，import 改成 `LOGIN_AUDIT_ACTOR_LABEL`。
+**改法**（`main.css`，只对 `.admin-panel` 生效）：`.el-scrollbar__wrap` 加 `scrollbar-width: none` 与 `::-webkit-scrollbar { width/height: 0 }`，再把 EP 的 `.el-scrollbar__bar.is-horizontal` 关掉；纵向那条留着（表格目前不纵滚）。横向滚动本身不动 —— 触控板横滑、Shift+滚轮照旧，与站内其它滚动区域「滚动条一律隐藏」同一口径。
 
-验证：`npm run build` EXIT=0；读 DOM —— 按钮文案 `["全部","管理员","用户"]`、默认「全部」选中；依次点击，选中态 `全部 → 管理员 → 用户 → 全部`，每次都会重新取数。
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（1440 视口，mock 两行）—— `scrollbarWidth: none`、横向条 `display: none`、`scrollWidth 1154 > clientWidth 1028`；把 `scrollLeft` 设 200 后实际停在 126（最大值），说明还能滚；body-wrapper 高 133、两行 67 / 66、最后一行底边与表格底边同为 389，不再多出一截。
 
-### 2026-11-02 01:10 · 首屏不再跳高、表格只剩一条线
+### 2026-11-02 23:04 · 审计去掉「登录方」列、用户表邮箱加可复制的气泡
 
-上一版两处都没修干净。
+用户两条：① 登录审计里的「登录方」列去掉；② 用户管理的邮箱，指针放上去要浮窗，浮窗里带快捷复制。
 
-**① 双横线** —— `::before` 关掉之后，**数据行最后一格的 `border-bottom`** 还在，它和 `.admin-panel__foot` 的 `border-top` 仍然是两道。补 `.el-table__body tr:last-child td.el-table__cell { border-bottom: none }`（行与行之间的细线保留，只去掉最后一行的）。
+**审计列**（`LoginAuditTable.vue`）：删掉「登录方」列（90px），表头只剩 时间 / 账号 / 结果 / IP / User-Agent。上方的分段已经按登录方筛选，列里永远只有同一个值，留着只是重复；配套的 `LOGIN_AUDIT_ACTOR_LABEL` 引用与 `.actor--admin` 样式一并清掉（常量本身仍给分段控件用，没删）。
 
-**② 首屏还是闪** —— `v-loading` 改成「无数据才遮罩」只解决了**切页**；首屏本来就没数据，遮罩照旧。真正让它跳的是**高度**：加载中表格只有表头（96px），数据一到变成 164px，观感就是闪。给 `.el-table__body-wrapper` 一个 `min-height: 120px`（约两行），加载前后高度恒定，只有内容在原地替换。
+**邮箱气泡**（`AdminUserTable.vue`）：邮箱列从 `show-overflow-tooltip` 换成 `el-popover`（`trigger="hover"`、宽 300、`show-after` 200）—— 单元格单行省略，气泡里给完整地址 + 一个**纯图标**的复制按钮（24×24，文案只留在 `aria-label`，不放「复制」字样）。复制走 `utils/clipboard`，成功后图标由 copy 换成 check 并转绿 1.6 秒（不弹 toast 打断视线），失败才弹一次错误。**这里不能用 `AppTooltip`**：它 `pointer-events: none`，按钮点不到；排版写在非 scoped 的 `.email-popover` 里（气泡 teleport 到 body）。
 
-⚠ 不能用 `el-table` 的 `min-height` 属性：EP 2.x 里那个 prop 不落到 `.el-table__body-wrapper` 的 `min-height` 上（实测传 220 后计算值仍是 `auto`、表格总高 96），必须走 CSS。
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 用户 / 审计两个接口）—— 审计表头 `["时间","账号","结果","IP","User-Agent"]`、首行内容正常；邮箱单元格 `text-overflow: ellipsis` + `nowrap`，悬停 700ms 后 `.email-popover` 可见、宽 300、内容为完整邮箱 + 24×24 的空文本图标按钮（`aria-label="复制邮箱"`）；点图标后 clipboard 收到的正是该邮箱，按钮换 check 图标、`aria-label` 变「已复制」、颜色转绿。
 
-遮罩本身同步改成 `element-loading-background="transparent"`，只留 spinner，不再铺一层白。
 
-验证：`npm run build` EXIT=0；playwright-cli 读到 `body-wrapper` 的 `min-height: 120px`、表格总高 **164**（上一版 96）、最后一行 `td` 的 `border-bottom: 0px`、`foot` 的 `border-top: 1px` —— 只剩一条线。
 
-### 2026-11-02 01:06 · 后台三处收尾：脚注位、双横线、切页闪烁
 
-用户三条：① 「上次登录」放在底下太突兀，要挪到横线上面；② 表格底部有两条横线；③ 切「用户 / 管理员 / 审计」时表格会闪一下。
 
-`AppSidebar.vue`：新增 **`footnote` 具名插槽**，夹在导航与 `.sidebar__settings` 之间、压在横线上方；`.sidebar__footnote` 自己吃 `margin-top: auto`，并用 `+ .sidebar__settings { margin-top: 0 }` 把设置区那条 auto 让掉 —— 两个 auto 会**均分**剩余空间，横线上下各空一大截。前台不传这个插槽，settings 仍是 `margin-top: auto`，行为不变。
 
-`AdminLayout.vue`：「上次登录」从身份位（横线下方）挪到 `#footnote`，折叠时 `v-if` 不渲染（54px 宽放不下）；身份位缩回单行，`--row-height: 60` 一并去掉。
 
-`main.css`：`.admin-panel .el-table::before` 与 `.el-table__inner-wrapper::before` 关掉 —— EP 在表格上挂了 `::before` 做底边，而 `.admin-panel__foot` 又用 `border-top` 画了一条，两条叠在分页上方就是双线；表格那条去掉，由 foot 承担。
-
-三个表格组件：`v-loading` 从 `loading` 改成 **`loading && !list.length`** —— 切换页面时 store 里的数据还在，遮罩一盖就变成「闪一下」；只有在真正没有数据（首次进入）时才遮罩。
-
-验证：`npm run build` EXIT=0；把 mock 的 users 放最后注册（playwright 的 route 后注册优先）后实测 —— 从「用户管理」切到「管理员管理」再切回，逐帧采样 5 次全是 `1 行 / 无遮罩`；截图确认「上次登录」在横线上方居中、表格底部只剩一条线。
 
 
 

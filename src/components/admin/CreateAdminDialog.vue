@@ -50,7 +50,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="新增管理员" width="480px" append-to-body>
+  <el-dialog v-model="visible" title="新增管理员" width="480px" append-to-body align-center>
     <p class="dialog-hint">
       管理员名即登录名，全站唯一；密码{{ PASSWORD_HINT }}。
       <strong>密码一旦创建不可修改</strong>，请妥善保存。

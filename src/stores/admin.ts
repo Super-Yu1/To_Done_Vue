@@ -132,8 +132,13 @@ export const useAdminStore = defineStore('admin', () => {
     await fetchUsers(query.page)
   }
 
-  async function resetPassword(id: string, newPassword: string) {
-    await adminApi.resetUserPassword(id, newPassword)
+  /**
+   * 重置密码（2026-11-03 改）：口令由服务端生成，这里只把一次性明文透给调用方 ——
+   * 不缓存、不留状态，关掉回显弹窗就该忘掉它。
+   */
+  async function resetPassword(id: string): Promise<string> {
+    const result = await adminApi.resetUserPasswordToGenerated(id)
+    return result.newPassword
   }
 
   /**

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * 用户管理（8.9）：工具条 + 表格 + 分页 + 五个弹窗（创建 / 编辑 / 重置密码 / 冻结解冻 / 注销）
- * + 「初始密码」一次性展示弹窗。
+ * 用户管理（8.9）：工具条 + 表格 + 分页 + 五个弹窗（创建 / 编辑 / 重置密码 / 冻结 / 注销）
+ * + 「密码回显」一次性弹窗（建号的初始密码、重置生成的新密码共用）。
  */
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -11,7 +11,7 @@ import AdminUserToolbar from '@/components/admin/AdminUserToolbar.vue'
 import CreateUserDialog from '@/components/admin/CreateUserDialog.vue'
 import DeleteUserDialog from '@/components/admin/DeleteUserDialog.vue'
 import FreezeDialog from '@/components/admin/FreezeDialog.vue'
-import InitialPasswordDialog from '@/components/admin/InitialPasswordDialog.vue'
+import PasswordRevealDialog from '@/components/admin/PasswordRevealDialog.vue'
 import ResetPasswordDialog from '@/components/admin/ResetPasswordDialog.vue'
 import UserEditDialog from '@/components/admin/UserEditDialog.vue'
 import { PAGE_SIZE } from '@/constants'
@@ -32,9 +32,12 @@ const editError = ref('')
 const createVisible = ref(false)
 const revealVisible = ref(false)
 const createError = ref('')
-/** 刚创建的用户 + 只展示一次的初始密码；关掉弹窗即清空，不留在内存里 */
-const createdUser = ref<AdminUser | null>(null)
-const initialPassword = ref('')
+/** 密码回显弹窗的内容：刚建号的初始密码，或重置后生成的新密码（都只显示一次） */
+const revealUser = ref<AdminUser | null>(null)
+const revealPassword = ref('')
+const revealMode = ref<'create' | 'reset'>('create')
+/** 重置成功后，等「重置密码」弹窗关掉再亮新密码 —— 两层弹窗不叠在一起 */
+const pendingReveal = ref<{ user: AdminUser; password: string } | null>(null)
 
 function openDialog(target: 'edit' | 'reset' | 'freeze' | 'delete', user: AdminUser) {
   activeUser.value = user
@@ -67,8 +70,9 @@ async function handleCreateUser(payload: AdminUserCreatePayload) {
     const result = await adminStore.createUser(payload)
     // 关掉表单、立刻亮出初始密码——它是唯一一次明文机会，中间不插任何提示或刷新
     createVisible.value = false
-    createdUser.value = result.user
-    initialPassword.value = result.initialPassword
+    revealUser.value = result.user
+    revealPassword.value = result.initialPassword
+    revealMode.value = 'create'
     revealVisible.value = true
   } catch (error) {
     // 1002 邮箱已被活跃账号占用：弹窗保持打开并就地提示（8.9）
@@ -78,11 +82,12 @@ async function handleCreateUser(payload: AdminUserCreatePayload) {
   }
 }
 
-/** 「初始密码」弹窗关闭（动画结束）后：清掉密码，并刷新第一页看到新用户（列表按注册时间倒序） */
+/** 密码弹窗关闭（动画结束）后：清掉明文；建号那一路顺手刷新第一页看到新用户（列表按注册时间倒序） */
 function handleRevealClosed() {
-  initialPassword.value = ''
-  createdUser.value = null
-  void guard(() => adminStore.fetchUsers(1))
+  const wasCreate = revealMode.value === 'create'
+  revealPassword.value = ''
+  revealUser.value = null
+  if (wasCreate) void guard(() => adminStore.fetchUsers(1))
 }
 
 async function handleUpdateUser(payload: AdminUserUpdatePayload) {
@@ -102,19 +107,35 @@ async function handleUpdateUser(payload: AdminUserUpdatePayload) {
   }
 }
 
-async function handleResetPassword(newPassword: string) {
+/**
+ * 重置密码（2026-11-03 改）：不再让管理员手输 —— 口令由**服务端生成**并在响应里回一次
+ * （与建号同一个生成器）。成功后关掉本弹窗，等它动画结束（`handleResetClosed`）
+ * 再弹「新密码」，只显示一次、可复制。
+ */
+async function handleResetPassword() {
   const target = activeUser.value
   if (!target) return
   submitting.value = true
   try {
-    await adminStore.resetPassword(target.id, newPassword)
+    const password = await adminStore.resetPassword(target.id)
+    pendingReveal.value = { user: target, password }
     resetVisible.value = false
-    ElMessage.success('新密码已生效，该用户需重新登录')
   } catch {
     // 提示已由 http 层给出
   } finally {
     submitting.value = false
   }
+}
+
+/** 「重置密码」弹窗关掉之后才亮新密码，避免两层的遮罩叠在一起闪一下 */
+function handleResetClosed() {
+  const pending = pendingReveal.value
+  if (!pending) return
+  pendingReveal.value = null
+  revealUser.value = pending.user
+  revealPassword.value = pending.password
+  revealMode.value = 'reset'
+  revealVisible.value = true
 }
 
 /**
@@ -144,6 +165,40 @@ async function handleUnlock(user: AdminUser) {
     // 提示已由 http 层给出
   } finally {
     unlocking.value = false
+  }
+}
+
+/**
+ * 行内「冻结 / 解冻」的两个出口（2026-11-02）：冻结要填原因，开弹窗；
+ * 解冻没有可填的东西，一次确认就够 —— 以前两个都开 `FreezeDialog`，
+ * 解冻还要在弹窗里再弹一次 MessageBox，同一件事要关两遍。
+ */
+const unfreezing = ref(false)
+
+async function handleToggleFreeze(user: AdminUser) {
+  if (!user.frozenAt) {
+    openDialog('freeze', user)
+    return
+  }
+  if (unfreezing.value) return
+  const name = user.name || user.email
+  try {
+    await ElMessageBox.confirm(
+      `「${name}」将恢复登录，任务、配图与回收站原样保留。`,
+      '确认解冻',
+      { confirmButtonText: '解冻', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+  unfreezing.value = true
+  try {
+    await adminStore.setFrozen(user.id, false)
+    ElMessage.success('已解冻，该用户可立即登录')
+  } catch {
+    // 提示已由 http 层给出
+  } finally {
+    unfreezing.value = false
   }
 }
 
@@ -208,7 +263,7 @@ function handlePageChange(page: number) {
         :loading="adminStore.loading"
         @edit="openDialog('edit', $event)"
         @reset-password="openDialog('reset', $event)"
-        @toggle-freeze="openDialog('freeze', $event)"
+        @toggle-freeze="handleToggleFreeze"
         @unlock="handleUnlock"
         @remove="openDialog('delete', $event)"
       />
@@ -230,10 +285,11 @@ function handlePageChange(page: number) {
       :server-error="createError"
       @confirm="handleCreateUser"
     />
-    <InitialPasswordDialog
+    <PasswordRevealDialog
       v-model:visible="revealVisible"
-      :user="createdUser"
-      :password="initialPassword"
+      :user="revealUser"
+      :password="revealPassword"
+      :mode="revealMode"
       @closed="handleRevealClosed"
     />
     <UserEditDialog
@@ -248,6 +304,7 @@ function handlePageChange(page: number) {
       :user="activeUser"
       :submitting="submitting"
       @confirm="handleResetPassword"
+      @closed="handleResetClosed"
     />
     <FreezeDialog
       v-model:visible="freezeVisible"

@@ -21,7 +21,7 @@ const dataSummary = computed(() => {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="注销用户" width="480px" append-to-body>
+  <el-dialog v-model="visible" title="注销用户" width="480px" append-to-body align-center>
     <p class="dialog-hint">
       「{{ displayName }}」将<strong>立即无法登录，且注销不可恢复</strong>。
     </p>

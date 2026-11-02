@@ -1,20 +1,20 @@
 <script setup lang="ts">
 /**
- * 登录审计表格（2026-10-31）：时间 · 登录方 · 账号 · 结果 · IP · User-Agent。
+ * 登录审计表格（2026-10-31）：时间 · 账号 · 结果 · IP · User-Agent。
  * 只读，没有操作列 —— 审计是「回看」，能做的动作只有筛选。
+ *
+ * 去掉「登录方」列（2026-11-02）：上方分段已经按登录方筛选，列里永远只有同一个值，
+ * 留着占 90px 只是重复；要看「谁登的」直接切分段。
  *
  * User-Agent（2026-11-02 改）：整串 150~200 字符，排在表里永远放不下，改成「浏览器 · 系统」简写
  * （`utils/userAgent`），完整串进悬停气泡 —— 要排查时看一眼就够，也不用再横向滚动。
  */
 import { computed } from 'vue'
 import AppTooltip from '@/components/AppTooltip.vue'
-import {
-  LOGIN_AUDIT_ACTOR_LABEL,
-  LOGIN_AUDIT_RESULT_LABEL,
-} from '@/constants'
+import { LOGIN_AUDIT_RESULT_LABEL } from '@/constants'
 import { formatDateTime } from '@/utils/date'
 import { describeUserAgent } from '@/utils/userAgent'
-import type { LoginAudit, LoginAuditActorType, LoginAuditResult } from '@/types'
+import type { LoginAudit, LoginAuditResult } from '@/types'
 
 const props = defineProps<{ audits: LoginAudit[]; loading?: boolean }>()
 
@@ -38,14 +38,6 @@ const isEmpty = computed(() => !props.loading && props.audits.length === 0)
     element-loading-background="transparent">
       <el-table-column label="时间" width="150">
         <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
-      </el-table-column>
-
-      <el-table-column label="登录方" width="90">
-        <template #default="{ row }">
-          <span :class="{ 'actor--admin': row.actorType === 'ADMIN' }">
-            {{ LOGIN_AUDIT_ACTOR_LABEL[row.actorType as LoginAuditActorType] }}
-          </span>
-        </template>
       </el-table-column>
 
       <el-table-column label="账号" min-width="200" prop="account" show-overflow-tooltip />
@@ -90,12 +82,6 @@ const isEmpty = computed(() => !props.loading && props.audits.length === 0)
 
 .result--fail {
   color: var(--color-danger-text);
-}
-
-/* 管理员登录比用户登录更值得一眼看到：同一列里加深一档字重 */
-.actor--admin {
-  font-weight: 600;
-  color: var(--color-text);
 }
 
 /* UA 简写单行省略：列宽固定 180，长一点的名字（Edge / python-requests）也不许撑破列 */
