@@ -2,13 +2,18 @@
 /**
  * 登录审计表格（2026-10-31）：时间 · 登录方 · 账号 · 结果 · IP · User-Agent。
  * 只读，没有操作列 —— 审计是「回看」，能做的动作只有筛选。
+ *
+ * User-Agent（2026-11-02 改）：整串 150~200 字符，排在表里永远放不下，改成「浏览器 · 系统」简写
+ * （`utils/userAgent`），完整串进悬停气泡 —— 要排查时看一眼就够，也不用再横向滚动。
  */
 import { computed } from 'vue'
+import AppTooltip from '@/components/AppTooltip.vue'
 import {
   LOGIN_AUDIT_ACTOR_LABEL,
   LOGIN_AUDIT_RESULT_LABEL,
 } from '@/constants'
 import { formatDateTime } from '@/utils/date'
+import { describeUserAgent } from '@/utils/userAgent'
 import type { LoginAudit, LoginAuditActorType, LoginAuditResult } from '@/types'
 
 const props = defineProps<{ audits: LoginAudit[]; loading?: boolean }>()
@@ -55,9 +60,18 @@ const isEmpty = computed(() => !props.loading && props.audits.length === 0)
         <template #default="{ row }">{{ row.ip || '—' }}</template>
       </el-table-column>
 
-      <!-- UA 一行放不下，悬停看全（show-overflow-tooltip 是 EP 自己的省略提示，不是动作气泡） -->
-      <el-table-column label="User-Agent" min-width="240" prop="userAgent" show-overflow-tooltip>
-        <template #default="{ row }">{{ row.userAgent || '—' }}</template>
+      <!--
+        UA 列固定 180：简写最多「浏览器 版本 · 系统」这一档（约 130px），剩下的余量给账号列。
+        列里不放整串、也不用 EP 的 show-overflow-tooltip —— 那个提示条只有一行、会被截断，
+        这里要看的是完整串，走 AppTooltip（换行由非 scoped 的 .ua-popper 负责）。
+      -->
+      <el-table-column label="User-Agent" width="180">
+        <template #default="{ row }">
+          <AppTooltip v-if="row.userAgent" :content="row.userAgent" placement="top" popper-class="ua-popper">
+            <span class="ua">{{ describeUserAgent(row.userAgent).label }}</span>
+          </AppTooltip>
+          <span v-else class="text-3">—</span>
+        </template>
       </el-table-column>
     </el-table>
 
@@ -84,10 +98,31 @@ const isEmpty = computed(() => !props.loading && props.audits.length === 0)
   color: var(--color-text);
 }
 
+/* UA 简写单行省略：列宽固定 180，长一点的名字（Edge / python-requests）也不许撑破列 */
+.ua {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .audit-table__empty {
   padding: 32px 0;
   font-size: 12px;
   color: var(--color-text-2);
   text-align: center;
+}
+</style>
+
+<style>
+/*
+ * 完整 UA 的气泡（teleport 到 body，scoped 够不到）：
+ * UA 里的分号后面不一定有空格，长串必须强制断行，否则会被撑成一条横贯屏幕的黑条；
+ * 420px 是「一屏能读完、又不至于压住半张表」的折中。
+ */
+.ua-popper.el-popper {
+  max-width: 420px;
+  word-break: break-all;
+  line-height: 1.55;
 }
 </style>

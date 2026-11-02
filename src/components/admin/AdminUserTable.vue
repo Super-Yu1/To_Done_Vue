@@ -1,5 +1,11 @@
 <script setup lang="ts">
-/** 用户表格（8.9）：头像 · 邮箱 · 手机号 · 用户名 · 任务数 · 图片数 · 状态 · 注册时间 · 操作 */
+/**
+ * 用户表格（8.9）：头像 · 邮箱 · 手机号 · 用户名 · 任务数 · 上次登录时间 · 状态 · 注册时间 · 操作。
+ *
+ * 2026-11-02 按用户要求改了三处：任务数只给总数（在用 + 回收站，拆分进气泡）、
+ * 去掉「图片数」（管理员只需要知道这个账号有多少数据，不需要按图片再分一列）、
+ * 增加「上次登录时间」（数据由后端补，缺失时显示「—」，见 `docs/后端修改说明.md` 第 1 条）。
+ */
 import { computed } from 'vue'
 import AppTooltip from '@/components/AppTooltip.vue'
 import { formatDateTime, parseDate } from '@/utils/date'
@@ -81,19 +87,32 @@ const isEmpty = computed(() => !props.loading && props.users.length === 0)
       </el-table-column>
 
       <el-table-column label="邮箱" min-width="180" prop="email" show-overflow-tooltip />
-      <el-table-column label="手机号" width="130">
+      <el-table-column label="手机号" width="120">
         <template #default="{ row }">{{ row.phone || '—' }}</template>
       </el-table-column>
-      <el-table-column label="用户名" width="120" prop="name" show-overflow-tooltip />
+      <el-table-column label="用户名" width="110" prop="name" show-overflow-tooltip />
 
-      <el-table-column label="任务数" width="100">
-        <template #default="{ row }">{{ row.taskCount }} + {{ row.taskCountInTrash }}</template>
-      </el-table-column>
-      <el-table-column label="图片数" width="100">
-        <template #default="{ row }">{{ row.imageCount }} + {{ row.imageCountInTrash }}</template>
+      <!--
+        任务数只显示总数（在用 + 回收站）：一列放两个数字时读者要自己心算，
+        「39 + 13」这种写法在列表里更像故障码。拆分仍有用，收进气泡。
+      -->
+      <el-table-column label="任务数" width="88">
+        <template #default="{ row }">
+          <AppTooltip :content="`在用 ${row.taskCount} · 回收站 ${row.taskCountInTrash}`" placement="top">
+            <span class="task-count">{{ row.taskCount + row.taskCountInTrash }}</span>
+          </AppTooltip>
+        </template>
       </el-table-column>
 
-      <el-table-column label="状态" width="90">
+      <!--
+        「—」而不是「从未登录」：null 也可能是「审计上线（2026-10-31）之前登录过」，
+        写法一旦断言成「从未」，就会把老账号读错。
+      -->
+      <el-table-column label="上次登录时间" width="140">
+        <template #default="{ row }">{{ row.lastLoginAt ? formatDateTime(row.lastLoginAt) : '—' }}</template>
+      </el-table-column>
+
+      <el-table-column label="状态" width="84">
         <template #default="{ row }">
           <AppTooltip :content="statusDetail(row)" placement="top">
             <span
@@ -110,14 +129,14 @@ const isEmpty = computed(() => !props.loading && props.users.length === 0)
         </template>
       </el-table-column>
 
-      <el-table-column label="注册时间" width="150">
+      <el-table-column label="注册时间" width="140">
         <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
       </el-table-column>
 
-      <el-table-column label="操作" width="240">
+      <el-table-column label="操作" width="236">
         <template #default="{ row }">
           <!-- 已注销是终态，不再显示任何操作（8.9） -->
-          <template v-if="statusOf(row) !== 'DELETED'">
+          <div v-if="statusOf(row) !== 'DELETED'" class="user-table__actions">
             <el-button link @click="emit('edit', row)">编辑</el-button>
             <el-button link @click="emit('reset-password', row)">重置密码</el-button>
             <!-- 只有真的在锁定期才给「解禁」：没锁的人点了也是幂等成功，但按钮不该凭空出现 -->
@@ -126,7 +145,7 @@ const isEmpty = computed(() => !props.loading && props.users.length === 0)
               {{ statusOf(row) === 'FROZEN' ? '解冻' : '冻结' }}
             </el-button>
             <el-button link @click="emit('remove', row)">注销</el-button>
-          </template>
+          </div>
           <span v-else class="text-3">—</span>
         </template>
       </el-table-column>
@@ -138,17 +157,22 @@ const isEmpty = computed(() => !props.loading && props.users.length === 0)
 
 <style scoped>
 /*
- * 行内操作（2026-10-30）：EP 的 link 按钮默认带 12px 左外边距，4 个并排时把「注销」挤到第二行。
- * 这里压到 8px、左右内边距归零 —— 一行放得下，行高才不会被按钮撑高。
+ * 行内操作（2026-10-30，2026-11-02 改 flex）：
+ * 5 个按钮（有「解禁」时）用 inline 排列放不下 —— 除了按钮本身，模板里的换行也会变成
+ * 4 个行内空白（约 16px），这正是之前「注销被挤到第二行」的那半格。
+ * 交给 flex + gap：间距由容器给，行内空白不再参与计算，按钮也不会一半在上一行。
  */
+.user-table__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .user-table :deep(.el-button.is-link) {
   margin-left: 0;
   padding: 0 2px;
   font-size: 13px;
-}
-
-.user-table :deep(.el-button.is-link + .el-button) {
-  margin-left: 8px;
 }
 
 .avatar {

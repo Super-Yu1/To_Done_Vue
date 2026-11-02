@@ -60,6 +60,20 @@
 
 ## 三、修订记录
 
+### 2026-11-02 16:40 · 后台三处：表格居中、用户表换列、UA 改简写
+
+用户三条：① 表格所有的列居中对齐表头；② 用户表任务数只显示总数、去掉图片数、增加上次登录时间；③ 审计页 User-Agent 太长放不下，换一种展示。
+
+**居中**：`main.css` 加 `.admin-panel .el-table .cell { text-align: center }` —— 表头与单元格都走这一条，三张后台表格共用，新增列不用再记得传 `align`。
+
+**用户表**（`AdminUserTable.vue`）：删掉「图片数」列；任务数只给总数（在用 + 回收站），拆分收进 `AppTooltip` 气泡（「39 + 13」看着像故障码，合计又没法反推）；新增「上次登录时间」，`lastLoginAt` 为空显示「—」而不是「从未登录」（审计上线前登录过的账号查不到，写成「从未」会读错）。顺手把操作列从 inline 排列换成 `flex + gap` —— 模板换行会变成 4 个行内空白（约 16px），5 个按钮（有「解禁」时）正是被它挤到第二行、把行高撑高。为容下新列，手机号 130→120、用户名 120→110、任务数 96→88、状态 90→84、注册时间 / 上次登录 150→140、操作 240→236：1600 宽下表宽 1158 = 容器 1158，不横向滚动。`AdminUser` 类型加 `lastLoginAt?: string | null`。
+
+**上次登录时间的数据不在前端**：`AdminUserVO` 没有该字段、`app_user` 也没有登录时间列，按用户要求把需求写进 `docs/后端修改说明.md` 第 1 条（推荐加 `last_login_at` 并在登录成功时写；备选是从 `login_audit` 聚合），后端补上即自动显示，前端无需再改。
+
+**UA**：新增 `utils/userAgent.ts`（「浏览器 主版本 · 系统」；判断顺序 Edge → Opera → Chrome → Safari 不能反，Edge 的 UA 里也带 `Chrome/`），`LoginAuditTable.vue` 的列收成固定 180，列内是「Edge 137 · Windows 10」，悬停用 `AppTooltip` 看完整串（`popper-class="ua-popper"` 写在非 scoped 样式里，限宽 420 + `break-all`）。
+
+验证：`npm run build` EXIT=0；Edge + CDP 实测（三页接口 mock）—— 三张表的 `th .cell` / `td .cell` 计算值都是 `center`；用户表表头 9 列含「上次登录时间」、无「图片数」，任务数 52（39+13）、气泡「在用 39 · 回收站 13」，带「解禁」的 5 个按钮 `offsetTop` 只有一个值（同一行），表宽 1158 = 容器；审计 UA 列为 `Edge 137 · Windows 10` / `Chrome 137 · macOS 10` / `curl 8`，悬停气泡宽 420、`break-all`、内容为完整 UA。
+
 ### 2026-11-02 01:19 · 分段控件抽成公共组件，审计页只留「管理员 / 用户」两段
 
 用户两条：① 复用主页「未完成 / 已完成 / 全部」那个组件；② 去掉「全部」，只留两段。
@@ -114,13 +128,5 @@
 
 验证：`npm run build` EXIT=0；把 mock 的 users 放最后注册（playwright 的 route 后注册优先）后实测 —— 从「用户管理」切到「管理员管理」再切回，逐帧采样 5 次全是 `1 行 / 无遮罩`；截图确认「上次登录」在横线上方居中、表格底部只剩一条线。
 
-### 2026-11-02 01:00 · 后台补齐折叠与主题；表格去掉那层一直没生效的白底
 
-用户三条：后台也要折叠侧栏与深浅色切换、「上次登录」居中放到头像下方、表格不要白底。
-
-`AdminLayout.vue`：左下角从「自写的 meta + 用户按钮」换成 **`SideBottomBar`**（身份位 + 主题 + 折叠三格，与前台同一个组件），折叠走同一份 `useSidebarCollapse`（状态存本地、窄屏自动收起），`AppSidebar` 传 `:collapsed`、`.app-layout` 挂 `--collapsed`。身份位改成「头像 + 名字一行」；**「上次登录」移出身份位、绝对定位横跨整条侧栏居中** —— 那一格只有 70% 宽，`上次登录 2026-11-02 00:53` 会被省略号截掉半截日期；折叠时它 `opacity: 0`（54px 宽放不下）。`SideBottomBar` 新增 `--row-height` 变量（默认 40），后台传 60 撑出第二行，主题 / 折叠仍与头像行对齐。
-
-`main.css` 修掉一个**一直没生效**的问题：`--el-table-bg-color` 那批变量原来写在 `.admin-panel` 上，而 Element Plus 在 `.el-table` **自身**也声明了同名变量 —— 元素自身的声明优先于继承，所以「改成 transparent」从来没起过作用，只是被面板的白玻璃盖住、肉眼看不出来（读计算样式：`.el-table` / `th` / `tr` 全是 `#fff`）。现在变量写到 `.admin-panel .el-table` 上，三者才真的透明；面板恢复玻璃底，与页头同一档。
-
-验证：`npm run build` EXIT=0；假 JWT（带合法 `exp`，`readTokenState` 已收紧）+ `playwright-cli route` mock 用户列表 —— 表格 `table / th / tr` 背景均为 `rgba(0, 0, 0, 0)`；折叠 `侧栏 76 / meta opacity 0`、展开 `272 / 1`；「上次登录 2026-11-02 00:53」在 242px 的整行里 `scrollWidth === width`（不截断）、居中显示；亮 / 深两套截图确认主题按钮可用、表格与面板融为一体。
 

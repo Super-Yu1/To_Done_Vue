@@ -258,6 +258,11 @@ export interface AdminUser {
   taskCountInTrash: number
   imageCount: number
   imageCountInTrash: number
+  /**
+   * 上次登录时间（2026-11-02 提出，见 `docs/后端修改说明.md` 第 1 条）。
+   * 后端尚未返回该字段时为 `undefined`，列表显示「—」；null 表示没有任何可用记录。
+   */
+  lastLoginAt?: string | null
   createdAt: string
 }
 

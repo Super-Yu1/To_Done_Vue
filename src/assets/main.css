@@ -1125,6 +1125,16 @@ img {
   letter-spacing: 0.02em;
 }
 
+/*
+ * 表头与单元格一律居中（2026-11-02）：
+ * EP 默认跟随列的 `align`，不写就是左对齐 —— 邮箱、时间这类长度不一的文本会让右半边空一大片，
+ * 表头也就跟着偏左，和「整列居中读」的观感对不上。
+ * 写在 `.cell` 上而不是逐列传 `align="center"`：三张后台表格共用这一条，新增列不用再记得传。
+ */
+.admin-panel .el-table .cell {
+  text-align: center;
+}
+
 /* 行高：表格是密集阅读，比任务卡矮一档 */
 .admin-panel .el-table td.el-table__cell,
 .admin-panel .el-table th.el-table__cell {
