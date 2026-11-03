@@ -34,6 +34,46 @@
 
 ## 三、修订记录
 
+### 2026-11-04 00:59 · 后台登录卡片在整视口垂直居中
+
+用户指出：后台登录的表单贴在顶栏下方，下面空一大片；要求按**整个视口**居中。
+
+**原因**：`AuthShell` 的单栏版（后台登录 / 找回密码）是 `margin: 0 auto` 的普通块 —— `.auth-shell` 虽然是 `min-height: 100vh` 的 flex 列，但 main 不吃剩余空间，卡片固定在「顶栏 56px + 上内边距 48px」的位置。
+
+**改法**（`AuthShell.vue`）：① 单栏 main 改 `margin: auto` 吃掉 flex 剩余空间，上下内边距收成对称的 `48`（原 `48 / 64` 会让卡片再偏 8px）；② 单栏顶栏改成 `position: absolute`（与分栏版同一套做法）—— 它不再占那 56px，main 才能把卡片放到整个视口的正中，而不是「顶栏以下的区域」；顶栏 `pointer-events: none`，只有品牌链接与主题开关自己恢复可点。内容比视口高时 auto 边距归零，照常从顶部滚。
+
+验证：`npm run build` EXIT=0；Edge 无头 + CDP —— 1440×900：卡片 `y=290`、高 321，上下留白 **290 / 290**（完全相等）；1024×768：224 / 224；1440×600：140 / 140，不滚动、不与顶栏重叠；找回密码页同样 232 / 232；分栏的登录页保持原来的「略偏上」（204 / 264，未动）。顶栏品牌与主题开关用 `elementFromPoint` 命中自身，确认悬浮顶栏没挡住点击。
+
+### 2026-11-04 00:54 · 演示提示条换成完整说明文案
+
+用户给的文案：当前为演示模式，您可以随意体验所有功能，数据不会被保存。「登录/注册」即可创建并永久保存您的任务。
+
+`DemoView.vue`：原来的「演示环境 ｜ 改动只存在内存里，刷新页面就会还原 ｜ 去登录」三段式整段替换 —— 去掉左边的「演示环境」小标签（新句子自带这层意思），把「登录/注册」做成**句中链接**（下划线 + 悬停浅底），不再做成右端的胶囊按钮。文案变长后允许换行：`nowrap` + 省略号改成正常折行（`line-height: 1.7`），窄窗下宁可两行也不截掉后半句；容器改 `align-items: flex-start`、内边距收到 10/12。
+
+图标与首行对齐：条内行高 21.25px、图标 14px，原来固定 2px 顶位移让图标中线比首行高 1.6px。按 `(21.25 − 14) / 2` 补到 **3.5px**，图标中线与首行中线差 0.1px；折行时也只跟首行对齐（容器保持 flex-start，不做整体居中）。
+
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（`/demo`）—— 1440 / 1024 / 900 三个宽度下正文都是单行、`scrollWidth == clientWidth`（没有被截断），链接 `href="/login"`，条高 43、行高 21；图标与首行中线实测 286.3 / 286.4；放大截图确认图标、文字、下划线链接在同一条水平线上，琥珀配色与细玻璃外观未变。
+
+### 2026-11-04 00:19 · 演示左下角只留「去登录」，做成与身份位同尺寸的横条
+
+用户三条：① 「注册 / 登录」收成「去登录」一枚；② 和同行的主题 / 折叠对齐；③ 尺寸与前台「头像 + 用户名」那一格一样、文字居中。
+
+`DemoLayout.vue`：删掉注册入口，身份位只留 `<RouterLink to="/login">` 包一枚主按钮。尺寸照抄前台的 `.side-user`：**70% 宽 × 40 高、top 0 贴齐行顶**；按钮铺满这一格（`width: 100%`、`height: 40`、`padding: 0`、圆角 `--radius-control`），文字由按钮自己居中。中线和右侧 32×32 的主题 / 折叠对齐 —— 都是 20（40 高行的中间）；之前是两枚 24 高的 `size="small"` 放在 `top: 4`，中线 16，差 4px。
+
+折叠态：身份位占满内容宽（54），按钮收成 54×32 居中，行高回到默认 120 / 主题 48 / 折叠 88（删掉 `.side-row--demo` 的 150 / 70 / 110 覆盖）。演示漫游里那句「底部是主题与注册 / 登录」也同步成「去登录、主题与折叠」。
+
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（`/demo`）—— 展开态：横条 169×40（= 身份位 70%×40）、中线 835，与主题 / 折叠相同；`border-radius: 12px`、`justify-content: center`；折叠态：行高 120，按钮 54×32 居中（中线 755），主题 783、折叠 823，块间各留 8px；两种状态截图确认。
+
+### 2026-11-03 22:35 · 头像点击只放大，上传只走「更换头像」
+
+用户要求：个人中心点头像应放大查看，只有右侧「更换头像」才换。
+
+`IdentityRow.vue` 把两条路径彻底分开：有可用头像时点击打开灯箱（`previewOpen`，Esc / 遮罩 / × 关闭，原逻辑不变）；**没有头像时不再退化成打开文件选择**（原来的 `handleAvatarClick` 在没有头像时会直接 `openPicker()`，这就是「点头像就上传」的来源）。没有头像改为一个纯占位的 `span.identity__avatar--empty` —— 光标默认、无 tooltip、无相机图标，上传只由右侧按钮触发。
+
+顺带补了坏图回落：`<img @error>` 把 `imageBroken` 置真，头像回落成占位。跨设备 / 预签名过期时头像 URL 会失效，之前会拿一张破图去放大（截图里那个灰圈就是加载失败的图），现在直接显示名字首字的占位。
+
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock `/users/me`，三种状态）—— ① 无头像：节点是 `span.identity__avatar--empty`、显示首字「t」，点头像既不弹预览也不触发文件框（`input.click` 打桩后仍为 false），点「更换头像」才触发；② 有效头像：`button` + `aria-label=查看头像大图`，点击出现 `.avatar-preview` 与大图，Esc 关闭；③ 坏图 URL：`img` 报错后回落成占位，点击无预览。
+
 ### 2026-11-03 00:29 · 弹窗打开时收掉玻璃面板的外阴影
 
 用户指出：打开「新密码」弹窗后，表格面板正下方多出一条深色横条。
@@ -44,45 +84,9 @@
 
 验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 两行数据）—— 弹窗打开时 `.admin-panel` 与 `.sidebar` 的 `box-shadow` 计算值都是 `none`，面板下方区域截图不再有暗带；点「我已复制，关闭」后 body 上的类移除、面板阴影恢复原值。
 
-### 2026-11-03 00:22 · 重置密码改为服务端生成口令 + 一次性回显
 
-用户要求：重置用户密码不要手动输入，点一下生成随机串，弹一个可复制的窗口，用户登录后自行修改。口径定为**口令由后端生成**（与「创建用户」完全对称，密码策略只留一处）。
 
-**后端**（`docs/后端修改说明.md` 第 1 条，已实现）：`POST /api/admin/users/{id}/password/reset`，无请求体，`data.newPassword` 只回一次（12 位、字母 + 数字，与建号同一个生成器），带 `Cache-Control: no-store`，不写日志、不存明文；副作用与旧 PUT 一致（换密码 + 刷 `password_updated_at` 踢下线 + 顺带解禁）。
 
-**前端**：`types/index.ts` 新增 `AdminUserResetPasswordResult`；`api/admin.ts` 用 `resetUserPasswordToGenerated(id)`（POST）替换原来的「指定口令」封装；`stores/admin.ts` 的 `resetPassword(id)` 改成「调接口 + 返回服务端口令」、不缓存；`ResetPasswordDialog.vue` 去掉两个密码输入框与校验，只留说明 + 「生成并重置」；`AdminUsersView` 直接拿返回值开回显弹窗（`pendingReveal`，等重置弹窗动画结束再开，两层遮罩不叠）；原 `InitialPasswordDialog.vue` 泛化为 `PasswordRevealDialog.vue`（`mode: 'create' | 'reset'`），建号与重置共用同一套「只显示一次 + 复制」。
-
-验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 接口）—— 重置弹窗 0 个输入框，点「生成并重置」只发一次 `POST /admin/users/u1/password/reset`（无请求体），弹窗显示的口令与响应里的 `SrvGen2pwdX9` 完全一致（证明没有本地生成）、只有 1 个可见弹窗，复制拿到同一串；建号回归仍是「初始密码（只显示这一次）」+ 响应里的 `initialPassword`。真实后端未登录验证（缺管理员口令），接口路径与字段按 `AdminUserController#resetPasswordToGenerated` 对齐。
-
-### 2026-11-02 23:41 · 分页去掉白底，融进玻璃面板
-
-用户要求：后台表格右下角的翻页按钮不要白底。
-
-**来源**：EP 给翻页按钮和页码铺的是 `--el-pagination-bg-color`（默认白），32px 的方块并排就是一条白条，压在玻璃上很突兀；「共 N 条」本身是透明的。
-
-**改法**（`main.css`，只对 `.admin-panel__foot .el-pagination`）：把 `--el-pagination-bg-color` 与 `--el-pagination-button-disabled-bg-color` 都改成 `transparent`，白底连同禁用态的实心底一起消失；翻页按钮与页码在悬停时补一层 `--control-hover`（与站内图标按钮同一层反馈），当前页仍是深色加粗数字，靠字重和颜色分辨。
-
-验证：`npm run build` EXIT=0；Edge 无头 + CDP（1440，mock 单页数据）—— `--el-pagination-bg-color: transparent`，上一页 / 下一页 / 页码的背景都是 `rgba(0, 0, 0, 0)`；当前页是 `rgb(31, 36, 48)` + 字重 700；鼠标移到页码上背景变 `rgba(255, 255, 255, 0.44)`（`--control-hover`）。单页时「下一页」是禁用态，按设计不给悬停反馈。
-
-### 2026-11-02 23:38 · 后台表格不再被横向滚动条压住最后一行
-
-用户选了方案 A：把后台表格的横向滚动条藏掉，滚动能力保留。
-
-**根因**：9 列宽度合计 1154，而 1440 / 1366 下表格容器只有 1028 / 954 —— 后台表在常规笔记本上必然横滚。系统设成「总是显示滚动条」时它在底部占掉一截，最后一行看着突然变高；EP 自绘的悬浮条（6px、`bottom: 2px`）则直接压在最后一行底部。行本身高度没变（实测两行 67 / 66）。
-
-**改法**（`main.css`，只对 `.admin-panel` 生效）：`.el-scrollbar__wrap` 加 `scrollbar-width: none` 与 `::-webkit-scrollbar { width/height: 0 }`，再把 EP 的 `.el-scrollbar__bar.is-horizontal` 关掉；纵向那条留着（表格目前不纵滚）。横向滚动本身不动 —— 触控板横滑、Shift+滚轮照旧，与站内其它滚动区域「滚动条一律隐藏」同一口径。
-
-验证：`npm run build` EXIT=0；Edge 无头 + CDP（1440 视口，mock 两行）—— `scrollbarWidth: none`、横向条 `display: none`、`scrollWidth 1154 > clientWidth 1028`；把 `scrollLeft` 设 200 后实际停在 126（最大值），说明还能滚；body-wrapper 高 133、两行 67 / 66、最后一行底边与表格底边同为 389，不再多出一截。
-
-### 2026-11-02 23:04 · 审计去掉「登录方」列、用户表邮箱加可复制的气泡
-
-用户两条：① 登录审计里的「登录方」列去掉；② 用户管理的邮箱，指针放上去要浮窗，浮窗里带快捷复制。
-
-**审计列**（`LoginAuditTable.vue`）：删掉「登录方」列（90px），表头只剩 时间 / 账号 / 结果 / IP / User-Agent。上方的分段已经按登录方筛选，列里永远只有同一个值，留着只是重复；配套的 `LOGIN_AUDIT_ACTOR_LABEL` 引用与 `.actor--admin` 样式一并清掉（常量本身仍给分段控件用，没删）。
-
-**邮箱气泡**（`AdminUserTable.vue`）：邮箱列从 `show-overflow-tooltip` 换成 `el-popover`（`trigger="hover"`、宽 300、`show-after` 200）—— 单元格单行省略，气泡里给完整地址 + 一个**纯图标**的复制按钮（24×24，文案只留在 `aria-label`，不放「复制」字样）。复制走 `utils/clipboard`，成功后图标由 copy 换成 check 并转绿 1.6 秒（不弹 toast 打断视线），失败才弹一次错误。**这里不能用 `AppTooltip`**：它 `pointer-events: none`，按钮点不到；排版写在非 scoped 的 `.email-popover` 里（气泡 teleport 到 body）。
-
-验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 用户 / 审计两个接口）—— 审计表头 `["时间","账号","结果","IP","User-Agent"]`、首行内容正常；邮箱单元格 `text-overflow: ellipsis` + `nowrap`，悬停 700ms 后 `.email-popover` 可见、宽 300、内容为完整邮箱 + 24×24 的空文本图标按钮（`aria-label="复制邮箱"`）；点图标后 clipboard 收到的正是该邮箱，按钮换 check 图标、`aria-label` 变「已复制」、颜色转绿。
 
 
 

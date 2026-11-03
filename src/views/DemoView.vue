@@ -374,14 +374,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     </FilterBar>
 
     <!--
-      演示环境提示（2026-10-27 三改）：从工具栏里搬出来，收成一条细玻璃条贴在列表上方 ——
-      工具栏只放控件；这条只讲「不会保存」，右端直接长着「去登录」。
+      演示提示条（2026-11-04 改文案）：一句话讲清「这是演示、随便试、不会保存」，
+      「登录/注册」作为句中的入口链到登录页（注册在登录页里），后半句说明登录后的好处。
     -->
     <p class="demo-banner" role="note">
       <AppIcon class="demo-banner__icon" name="alert" :size="14" />
-      <span class="demo-banner__label">演示环境</span>
-      <span class="demo-banner__text">改动只存在内存里，刷新页面就会还原</span>
-      <RouterLink class="demo-banner__login" to="/login">去登录</RouterLink>
+      <span class="demo-banner__text">
+        当前为演示模式，您可以随意体验所有功能，数据不会被保存。
+        <RouterLink class="demo-banner__login" to="/login">登录/注册</RouterLink>
+        即可创建并永久保存您的任务。
+      </span>
     </p>
 
     <!-- 列表外面这层只管两件事：给气泡引导当定位参照、给彩蛋粒子当活动范围 -->
@@ -518,16 +520,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 
 /*
- * 演示环境提示（2026-10-27 三改）：一条 38px 的细玻璃条，琥珀色（提醒语义，不是危险语义）——
- * 左边一枚感叹号 +「演示环境」，中间一句「刷新会还原」，右端直接长着「去登录」。
- * 它贴在列表上方，看见列表的同时就看见这条，不会像横幅那样压住首屏。
+ * 演示提示条（2026-11-04 改文案）：一条细玻璃条，琥珀色（提醒语义，不是危险语义）。
+ * 文案变长后**允许换行** —— 窄窗下宁可两行，也不要截掉「不会保存」和后半句；
+ * 「登录/注册」是句中链接，所以不再做成右端的胶囊按钮。
  */
 .demo-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   min-height: 38px;
-  padding: 6px 8px 6px 13px;
+  padding: 10px 12px;
   border: 1px solid color-mix(in srgb, #d98324 22%, transparent);
   /* 2026-10-30 归并：14 是阶梯外散值，提示条走控件档 */
   border-radius: var(--radius-md);
@@ -535,50 +537,35 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   backdrop-filter: var(--glass-card-blur);
   color: #8a560d;
   font-size: 12.5px;
-  line-height: 1;
+  line-height: 1.7;
 }
 
+/*
+ * 图标对齐首行文字（2026-11-04）：条内 line-height 21.25px、图标 14px，
+ * 顶对齐后图标中线比首行中线高 1.6px —— 补 3.5px 顶位移让两者居中于同一根线。
+ * 折行时也只跟首行对齐（容器是 flex-start，不是整体居中）。
+ */
 .demo-banner__icon {
   flex: none;
+  margin-top: 3.5px;
   opacity: 0.85;
-}
-
-.demo-banner__label {
-  flex: none;
-  font-weight: 650;
-  letter-spacing: 0.01em;
 }
 
 .demo-banner__text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: color-mix(in srgb, currentColor 78%, transparent);
+  color: color-mix(in srgb, currentColor 82%, transparent);
 }
 
-/* 登录出口：一条竖细线隔开，悬停浮一层同色浅底，说明这句能按 */
+/* 句中链接：下划线 + 悬停浅底，读起来是「一句话里的可点词」，不是一枚按钮 */
 .demo-banner__login {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  height: 26px;
-  margin-left: 2px;
-  padding: 0 9px;
-  border-radius: var(--radius-pill);
+  margin: 0 2px;
+  padding: 0 2px;
+  border-radius: 4px;
   color: inherit;
   font-weight: 600;
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   transition: background-color var(--dur-fast) var(--ease);
-}
-
-.demo-banner__login::before {
-  content: '';
-  width: 1px;
-  height: 12px;
-  margin-right: 9px;
-  background-color: currentColor;
-  opacity: 0.28;
 }
 
 .demo-banner__login:hover {

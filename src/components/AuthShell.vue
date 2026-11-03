@@ -93,6 +93,25 @@ defineProps<{ title: string; subtitle?: string }>()
   padding: 0 clamp(16px, 2.5vw, 40px);
 }
 
+/*
+ * 单栏版（后台登录 / 找回密码）的顶栏**不占高度**（2026-11-04）：它悬浮在页面之上，
+ * main 的 `margin: auto` 才能把卡片放到整个视口的正中（否则会矮掉顶栏高度的一半）。
+ * 和分栏版同一套做法：顶栏不吃指针事件，只有品牌链接与主题开关自己恢复可点。
+ */
+.auth-shell__header:not(.auth-shell__header--split) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.auth-shell__header:not(.auth-shell__header--split) .auth-shell__brand,
+.auth-shell__header:not(.auth-shell__header--split) :deep(.theme-toggle) {
+  pointer-events: auto;
+}
+
 .auth-shell__header-cell {
   display: flex;
   align-items: center;
@@ -135,10 +154,17 @@ defineProps<{ title: string; subtitle?: string }>()
 /*
  * 单栏版也收进一张玻璃卡（2026-10-26）：底色变成渐变之后，
  * 光秃秃的表单会漂在光斑上；卡片宽度吃掉原本的左右内边距，控件不被挤窄。
+ *
+ * 垂直居中（2026-11-04）：`.auth-shell` 是 `min-height: 100vh` 的 flex 列，
+ * 给 main 上下 `auto` 边距吃掉剩余空间。**整个视口**居中靠上面那条「单栏顶栏不占高度」
+ * 的规则保证 —— 顶栏若还占 56px，卡片会矮半个顶栏的高度往下坐。
+ * 上下内边距取对称的 48，否则会被更大那侧顶偏。
+ * 内容比视口高时 auto 边距自动归零，页面照常从顶部滚，不会把顶部内容裁掉。
  */
 .auth-shell__main:not(.auth-shell__main--split) {
   max-width: 408px;
-  padding: 48px 0 64px;
+  margin: auto;
+  padding: 48px 0;
 }
 
 /* 与分栏版那张卡同一块玻璃（2026-10-28 一起换），四个认证页看上去才是同一套 */

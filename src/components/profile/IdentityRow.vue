@@ -2,6 +2,11 @@
 /**
  * 身份行（个人中心第一行）：头像 + 用户名 + 登录邮箱，右侧是头像动作。
  * 整页只有这一处把「你是谁」放大——它比设置行高，其余行一律安静。
+ *
+ * 头像点击（2026-11-03）：**只负责放大查看，不再触发上传** —— 有可用头像时点开灯箱，
+ * 没有头像（或图片加载失败）时它就是个占位，点了什么也不发生；换头像只走右侧「更换头像」。
+ * 图片加载失败要回落到占位（跨设备 / 预签名过期很常见），否则会拿一张破图去放大。
+ *
  * 选图在这里做类型与 10MB 拦截（8.8 要求在选择时即拦），1:1 裁剪交给 AvatarCropDialog。
  */
 import { computed, onUnmounted, ref, watch } from 'vue'
@@ -26,19 +31,24 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const initial = computed(() => (props.name || '我').slice(0, 1))
 /** 头像大图预览（点击头像打开，不再直接触发上传） */
 const previewOpen = ref(false)
+/** 图片加载失败（预签名过期 / 换设备）：回落到占位，别让人拿破图去放大 */
+const imageBroken = ref(false)
+const hasAvatar = computed(() => !!props.avatarUrl && !imageBroken.value)
+
+watch(
+  () => props.avatarUrl,
+  () => {
+    imageBroken.value = false
+  },
+)
 
 function openPicker() {
   if (props.uploading) return
   inputRef.value?.click()
 }
 
-/** 有头像时点开大图；没有头像时仍直接进选图流程 */
-function handleAvatarClick() {
-  if (props.avatarUrl) {
-    previewOpen.value = true
-    return
-  }
-  openPicker()
+function openPreview() {
+  if (hasAvatar.value) previewOpen.value = true
 }
 
 function closePreview() {
@@ -84,21 +94,24 @@ function handleChange(event: Event) {
 <template>
   <div class="identity-card">
     <div class="identity">
-      <AppTooltip :content="avatarUrl ? '查看头像大图' : '上传头像'" placement="top">
+      <!-- 有可用头像：点击只放大查看；上传只走右侧「更换头像」 -->
+      <AppTooltip v-if="hasAvatar" content="查看头像大图" placement="top">
         <button
-          class="identity__avatar"
-          :class="{ 'identity__avatar--preview': avatarUrl }"
+          class="identity__avatar identity__avatar--preview"
           type="button"
-          :aria-label="avatarUrl ? '查看头像大图' : '上传头像'"
-          @click="handleAvatarClick"
+          aria-label="查看头像大图"
+          @click="openPreview"
         >
-          <img v-if="avatarUrl" class="identity__image" :src="avatarUrl" alt="" />
-          <span v-else class="identity__initial">{{ initial }}</span>
+          <img class="identity__image" :src="avatarUrl ?? ''" alt="" @error="imageBroken = true" />
           <span class="identity__overlay" aria-hidden="true">
-            <AppIcon :name="avatarUrl ? 'zoom' : 'camera'" :size="18" />
+            <AppIcon name="zoom" :size="18" />
           </span>
         </button>
       </AppTooltip>
+      <!-- 没有头像 / 图片加载失败：只是占位，不响应点击，也不提示「上传」 -->
+      <span v-else class="identity__avatar identity__avatar--empty">
+        <span class="identity__initial">{{ initial }}</span>
+      </span>
 
       <div class="identity__info">
         <p class="identity__name">{{ name }}</p>
@@ -169,6 +182,7 @@ function handleChange(event: Event) {
 
 .identity__avatar {
   position: relative;
+  display: block;
   width: 64px;
   height: 64px;
   padding: 0;
@@ -183,6 +197,11 @@ function handleChange(event: Event) {
 /* 有头像时点击 = 看大图，光标给出放大暗示 */
 .identity__avatar--preview {
   cursor: zoom-in;
+}
+
+/* 没有头像（或加载失败）时只是占位：不响应点击，也不再暗示「点这里上传」 */
+.identity__avatar--empty {
+  cursor: default;
 }
 
 .identity__image {
