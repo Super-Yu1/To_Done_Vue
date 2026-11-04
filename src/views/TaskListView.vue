@@ -70,9 +70,9 @@ const hasFilters = computed(() =>
 )
 
 /** 快捷筛选下空列表的文案：明确是筛掉了，而不是一条任务都没有 */
-const emptyTitle = computed(() => (activeFilter.value ? '没有符合条件的任务' : '还没有任务'))
+const emptyTitle = computed(() => (hasFilters.value ? '没有符合条件的任务' : '还没有任务'))
 const emptyDescription = computed(() =>
-  activeFilter.value
+  hasFilters.value
     ? '换个快捷筛选，或清空筛选后再看。'
     : '记录第一件事，之后按优先级与截止时间跟踪它。',
 )
@@ -231,7 +231,13 @@ async function handleRemove(task: Task) {
   // 2026-10-27：改走「删除二次确认」偏好（个人中心·偏好里可关），与回收站的彻底删除同一套
   const ok = await confirmDestructive(message, '删除任务', '移入回收站')
   if (!ok) return
-  await guard(() => todo.removeTask(task.id))
+  try {
+    await todo.removeTask(task.id)
+    // 顶部轻提示（2026-11-05）：删除后列表少一行，给一句回执，跟「已创建 / 已保存」同一档
+    ElMessage.success('已移入回收站')
+  } catch {
+    // 失败提示已由 http 层给出
+  }
 }
 
 function handleEmptyAction() {

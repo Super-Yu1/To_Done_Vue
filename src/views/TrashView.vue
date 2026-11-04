@@ -109,7 +109,7 @@ async function handleBatchPurge() {
     }
   }
   batchBusy.value = false
-  ElMessage.success(`已彻底删除 ${ok} 条`)
+  ElMessage.success(`已删除 ${ok} 条`)
   exitSelect()
 }
 
@@ -144,7 +144,7 @@ async function handlePurge(task: TrashTask) {
     return
   }
   await guard(() => trash.purge(task.id))
-  ElMessage.success('已彻底删除')
+  ElMessage.success('已删除')
 }
 
 async function handleClear() {

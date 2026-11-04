@@ -4,7 +4,8 @@
  * 每行是一块独立玻璃卡，卡与卡之间留 12px —— 一列卡各自浮在渐变上；
  * 悬停上浮、勾选完成原地缩小淡出，仍是 TransitionGroup 负责（420ms）。
  * 行骨架与真实卡同栅格（40px 前置位 / 正文 / 236px 元信息），加载完成不跳版。
- * 尾部 #footer 插槽（快速录入）落在最后一张卡之后，自己也是一张卡。
+ * 尾部 #footer 插槽（快速录入）落在最后一张卡之后，且**在同一个 TransitionGroup 里** ——
+ * 最后一行离开时它跟着 FLIP 一起上滑，而不是瞬移（2026-11-05）。
  */
 import { onMounted, onUnmounted, ref } from 'vue'
 import TaskItem from './TaskItem.vue'
@@ -109,9 +110,23 @@ onUnmounted(() => observer?.disconnect())
         @toggle-status="emit('toggle-status', $event)"
         @toggle-select="emit('toggle-select', $event)"
       />
+      <!--
+        快速录入也放进这一组（2026-11-05）：它原来是 group 外面的兄弟节点，
+        最后一行被勾掉 / 删掉时只能「瞬移」上去 —— 只有组内元素才吃 `row-move` 的 FLIP 补位。
+        间距交给 group 的 12px gap，卡片自己不再带 margin。
+      -->
+      <div v-if="$slots.footer" key="__footer" class="task-list__footer-slot">
+        <slot name="footer" />
+      </div>
     </TransitionGroup>
 
-    <slot v-if="!loading" name="footer" />
+    <!-- 一条任务都没有时上面那组不渲染，footer 直接挂在空状态下面（与原来的层级一致） -->
+    <div
+      v-if="!loading && tasks.length === 0"
+      class="task-list__footer-slot task-list__footer-slot--empty"
+    >
+      <slot name="footer" />
+    </div>
 
     <ListMoreHint :loading="loadingMore" />
     <div ref="sentinel" class="task-list__sentinel" aria-hidden="true"></div>
@@ -132,6 +147,16 @@ onUnmounted(() => observer?.disconnect())
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+/* 组内的 footer 只是一个容器：间距由上一条卡与它的 gap 提供 */
+.task-list__footer-slot {
+  display: block;
+}
+
+/* 空列表时组不渲染，footer 得自己补上那 12px */
+.task-list__footer-slot--empty {
+  margin-top: 12px;
 }
 
 /* 空状态也住在一张卡里，与有任务时是同一张脸 */

@@ -24,7 +24,10 @@ export function useDemoTasks() {
     priority: undefined,
   })
 
-  const loading = ref(false)
+  /**
+   * 演示模式**没有 loading 态**（2026-11-05）：数据全在内存里，切筛选 / 切状态都是同步重算。
+   * 以前 `applyQuery` 会故意 `sleep(120)` 模拟请求，骨架屏每次闪一帧，切页看着一卡一卡的。
+   */
 
   /**
    * 可见列表。这里用 ref + 显式重建而不是 computed：
@@ -61,11 +64,10 @@ export function useDemoTasks() {
 
   const total = computed(() => ordered.value.length)
   /*
-   * 演示数据固定 24 条，一次展示全部（2026-10-18）：
-   * 不按 `page * size` 截断，否则「共 24 条」但「全部」页签只显示第一页 20 条，
-   * 会让人误以为演示数据少了 4 条。真实页仍按 20 条/页 + 无限滚动。
+   * 分页与真实页完全一致（2026-11-05 对齐）：首屏 `PAGE_SIZE` 条，滚到底再 loadMore，
+   * 不再「一次展示 24 条」—— 那样演示里永远看不到底部「正在加载」的节奏。
    */
-  const tasks = computed(() => ordered.value)
+  const tasks = computed(() => ordered.value.slice(0, query.page * query.size))
   const totalPages = computed(() => Math.max(1, Math.ceil(total.value / query.size)))
   const hasMore = computed(() => tasks.value.length < total.value)
 
@@ -92,16 +94,10 @@ export function useDemoTasks() {
     () => demoTasks.value.filter((task) => task.status === 'TODO' && task.priority === 'HIGH').length,
   )
 
-  /** 筛选条件变化：回到第 1 页（8.5），并模拟一次极短的加载态让骨架屏可感知 */
-  async function applyQuery() {
+  /** 筛选条件变化：回到第 1 页（8.5）。同步重算，不插加载态（见上面 `loading` 的说明） */
+  function applyQuery() {
     query.page = 1
     rebuild()
-    loading.value = true
-    try {
-      await sleep(120)
-    } finally {
-      loading.value = false
-    }
   }
 
   function loadMore() {
@@ -241,7 +237,6 @@ export function useDemoTasks() {
     highPriorityCount,
     total,
     totalPages,
-    loading,
     applyQuery,
     loadMore,
     changeStatus,

@@ -67,12 +67,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/DemoTrashView.vue'),
         meta: { title: '演示模式 · 回收站', isPublic: true },
       },
-      {
-        path: 'profile',
-        name: 'demo-profile',
-        component: () => import('@/views/DemoProfileView.vue'),
-        meta: { title: '演示模式 · 个人中心', isPublic: true },
-      },
+      /*
+       * 演示模式**没有个人中心入口**（左下角是「去登录」，不是用户菜单），所以不再提供这个页面：
+       * 老链接或手输 /demo/profile 一律送回登录页，免得看到一个真实用户根本点不到的界面。
+       */
+      { path: 'profile', redirect: '/login' },
     ],
   },
   {

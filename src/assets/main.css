@@ -720,8 +720,14 @@ html.theme-transition *::after {
 /*
  * 小圆点关掉：进度已经在正文末尾用「第 N / M 步」写清楚了，
  * 两套指示器并排出现，读起来像两个不同的东西。
+ * 但容器本身留着、且不撑满（默认 `flex: 1`）—— 演示模式的开场页把「去登录」放在这里，
+ * footer 又是右对齐的，于是它正好排在「下一步」左边。
  */
 .el-tour__content .el-tour-indicators {
+  flex: 0 0 auto;
+}
+
+.el-tour__content .el-tour-indicator {
   display: none;
 }
 

@@ -14,8 +14,6 @@ import type { TrashTask } from '@/types'
 const { tasks, total, restore, purge, clear } = useDemoTrash()
 const clearing = ref(false)
 
-const MEMORY_HINT = '（演示模式：仅内存，刷新还原）'
-
 /* ---------- 搜索 + 分页（与真实页同一套：先在内存里过滤，再 20 条/页切片） ---------- */
 const keyword = ref('')
 
@@ -79,7 +77,7 @@ function handleBatchRestore() {
   batchBusy.value = true
   targets.forEach((task) => restore(task))
   batchBusy.value = false
-  ElMessage.success(`已恢复 ${targets.length} 条${MEMORY_HINT}`)
+  ElMessage.success(`已恢复 ${targets.length} 条`)
   exitSelect()
 }
 
@@ -104,13 +102,13 @@ async function handleBatchPurge() {
   batchBusy.value = true
   targets.forEach((task) => purge(task))
   batchBusy.value = false
-  ElMessage.success(`已彻底删除 ${targets.length} 条${MEMORY_HINT}`)
+  ElMessage.success(`已删除 ${targets.length} 条`)
   exitSelect()
 }
 
 function handleRestore(task: TrashTask) {
   restore(task)
-  ElMessage.success(`已恢复${MEMORY_HINT}`)
+  ElMessage.success('已恢复')
 }
 
 async function handlePurge(task: TrashTask) {
@@ -129,7 +127,7 @@ async function handlePurge(task: TrashTask) {
     return
   }
   purge(task)
-  ElMessage.success(`已彻底删除${MEMORY_HINT}`)
+  ElMessage.success('已删除')
 }
 
 /** 清空与真实页一致：需要输入「清空」二字才执行 */
@@ -153,7 +151,7 @@ async function handleClear() {
   clearing.value = true
   try {
     const removed = clear()
-    ElMessage.success(`已清空 ${removed} 条${MEMORY_HINT}`)
+    ElMessage.success(`已清空 ${removed} 条`)
   } finally {
     clearing.value = false
   }
