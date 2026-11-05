@@ -48,7 +48,7 @@ function handleSubmit() {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-top: 12px;
+  /* 与上一张卡的间距由 TaskList 提供（组内吃 gap、空列表吃 --empty 的 margin），这里不再自带 */
   padding: 15px 22px;
   border: 1px dashed color-mix(in srgb, var(--color-text) 22%, transparent);
   border-radius: var(--radius-lg);

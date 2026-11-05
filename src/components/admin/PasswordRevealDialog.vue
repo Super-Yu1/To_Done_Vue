@@ -1,26 +1,48 @@
 <script setup lang="ts">
 /**
- * 初始密码弹窗（8.9 新增）：服务端只在创建响应里回一次明文，关掉就再也拿不到。
- * 因此刻意收紧关闭路径——点遮罩 / 按 Esc 都不关，只能点「我已复制，关闭」或右上角 X；
- * 关闭（动画结束）后才通知外层：清掉手里的密码 + 刷新列表。
+ * 密码回显弹窗（2026-11-03，由 `InitialPasswordDialog` 泛化）：
+ * 「创建用户」的初始密码与「重置用户密码」生成的新密码共用 —— 两处都只有这一次机会看到明文。
+ *
+ * 因此刻意收紧关闭路径：点遮罩 / 按 Esc 都不关，只能点「我已复制，关闭」或右上角 X；
+ * 关闭（动画结束）后才通知外层：清掉手里的密码，建号时还要刷新列表。
  */
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
 import { copyText } from '@/utils/clipboard'
 import type { AdminUser } from '@/types'
 
-const props = defineProps<{
-  /** 刚创建的用户（只用于文案）；没传就退化成邮箱兜底 */
-  user: AdminUser | null
-  /** 只展示一次的初始密码 */
-  password: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** 目标用户（只用于文案）；没传就退化成邮箱兜底 */
+    user: AdminUser | null
+    /** 只展示一次的明文密码 */
+    password: string
+    /** create = 刚建号（初始密码）；reset = 管理员重置（新密码）。只改文案，流程一致 */
+    mode?: 'create' | 'reset'
+  }>(),
+  { mode: 'create' },
+)
 
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{ closed: [] }>()
 
 const copied = ref(false)
+
+const displayName = computed(() => props.user?.name || props.user?.email || '')
+const isReset = computed(() => props.mode === 'reset')
+
+const title = computed(() => (isReset.value ? '新密码（只显示这一次）' : '初始密码（只显示这一次）'))
+const lead = computed(() =>
+  isReset.value
+    ? `「${displayName.value}」的密码已重置，请把这串密码转告本人，用邮箱 + 下面这串密码登录：`
+    : `已创建用户「${displayName.value}」，它现在就能用邮箱 + 下面这串密码登录：`,
+)
+const note = computed(() =>
+  isReset.value
+    ? '对方登录后可到「个人中心 → 密码」自行修改。'
+    : '对方忘记密码时，只能在用户管理里「重置用户密码」。',
+)
 
 watch(visible, (opened) => {
   if (opened) copied.value = false
@@ -33,23 +55,22 @@ async function handleCopy() {
     return
   }
   copied.value = true
-  ElMessage.success('初始密码已复制')
+  ElMessage.success('密码已复制')
 }
 </script>
 
 <template>
   <el-dialog
     v-model="visible"
-    title="初始密码（只显示这一次）"
+    :title="title"
     width="480px"
     append-to-body
+    align-center
     :close-on-click-modal="false"
     :close-on-press-escape="false"
     @closed="emit('closed')"
   >
-    <p class="dialog-hint">
-      已创建用户「{{ user?.name || user?.email }}」，它现在就能用邮箱 + 下面这串密码登录：
-    </p>
+    <p class="dialog-hint">{{ lead }}</p>
 
     <div class="password">
       <code class="password__value">{{ password }}</code>
@@ -60,7 +81,7 @@ async function handleCopy() {
     </div>
 
     <p class="dialog-warn">此密码只展示这一次，关闭后无法再查看，请复制并转告用户。</p>
-    <p class="dialog-hint">对方忘记密码时，只能在用户管理里「重置用户密码」。</p>
+    <p class="dialog-hint">{{ note }}</p>
 
     <template #footer>
       <el-button type="primary" @click="visible = false">我已复制，关闭</el-button>

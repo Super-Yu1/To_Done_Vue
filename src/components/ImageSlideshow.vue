@@ -128,6 +128,15 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   border-radius: var(--radius-md);
   overflow: hidden;
   background-color: transparent;
+  /*
+   * 2026-11-02 修「切图后左侧残留一条上一张」：
+   * 圆角 + `overflow: hidden` 去裁一个正在做 `transform` 的轨道时，Chrome 的裁剪与内容
+   * 可能落在不同的合成层里 —— 被裁的那一侧会留下上一帧的像素（表现为左侧一条旧图）。
+   * `isolation` + `translateZ(0)` 把容器自己提成一个独立层，让裁剪和内容在同一层内完成。
+   * 这两个属性对布局没有任何影响，只在渲染层生效。
+   */
+  isolation: isolate;
+  transform: translateZ(0);
 }
 
 /* 灯箱里的放大版：尺寸由调用方给，这里只放大「零件」 */
@@ -148,6 +157,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .image-slideshow__slide {
   flex: 0 0 100%;
   height: 100%;
+  /* 每格自己再裁一次：即便上层容器的裁剪有偏差，格与格之间也不会互相露出来 */
+  overflow: hidden;
 }
 
 .image-slideshow__img {

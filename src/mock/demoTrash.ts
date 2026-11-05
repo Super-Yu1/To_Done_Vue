@@ -3,7 +3,6 @@
  * 元素结构与接口一致——任务字段 + deletedAt + remainingDays，
  * 其中 remainingDays 按「保留天数 − 已删除天数」算出，文案不写死 90。
  */
-import { placeholderImage } from './placeholder'
 import { isoDaysFromNow } from '@/utils/date'
 import { TASK_PRIORITY_LABEL, TASK_STATUS_LABEL } from '@/constants'
 import type { TaskImage, TaskPriority, TrashTask } from '@/types'
@@ -22,32 +21,33 @@ interface DemoTrashSeed {
   images?: number
 }
 
+// 主题与任务列表同一个人（摄影 / 旅行），已删除的也都是「拍照片」这条线上的事
 const SEEDS: DemoTrashSeed[] = [
   {
-    title: '整理上季度的报销单',
-    description: '票据早交过了，这条是重复记的。',
+    title: '删掉一批试拍的废片',
+    description: '对焦全虚的那组，留着也不会有第二眼。',
     priority: 'LOW',
     deletedDaysAgo: 2,
     recordedDaysAgo: 21,
   },
   {
-    title: '给旧笔记做一次归档',
-    description: '先删掉，等周末有空再恢复回来整理。',
+    title: '把去年的照片刻成光盘',
+    description: '硬盘快满了先刻一份，等有 NAS 再说。',
     priority: 'MEDIUM',
     deletedDaysAgo: 9,
     recordedDaysAgo: 35,
     images: 1,
   },
   {
-    title: '研究一下别的清单工具',
-    description: '对比了三个，结论是自己写一个更顺手。',
+    title: '试了三个相册管理软件',
+    description: '对比完的结论是：先用文件夹加标签就够。',
     priority: 'LOW',
     deletedDaysAgo: 26,
     recordedDaysAgo: 48,
   },
   {
-    title: '把测试数据清一清',
-    description: '留着当反面样本，已经很久没动了。',
+    title: '清掉手机里的相机缓存',
+    description: '占了七八个 G，删了也不影响照片本身。',
     priority: 'HIGH',
     deletedDaysAgo: 86,
     recordedDaysAgo: 120,
@@ -58,8 +58,9 @@ function buildImages(variant: number, count: number): TaskImage[] {
   return Array.from({ length: count }, (_, index) => ({
     id: `demo-trash-image-${variant + 1}-${index + 1}`,
     sortOrder: index + 1,
-    objectKey: `task/demo/202609/trash-${variant + 1}-${index + 1}.svg`,
-    url: placeholderImage(index),
+    // 与任务列表同一批真实照片（2026-11-05）：回收站只挂 1 张，用马丘比丘那张配「刻光盘」
+    objectKey: `task/demo/202609/demo-05.jpg`,
+    url: '/demo/demo-05.jpg',
   }))
 }
 

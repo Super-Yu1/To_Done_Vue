@@ -67,12 +67,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/DemoTrashView.vue'),
         meta: { title: '演示模式 · 回收站', isPublic: true },
       },
-      {
-        path: 'profile',
-        name: 'demo-profile',
-        component: () => import('@/views/DemoProfileView.vue'),
-        meta: { title: '演示模式 · 个人中心', isPublic: true },
-      },
+      /*
+       * 演示模式**没有个人中心入口**（左下角是「去登录」，不是用户菜单），所以不再提供这个页面：
+       * 老链接或手输 /demo/profile 一律送回登录页，免得看到一个真实用户根本点不到的界面。
+       */
+      { path: 'profile', redirect: '/login' },
     ],
   },
   {
@@ -154,7 +153,7 @@ const router = createRouter({
 
 /**
  * 上一次导航从哪来（2026-11-01）：只给「演示模式的漫游」判断是不是**从演示区之外**进来的 ——
- * 站内在 `/demo` ↔ `/demo/trash` 之间来回切，不该每次都弹一遍漫游（见约定 33）。
+ * 站内在 `/demo` ↔ `/demo/trash` 之间来回切，不该每次都弹一遍漫游（见项目约定「新手漫游」）。
  *
  * 为什么在守卫里记、而不是组件里读 `history.state.back`：跟浏览器后退走的时候，
  * 那份 state 是**这条历史记录当初进来时**的旧值（可能是 `/`），会误判成「从站外进来」；

@@ -7,8 +7,9 @@
  * （品牌在左、导航横排、设置靠右）—— 窄屏上横排比抽屉更好用，也省掉遮罩 / Esc / 焦点那一套。
  * 宽度走全局变量 `--sidebar-width`，布局骨架（`.app-layout`）用它让位，改宽度只改一处。
  *
- * 选中态（2026-10-18）：导航背后放一块白色「浮块」（indicator），切页时在三个入口之间滑过去，
- * 比每个链接各自亮一下更能看清「我从哪来、到哪去」。窄屏横排时浮块隐藏，回到链接自身白底。
+ * 选中态（2026-10-18）：导航背后放一块白色「浮块」（indicator），切页时在入口之间滑过去，
+ * 比每个链接各自亮一下更能看清「我从哪来、到哪去」。折叠成图标条后**还是这同一枚浮块**
+ * （2026-11-02）—— 以前折叠态把它藏起来、改由选中链接自己铺白底，切页只剩淡入淡出，没有滑动。
  */
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -79,11 +80,6 @@ async function updateIndicator() {
   indicator.width = link.offsetWidth
   indicator.height = link.offsetHeight
   indicator.visible = true
-  if (!indicatorReady.value) {
-    requestAnimationFrame(() => {
-      indicatorReady.value = true
-    })
-  }
 }
 
 const indicatorStyle = computed(() => ({
@@ -95,11 +91,30 @@ const indicatorStyle = computed(() => ({
 
 watch(activeIndex, () => void updateIndicator())
 
-/** 横排 / 竖排切换时重置过渡：布局变了，别让浮块从旧坐标滑过去 */
-let compactMedia: MediaQueryList | undefined
-function handleLayoutChange() {
+/**
+ * 布局在动的时候（折叠 / 展开的 280ms、横竖排切换）**先关掉浮块的过渡**：
+ * 链接宽度每帧都在变，带着 320ms 过渡去追会一直落后 —— 实测折叠到 140ms 时
+ * 导航已收到 63px，浮块还挂在 128px，白块从面板里溢出来。
+ * 等动画走完再打开，之后切页照常滑过去。
+ */
+let settleTimer: number | undefined
+
+function settleIndicator(delay = 300) {
   indicatorReady.value = false
   void updateIndicator()
+  window.clearTimeout(settleTimer)
+  settleTimer = window.setTimeout(() => {
+    indicatorReady.value = true
+    void updateIndicator()
+  }, delay)
+}
+
+watch(() => props.collapsed, () => settleIndicator())
+
+/** 横排 / 竖排切换时同样重置过渡：布局变了，别让浮块从旧坐标滑过去 */
+let compactMedia: MediaQueryList | undefined
+function handleLayoutChange() {
+  settleIndicator()
 }
 
 let navObserver: ResizeObserver | undefined
@@ -111,12 +126,18 @@ onMounted(() => {
     navObserver = new ResizeObserver(() => void updateIndicator())
     navObserver.observe(navRef.value)
   }
-  void updateIndicator()
+  // 首帧先摆好位置再打开过渡，避免从 (0,0) 滑进来
+  void updateIndicator().then(() => {
+    requestAnimationFrame(() => {
+      indicatorReady.value = true
+    })
+  })
 })
 
 onUnmounted(() => {
   compactMedia?.removeEventListener('change', handleLayoutChange)
   navObserver?.disconnect()
+  window.clearTimeout(settleTimer)
 })
 </script>
 
@@ -155,6 +176,14 @@ onUnmounted(() => {
         <span v-if="item.badge" class="sidebar__count" aria-hidden="true">{{ item.badge }}</span>
       </RouterLink>
     </nav>
+
+    <!--
+      脚注位（2026-11-02）：夹在导航与底部设置区之间、压在横线上方。
+      后台用它放「上次登录」—— 放进 settings 会掉到横线下面、贴着侧栏底边，显得很突兀。
+    -->
+    <div v-if="$slots.footnote" class="sidebar__footnote">
+      <slot name="footnote" />
+    </div>
 
     <div class="sidebar__settings">
       <slot name="settings" />
@@ -195,7 +224,7 @@ onUnmounted(() => {
   box-shadow: var(--glass-panel-shadow);
 }
 
-/* 折叠态：只留图标、宽度 76px，导航居中，白色选中浮块隐藏（位置靠 JS 量，收窄后不重算） */
+/* 折叠态：只留图标、宽度 76px，导航居中；选中浮块留着，宽度照 JS 量的链接来 */
 .sidebar--collapsed {
   width: 76px;
   padding-left: 10px;
@@ -296,23 +325,10 @@ onUnmounted(() => {
 }
 
 /*
- * 选中浮块仍然是直接撤掉，不做淡出：它的 opacity 是 JS 写在行内样式上的（位置/尺寸一起给），
- * 外面压不过；而且它消失的那一刻，选中项自己铺的白玻璃正好在同一条矩形上，白对白看不出来。
+ * 折叠态**不再另铺一层白底**（2026-11-02）：浮块本身就跟着收窄，切页时在图标之间上下滑。
+ * 以前这里把浮块 `display: none`、让选中链接自己套背景 —— 两块白底只能交叉淡入淡出，
+ * 看起来就是「啪」地换过去；现在两态是同一枚浮块，观感统一。
  */
-.sidebar--collapsed .sidebar__indicator {
-  display: none;
-}
-
-/* 折叠态没有浮块可依赖：选中项自己铺一层白玻璃（特异性压过基础规则的 transparent） */
-.sidebar--collapsed .sidebar__link.router-link-active:not(.sidebar__link--exact),
-.sidebar--collapsed .sidebar__link--exact.router-link-exact-active {
-  background-color: rgba(255, 255, 255, 0.72);
-}
-
-html.dark .sidebar--collapsed .sidebar__link.router-link-active:not(.sidebar__link--exact),
-html.dark .sidebar--collapsed .sidebar__link--exact.router-link-exact-active {
-  background-color: rgba(255, 255, 255, 0.12);
-}
 
 .sidebar::-webkit-scrollbar {
   width: 0;
@@ -507,6 +523,20 @@ html.dark .sidebar__link:hover {
   margin-top: auto;
   padding-top: 14px;
   border-top: 1px solid var(--separator);
+}
+
+/*
+ * 脚注（2026-11-02）：自己吃掉「推到最底」的那份 auto margin，
+ * 否则两个 auto 会均分剩余空间，横线上方和下方各空一大截。
+ * `+` 相邻选择器足够精确 —— 没有脚注时（前台），settings 仍然是 `margin-top: auto`。
+ */
+.sidebar__footnote {
+  margin-top: auto;
+  padding: 0 4px 10px;
+}
+
+.sidebar__footnote + .sidebar__settings {
+  margin-top: 0;
 }
 
 /* 窄屏：整条收回成顶部横条（品牌左、导航中、设置右） */

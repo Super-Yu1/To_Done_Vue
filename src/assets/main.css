@@ -720,8 +720,14 @@ html.theme-transition *::after {
 /*
  * 小圆点关掉：进度已经在正文末尾用「第 N / M 步」写清楚了，
  * 两套指示器并排出现，读起来像两个不同的东西。
+ * 但容器本身留着、且不撑满（默认 `flex: 1`）—— 演示模式的开场页把「去登录」放在这里，
+ * footer 又是右对齐的，于是它正好排在「下一步」左边。
  */
 .el-tour__content .el-tour-indicators {
+  flex: 0 0 auto;
+}
+
+.el-tour__content .el-tour-indicator {
   display: none;
 }
 
@@ -1052,25 +1058,52 @@ img {
   flex-direction: column;
   /* 上下各 14：没有分页的页面（管理员管理）底部不会只剩 6px */
   padding: 14px 16px;
+  /*
+   * 2026-11-02：面板自己保留玻璃（与页头同一档），**去的是表格内部那层白**。
+   * 之前表格一直是白底：`--el-table-*` 那批变量写在 `.admin-panel` 上，
+   * 而 Element Plus 在 `.el-table` 自身也声明了同名变量 —— 元素自身的声明优先于继承，
+   * 所以那些「改成 transparent」从来没有生效过，只是被面板的白玻璃盖住看不见。
+   * 现在变量挪到 `.admin-panel .el-table` 上（见下面的规则），白底才真正消失。
+   */
   border: 1px solid var(--glass-panel-border);
   border-radius: var(--radius-lg);
   background-color: var(--glass-panel-bg);
   background-image: var(--glass-surface);
   backdrop-filter: var(--glass-panel-blur);
   box-shadow: var(--shadow-panel);
+}
 
-  /*
-   * 表格铺在玻璃上：EP 默认给表头 / 行 / 固定列都铺了实心底色，
-   * 这里全部让位给面板，只留一条 `--separator` 的发丝线分隔表头与行。
-   */
+/*
+ * 弹窗打开时收掉玻璃面板的外阴影（2026-11-03）：
+ * 面板的落影（`--shadow-panel` 里的 `0 12px 30px -16px`）在浅色页面上只有几个色阶，
+ * 但弹窗遮罩把整页压暗后，面板正下方那圈阴影会显形成一条深色横带
+ * （截图里面板与弹窗之间那块「黑条」就是它 —— 行高没变，是阴影被压暗后看得见了）。
+ * `el-popup-parent--hidden` 是 Element Plus 在弹窗 / 确认框锁滚动时挂到 body 上的类，
+ * 因此只在遮罩在场时生效，关掉弹窗立刻恢复原本的浮起感。
+ */
+body.el-popup-parent--hidden .admin-panel,
+body.el-popup-parent--hidden .sidebar {
+  box-shadow: none;
+}
+
+/*
+ * 表格铺在玻璃上（2026-11-02 修正作用域）：
+ * EP 在 `.el-table` 元素**自身**声明了 `--el-table-bg-color: var(--el-fill-color-blank)`（= #fff），
+ * 元素自身的声明优先于从 `.admin-panel` 继承 —— 所以必须把变量写在这个选择器上，
+ * 写在父级等于没写（白底会一直挂着，只是被面板的白玻璃盖住看不出来）。
+ * 表头 / 行 / 固定列全部让位给面板的玻璃，只留一条 `--separator` 的发丝线分隔。
+ */
+.admin-panel .el-table {
   --el-table-bg-color: transparent;
   --el-table-tr-bg-color: transparent;
   --el-table-header-bg-color: transparent;
   --el-table-row-hover-bg-color: var(--glass-row-hover);
+  --el-table-current-row-bg-color: transparent;
+  --el-table-expanded-cell-bg-color: transparent;
   --el-table-border-color: var(--separator);
   --el-table-header-text-color: var(--color-text-2);
   --el-table-text-color: var(--color-text);
-  --el-table-expanded-cell-bg-color: transparent;
+  --el-table-fixed-box-shadow: none;
 }
 
 /* 表格自己不再要圆角：外层面板已经有 20px，里面再圆一层会出现「双圆角」 */
@@ -1078,11 +1111,68 @@ img {
   border-radius: 0;
 }
 
+/*
+ * 底部只留一条线（2026-11-02 二改）：
+ * ① EP 在 `.el-table` / `.el-table__inner-wrapper` 上挂了 `::before` 做底边，先关掉；
+ * ② **数据行最后一格的 `border-bottom` 也要去掉** —— 这是第二版漏掉的那条：`::before` 关掉之后
+ *    表格底部仍有 `td` 自己的下边框，它和 `.admin-panel__foot` 的 `border-top` 还是两道。
+ * 行与行之间的细线保留（那是分隔），只去掉最后一行的。
+ */
+.admin-panel .el-table::before,
+.admin-panel .el-table__inner-wrapper::before {
+  display: none;
+}
+
+.admin-panel .el-table__body tr:last-child td.el-table__cell {
+  border-bottom: none;
+}
+
+/*
+ * 首屏不要「从 0 长出来」（2026-11-02）：加载中表格只有表头（约 56px），数据一到就跳到 2~3 行，
+ * 观感就是闪一下。这里给主体一个下限（约两行），加载前后的高度一致，只有内容在原地换。
+ * 用 CSS 而不是 el-table 的 `min-height` 属性 —— 那个 prop 在 2.x 里只参与内部布局计算，
+ * 实测传 220 之后 `.el-table__body-wrapper` 的 `min-height` 仍是 `auto`、表格高 96。
+ */
+.admin-panel .el-table__body-wrapper {
+  min-height: 120px;
+}
+
+/*
+ * 横向滚动条藏起来（2026-11-02，方案 A）：列宽合计 1154，而 1366 / 1440 的容器只有约 954 / 1028，
+ * 后台表格在常规笔记本上必然要横滚 —— 这条滚动条会污染最后一行：系统设成「总是显示滚动条」时
+ * 它在底部占掉一截（最后一行看着突然变高），EP 自绘的悬浮条（6px、bottom: 2px）则直接压在行底。
+ * 两种条都藏掉，**横向滚动本身保留**（触控板横滑 / Shift+滚轮照旧），
+ * 与站内其它滚动区域「滚动条一律隐藏」同一口径。
+ */
+.admin-panel .el-scrollbar__wrap {
+  scrollbar-width: none;
+}
+
+.admin-panel .el-scrollbar__wrap::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* EP 自绘的条只关横向那条：纵向留着（表格当前不纵滚，以后放宽高度时仍有指示） */
+.admin-panel .el-scrollbar__bar.is-horizontal {
+  display: none;
+}
+
 /* 表头文字：小一号 + 拉开字距，与「标签」这一层对齐 */
 .admin-panel .el-table th.el-table__cell {
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/*
+ * 表头与单元格一律居中（2026-11-02）：
+ * EP 默认跟随列的 `align`，不写就是左对齐 —— 邮箱、时间这类长度不一的文本会让右半边空一大片，
+ * 表头也就跟着偏左，和「整列居中读」的观感对不上。
+ * 写在 `.cell` 上而不是逐列传 `align="center"`：三张后台表格共用这一条，新增列不用再记得传。
+ */
+.admin-panel .el-table .cell {
+  text-align: center;
 }
 
 /* 行高：表格是密集阅读，比任务卡矮一档 */
@@ -1098,6 +1188,22 @@ img {
   margin-top: 4px;
   padding: 10px 2px 0;
   border-top: 1px solid var(--separator);
+}
+
+/*
+ * 分页去底色（2026-11-02）：EP 给翻页按钮与页码铺的是 `--el-pagination-bg-color`（白），
+ * 32px 方块并排就是一条白条，压在玻璃面板上很突兀。这里改成透明，
+ * 悬停才给一层 `--control-hover`；当前页仍靠品牌蓝数字 + 加粗区分。
+ */
+.admin-panel__foot .el-pagination {
+  --el-pagination-bg-color: transparent;
+  --el-pagination-button-disabled-bg-color: transparent;
+}
+
+.admin-panel__foot .el-pagination .btn-prev:not(:disabled):hover,
+.admin-panel__foot .el-pagination .btn-next:not(:disabled):hover,
+.admin-panel__foot .el-pagination .el-pager li:hover {
+  background-color: var(--control-hover);
 }
 
 /* 面板里的工具条（搜索 / 筛选 / 刷新）由 AdminUserToolbar 自己的 padding-bottom 收口 */

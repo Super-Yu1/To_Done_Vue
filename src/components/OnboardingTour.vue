@@ -11,12 +11,22 @@
  * 文案由页面给：本组件不认识「任务」「回收站」，只认「指向哪儿、说几句」。
  */
 import { computed, nextTick, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import type { OnboardingStep } from '@/composables/useOnboarding'
 
-const props = defineProps<{
-  modelValue: boolean
-  steps: OnboardingStep[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    steps: OnboardingStep[]
+    /**
+     * 第一步多给一个「去登录」出口（2026-11-04）：演示模式的漫游是站外进来时主动弹的，
+     * 开场就把「想存下来就去登录」摆在手边，比让人走到侧栏底部找按钮更直接。
+     * 登录后的任务页不放这个按钮（他已经登录了）。
+     */
+    loginHint?: boolean
+  }>(),
+  { loginHint: false },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [boolean]
@@ -171,6 +181,22 @@ function handleFinish() {
       <p class="onboarding-step__desc">{{ step.description }}</p>
       <p class="onboarding-step__count">第 {{ index + 1 }} / {{ visibleSteps.length }} 步</p>
     </el-tour-step>
+
+    <!--
+      开场页的「去登录」出口（2026-11-04）：塞进 footer 左侧的 indicators 位，
+      底部按钮组 `justify-content: flex-end`，于是它正好落在「下一步」左边。
+      点了就走，顺手关掉漫游。
+    -->
+    <template #indicators>
+      <RouterLink
+        v-if="loginHint && current === 0"
+        class="onboarding-step__login"
+        to="/login"
+        @click="handleClose"
+      >
+        去登录
+      </RouterLink>
+    </template>
   </el-tour>
 </template>
 
@@ -184,6 +210,28 @@ function handleFinish() {
   font-size: 13px;
   line-height: 1.75;
   color: var(--color-text-2);
+}
+
+/* 开场页的「去登录」：footer 里的一枚描边按钮，坐在「下一步」左边，高度与 EP 小按钮对齐（24） */
+.onboarding-step__login {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+.onboarding-step__login:hover {
+  border-color: var(--color-border-strong);
+  background-color: var(--control-hover);
 }
 
 .onboarding-step__count {

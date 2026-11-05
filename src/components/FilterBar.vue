@@ -11,6 +11,7 @@
  */
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
+import SegmentedControl from './SegmentedControl.vue'
 import { SEARCH_DEBOUNCE_MS } from '@/constants'
 import type { TaskQuery } from '@/types'
 
@@ -115,66 +116,8 @@ watch(
 
 /* ---------- 分段控件的白色滑块（2026-10-27） ---------- */
 
-/**
- * 选中态的「白底 + 阴影」不再挂在按钮上，而是交给一块独立滑块：
- * 切页签时它在三个按钮之间**滑过去**（transform 过渡），比原地闪现更像一个控件。
- * 位置 / 宽高靠量当前按钮的 `offset*` 得出 —— 与侧栏导航的浮块是同一套做法。
- */
-const tabsRef = ref<HTMLElement | null>(null)
-/** 按钮元素按渲染顺序收集；普通数组即可，不参与响应式 */
-const tabEls: HTMLElement[] = []
-const indicator = reactive({ left: 0, top: 0, width: 0, height: 0, visible: false })
-/** 首帧先摆好位置再打开过渡，避免从 (0,0) 滑进来 */
-const indicatorReady = ref(false)
-
-function setTabRef(el: unknown, index: number) {
-  if (el instanceof HTMLElement) tabEls[index] = el
-}
-
-async function updateIndicator() {
-  // 等 active 类落到 DOM 上再量（字重 400 → 600 会改变按钮宽度）
-  await nextTick()
-  const index = tabs.findIndex((tab) => tab.value === activeTab.value)
-  const el = tabEls[index]
-  if (!el) {
-    indicator.visible = false
-    return
-  }
-  indicator.left = el.offsetLeft
-  indicator.top = el.offsetTop
-  indicator.width = el.offsetWidth
-  indicator.height = el.offsetHeight
-  indicator.visible = true
-  if (!indicatorReady.value) {
-    requestAnimationFrame(() => {
-      indicatorReady.value = true
-    })
-  }
-}
-
-const indicatorStyle = computed(() => ({
-  transform: `translate(${indicator.left}px, ${indicator.top}px)`,
-  width: `${indicator.width}px`,
-  height: `${indicator.height}px`,
-  opacity: indicator.visible ? 1 : 0,
-}))
-
-watch(activeTab, () => void updateIndicator())
-
-let tabsObserver: ResizeObserver | undefined
-
-onMounted(() => {
-  // 容器尺寸变了（换行、字体加载、窗口缩放）也要重新量
-  if (tabsRef.value) {
-    tabsObserver = new ResizeObserver(() => void updateIndicator())
-    tabsObserver.observe(tabsRef.value)
-  }
-  void updateIndicator()
-})
-
 onUnmounted(() => {
   window.clearTimeout(debounceTimer)
-  tabsObserver?.disconnect()
 })
 </script>
 
@@ -209,32 +152,15 @@ onUnmounted(() => {
           </template>
         </el-input>
 
-        <!-- 状态分段控件 -->
-        <div ref="tabsRef" class="filter-bar__tabs" role="tablist" aria-label="任务状态">
-          <!-- 白色滑块：位置 / 宽高由 JS 量当前页签得出，切页签时滑过去 -->
-          <span
-            class="filter-bar__tab-indicator"
-            :class="{ 'filter-bar__tab-indicator--ready': indicatorReady }"
-            :style="indicatorStyle"
-            aria-hidden="true"
-          />
+        <!-- 状态分段控件（2026-11-02 抽成 `SegmentedControl`，后台登录审计也在用） -->
+      <SegmentedControl
+        :items="tabs"
+        :model-value="activeTab"
+        aria-label="任务状态"
+        @update:model-value="activeTab = $event"
+      />
 
-          <button
-            v-for="(tab, index) in tabs"
-            :key="tab.value"
-            :ref="(el) => setTabRef(el, index)"
-            class="filter-bar__tab"
-            :class="{ 'filter-bar__tab--active': activeTab === tab.value }"
-            type="button"
-            role="tab"
-            :aria-selected="activeTab === tab.value"
-            @click="activeTab = tab.value"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-
-        <div class="filter-bar__tools">
+      <div class="filter-bar__tools">
           <el-popover
             v-model:visible="sortOpen"
             trigger="click"
@@ -535,77 +461,6 @@ onUnmounted(() => {
 .filter-bar__actions :deep(.el-button--primary:active) {
   transform: scale(0.96);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), inset 0 0 10px -6px rgba(255, 255, 255, 0.3);
-}
-
-/*
- * 分段控件（2026-10-27 按苹果口径）：轨道只是一层极淡的中性底，
- * 真正的「选中」由滑块的白色 + 微影表达；深色主题换成浅灰半透（见 main.css 的 --seg-*）。
- */
-.filter-bar__tabs {
-  position: relative;
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
-  border-radius: var(--radius-pill);
-  background-color: var(--seg-track-bg);
-}
-
-/*
- * 白色滑块：位置 / 宽高由 JS 给出（量当前页签的 offset*），切页签时滑过去。
- * 首帧不加过渡（`--ready` 才打开），否则会从 (0,0) 滑进来；
- * 「减少动效」下 `--dur-base` 归零，等于直接落位。
- */
-.filter-bar__tab-indicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 0;
-  border-radius: var(--radius-pill);
-  background-color: var(--seg-thumb-bg);
-  box-shadow: var(--seg-thumb-shadow);
-  pointer-events: none;
-}
-
-.filter-bar__tab-indicator--ready {
-  transition:
-    transform var(--dur-base) var(--ease),
-    width var(--dur-base) var(--ease),
-    height var(--dur-base) var(--ease),
-    opacity var(--dur-fast) var(--ease);
-}
-
-.filter-bar__tab {
-  position: relative;
-  z-index: 1;
-  height: 34px;
-  padding: 0 17px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background-color: transparent;
-  color: var(--color-text-2);
-  font-size: 14px;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-  /* 白底与阴影交给滑块，按钮自己只管文字颜色 */
-  transition: color var(--dur-fast) var(--ease);
-}
-
-.filter-bar__tab:hover {
-  color: var(--color-text);
-}
-
-/* 选中项：文字转品牌墨色 + 加粗（白底由滑块提供，这里不要再写 background / box-shadow） */
-.filter-bar__tab--active {
-  color: var(--color-brand-ink);
-  font-weight: 600;
-}
-
-.filter-bar__tab:focus-visible {
-  outline: 2px solid var(--color-text);
-  outline-offset: 2px;
 }
 
 .filter-bar__tools {

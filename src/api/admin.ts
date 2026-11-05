@@ -8,6 +8,7 @@ import type {
   AdminUserCreatePayload,
   AdminUserCreateResult,
   AdminUserQuery,
+  AdminUserResetPasswordResult,
   AdminUserUpdatePayload,
   CreateAdminPayload,
   FreezePayload,
@@ -59,12 +60,15 @@ export function unlockUser(id: string): Promise<void> {
   return request<void>({ url: `/admin/users/${id}/unlock`, method: 'POST' })
 }
 
-/** 重置用户密码（旧密码立即失效，响应不回显密码） */
-export function resetUserPassword(id: string, newPassword: string): Promise<void> {
-  return request<void>({
-    url: `/admin/users/${id}/password`,
-    method: 'PUT',
-    data: { newPassword },
+/**
+ * 重置用户密码（2026-11-03 改）：口令由**服务端生成**，在 `data.newPassword` 里只回一次
+ * （与建号同一个生成器：12 位、字母 + 数字），前端只负责展示与复制。
+ * 副作用与旧的「指定口令」接口一致：旧密码与已签发 token 立即失效，并顺带解除登录锁定。
+ */
+export function resetUserPasswordToGenerated(id: string): Promise<AdminUserResetPasswordResult> {
+  return request<AdminUserResetPasswordResult>({
+    url: `/admin/users/${id}/password/reset`,
+    method: 'POST',
   })
 }
 

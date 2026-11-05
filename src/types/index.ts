@@ -153,7 +153,7 @@ export interface LoginPayload {
   password: string
   /**
    * 图形码（2026-10-28 起改为**条件必填**）：同一邮箱连续输错 2 次密码后，第 3 次起后端才要；
-   * 前两次不带；字段以 Swagger 为准，口径见 `docs/CHANGELOG.md` 项目约定 25。
+   * 前两次不带；字段以 Swagger 为准，口径见 `docs/CHANGELOG.md` 项目约定「图形码」。
    */
   captchaId?: string
   captchaCode?: string
@@ -258,6 +258,11 @@ export interface AdminUser {
   taskCountInTrash: number
   imageCount: number
   imageCountInTrash: number
+  /**
+   * 上次登录时间（2026-11-02 后端接入）：只在**登录成功**时写入，格式与 `createdAt` 一致；
+   * `null` = 没有任何可用记录（含迁移前登录过的老账号），列表显示「—」而不是「从未登录」。
+   */
+  lastLoginAt: string | null
   createdAt: string
 }
 
@@ -283,6 +288,11 @@ export interface AdminUserCreatePayload {
 export interface AdminUserCreateResult {
   user: AdminUser
   initialPassword: string
+}
+
+/** 后台重置密码的结果（2026-11-03）：newPassword 由服务端生成，同样只在本次响应里返回一次 */
+export interface AdminUserResetPasswordResult {
+  newPassword: string
 }
 
 export interface FreezePayload {

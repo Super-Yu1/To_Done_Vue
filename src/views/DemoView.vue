@@ -30,7 +30,6 @@ const {
   tasks,
   stats,
   highPriorityCount,
-  loading,
   applyQuery,
   loadMore,
   changeStatus,
@@ -83,9 +82,13 @@ const sortedTasks = computed(() => {
     }
     if (sortBy === 'dueDate') return byDue(a, b)
     if (sortBy === 'completedAt') {
-      const av = a.completedAt ? Date.parse(a.completedAt) : Number.MAX_SAFE_INTEGER
-      const bv = b.completedAt ? Date.parse(b.completedAt) : Number.MAX_SAFE_INTEGER
-      return (av - bv) * dir
+      // 与后端一致：未完成（completedAt 为空）恒排最后，不随方向翻转
+      const lv = a.completedAt ? Date.parse(a.completedAt) : null
+      const rv = b.completedAt ? Date.parse(b.completedAt) : null
+      if (lv === null && rv === null) return 0
+      if (lv === null) return 1
+      if (rv === null) return -1
+      return (lv - rv) * dir
     }
     return (Date.parse(a.recordedAt) - Date.parse(b.recordedAt)) * dir
   })
@@ -100,6 +103,25 @@ const activeFilter = ref<TaskQuickFilter | null>(null)
 
 const visibleTasks = computed(() => sortedTasks.value)
 
+/** 与真实页同一口径：关键词 / 状态 / 优先级 / 两个快捷开关 / 统计栏胶囊，任一在场都算「筛选后为空」 */
+const hasFilters = computed(() =>
+  Boolean(
+    query.keyword ||
+      query.status ||
+      query.priority ||
+      query.overdue ||
+      query.dueToday ||
+      activeFilter.value,
+  ),
+)
+
+const emptyTitle = computed(() => (hasFilters.value ? '没有符合条件的任务' : '还没有任务'))
+const emptyDescription = computed(() =>
+  hasFilters.value
+    ? '换个快捷筛选，或清空筛选后再看。'
+    : '记录第一件事，之后按优先级与截止时间跟踪它。',
+)
+
 /** 批量选择（F）：与真实页同一套交互，只是数据落在内存态 */
 const selectMode = ref(false)
 const selectedIds = ref<string[]>([])
@@ -112,36 +134,45 @@ const allSelected = computed(
   () => visibleTasks.value.length > 0 && selectedIds.value.length >= visibleTasks.value.length,
 )
 
-/** 演示模式的写操作提示：改动真的生效，只是不落库 */
-const MEMORY_HINT = '（演示模式：仅内存，刷新还原）'
-
-/* ---------- 气泡引导（首次进演示模式时指一下勾选圈） ---------- */
+/* ---------- 气泡引导（只在第一次进演示模式时指一下勾选圈） ---------- */
 
 const GUIDE_KEY = 'todone_demo_guide_seen'
-/** 只在没看过的时候出现；点勾选圈或点它的 × 都记成看过 */
+/** 只在没看过的时候出现；**亮过一次就算看过**（见下面的 watch），不再按「有没有点掉」记 */
 const guideVisible = ref(false)
 
 /* ---------- 新手漫游（2026-11-01） ---------- */
 
 /**
- * 演示模式的漫游**每次进来都放一遍**（用户口径）：演示就是给人看的样板间，
- * 不记「看过了」，也不写 localStorage —— 关掉就走，下次再进来还是完整一遍。
- * 它和上面那条气泡是同一件事的两层：漫游讲全局，气泡只催「点一下勾选圈」，
- * 所以**漫游开着的时候气泡让位**（否则第一次进来两层叠在一起），漫游关掉后气泡才出现。
+ * 漫游与气泡都**只出现一次**（2026-11-05 用户口径）：以前气泡要用户点勾选圈或 × 才算看过，
+ * 没点就切到回收站再回来 —— 组件重新挂载，气泡又弹一遍，看着像在催人。
+ * 现在两者都记在 localStorage：漫游亮一次、气泡亮一次，之后不再打扰。
+ * 两层的关系不变：漫游讲全局，气泡只催「点一下勾选圈」，所以**漫游开着时气泡让位**。
  */
+const TOUR_KEY = 'todone_demo_tour_seen'
 const demoTour = ref(false)
 const demoTourSteps = taskTourSteps('demo')
 
 onMounted(async () => {
   guideVisible.value = window.localStorage.getItem(GUIDE_KEY) !== '1'
   /*
-   * **只在从演示区之外进来时放**（2026-11-01 用户口径）：首次进站、从登录页点「演示」、
-   * 直接输地址都算；站内 `/demo` ↔ `/demo/trash` 来回切不算 —— 只是换个子页面，
-   * 又弹一次等于挡路。来源由路由守卫记着（见 `router` 的 `previousRoutePath`）。
+   * **只在从演示区之外进来时放**：首次进站、从登录页点「演示」、直接输地址都算；
+   * 站内 `/demo` ↔ `/demo/trash` 来回切不算 —— 只是换个子页面（来源由路由守卫记着）。
+   * 再加一道「看过就不再放」：刷新 / 下次访问都不重复，界面和登录用户一致。
    */
   if (previousRoutePath().startsWith('/demo')) return
+  if (window.localStorage.getItem(TOUR_KEY) === '1') return
+  window.localStorage.setItem(TOUR_KEY, '1')
   await nextTick()
   demoTour.value = true
+})
+
+/**
+ * 气泡**亮过一次就记成看过**：它挡在列表上方，用户只是切去回收站再回来时不该再弹。
+ * 等它真正可见（漫游关掉之后）再记，避免首次进来「漫游还开着就被记掉」。
+ */
+watch([guideVisible, demoTour], ([visible, tour]) => {
+  if (!visible || tour) return
+  window.localStorage.setItem(GUIDE_KEY, '1')
 })
 
 function dismissGuide() {
@@ -182,10 +213,10 @@ function handleSubmit(payload: TaskPayload) {
   const editing = editingTask.value
   if (editing) {
     update(editing.id, payload)
-    ElMessage.success(`已保存${MEMORY_HINT}`)
+    ElMessage.success('已保存')
   } else {
     create(payload)
-    ElMessage.success(`已新建${MEMORY_HINT}`)
+    ElMessage.success('已创建')
   }
   // 2026-10-27：保存后直接关闭（不再停在只读详情）
   dialogVisible.value = false
@@ -194,10 +225,10 @@ function handleSubmit(payload: TaskPayload) {
 /** 快速录入（H）：新任务按创建时间倒序落到未完成组最上面 */
 function handleQuickAdd(title: string) {
   create({ title, status: 'TODO', priority: 'MEDIUM' })
-  ElMessage.success(`已添加「${title}」· 已置顶${MEMORY_HINT}`)
+  ElMessage.success(`已添加「${title}」· 已置顶`)
 }
 
-/** 删除与真实页同一套动作：先确认，再移入回收站（演示模式下回收站也是内存态） */
+/** 删除与真实页同一套动作：先确认，再移入回收站，成功后给一句顶部回执 */
 async function handleRemove(task: Task) {
   const retention = stats.value?.trashRetentionDays
   const message = retention
@@ -207,16 +238,24 @@ async function handleRemove(task: Task) {
   const ok = await confirmDestructive(message, '删除任务', '移入回收站')
   if (!ok) return
   remove(task.id)
-  ElMessage.success(`已移入回收站${MEMORY_HINT}`)
+  ElMessage.success('已移入回收站')
 }
 
-/** 切换状态：先划掉、再落位（与真实页同一套节奏）；第一次动手就把气泡引导收掉 */
+/** 切换状态：先划掉、再落位（与真实页同一套节奏） */
 function handleToggleStatus(task: Task) {
-  dismissGuide()
   void changeStatus(task.id, task.status === 'DONE' ? 'TODO' : 'DONE')
 }
 
 /** 空状态只在筛掉全部结果时出现，所以这里的操作是清空筛选 */
+/** 空状态的主按钮：没筛选就新建任务，有筛选才清空（与真实页同一逻辑） */
+function handleEmptyAction() {
+  if (!hasFilters.value) {
+    openCreate()
+    return
+  }
+  resetFilters()
+}
+
 function resetFilters() {
   query.keyword = ''
   query.status = undefined
@@ -285,7 +324,7 @@ function toggleAll() {
 }
 
 function reportBatch(count: number) {
-  ElMessage.success(`已处理 ${count} 条${MEMORY_HINT}`)
+  ElMessage.success(`已处理 ${count} 条`)
   exitSelect()
 }
 
@@ -374,14 +413,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     </FilterBar>
 
     <!--
-      演示环境提示（2026-10-27 三改）：从工具栏里搬出来，收成一条细玻璃条贴在列表上方 ——
-      工具栏只放控件；这条只讲「不会保存」，右端直接长着「去登录」。
+      演示提示条（2026-11-04 改文案）：一句话讲清「这是演示、随便试、不会保存」，
+      「登录/注册」作为句中的入口链到登录页（注册在登录页里），后半句说明登录后的好处。
     -->
     <p class="demo-banner" role="note">
       <AppIcon class="demo-banner__icon" name="alert" :size="14" />
-      <span class="demo-banner__label">演示环境</span>
-      <span class="demo-banner__text">改动只存在内存里，刷新页面就会还原</span>
-      <RouterLink class="demo-banner__login" to="/login">去登录</RouterLink>
+      <span class="demo-banner__text">
+        当前为演示模式，您可以随意体验所有功能，数据不会被保存。
+        <RouterLink class="demo-banner__login" to="/login">登录/注册</RouterLink>
+        即可创建并永久保存您的任务。
+      </span>
     </p>
 
     <!-- 列表外面这层只管两件事：给气泡引导当定位参照、给彩蛋粒子当活动范围 -->
@@ -398,21 +439,20 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
       -->
       <TaskList
         :tasks="visibleTasks"
-        :loading="loading"
         :select-mode="selectMode"
         :leaving-on-toggle="
           Boolean(activeFilter) || Boolean(query.onlyUnfinished) || Boolean(query.status)
         "
         :selected-ids="selectedIds"
-        empty-title="没有匹配的任务"
-        empty-description="换个关键词，或放宽筛选条件。"
-        empty-action-text="清空筛选"
+        :empty-title="emptyTitle"
+        :empty-description="emptyDescription"
+        :empty-action-text="hasFilters ? '清空筛选' : '新建任务'"
         @load-more="loadMore"
         @open="openEdit"
         @remove="handleRemove"
         @toggle-status="handleToggleStatus"
         @toggle-select="toggleSelect"
-        @empty-action="resetFilters"
+        @empty-action="handleEmptyAction"
       >
         <!-- 快捷筛选激活时收起快速录入：新任务不满足筛选条件，录了也看不见 -->
         <template #footer>
@@ -432,10 +472,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
     <BackToTop />
 
-    <!-- 新手漫游：演示模式每次进来都放一遍（不记「看过了」） -->
+    <!-- 新手漫游：演示模式每次进来都放一遍（不记「看过了」）；开场多给一个「去登录」出口 -->
     <OnboardingTour
       v-model="demoTour"
       :steps="demoTourSteps"
+      login-hint
       @finish="demoTour = false"
       @close="demoTour = false"
     />
@@ -518,16 +559,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 
 /*
- * 演示环境提示（2026-10-27 三改）：一条 38px 的细玻璃条，琥珀色（提醒语义，不是危险语义）——
- * 左边一枚感叹号 +「演示环境」，中间一句「刷新会还原」，右端直接长着「去登录」。
- * 它贴在列表上方，看见列表的同时就看见这条，不会像横幅那样压住首屏。
+ * 演示提示条（2026-11-04 改文案）：一条细玻璃条，琥珀色（提醒语义，不是危险语义）。
+ * 文案变长后**允许换行** —— 窄窗下宁可两行，也不要截掉「不会保存」和后半句；
+ * 「登录/注册」是句中链接，所以不再做成右端的胶囊按钮。
  */
 .demo-banner {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   min-height: 38px;
-  padding: 6px 8px 6px 13px;
+  padding: 10px 12px;
   border: 1px solid color-mix(in srgb, #d98324 22%, transparent);
   /* 2026-10-30 归并：14 是阶梯外散值，提示条走控件档 */
   border-radius: var(--radius-md);
@@ -535,50 +576,35 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   backdrop-filter: var(--glass-card-blur);
   color: #8a560d;
   font-size: 12.5px;
-  line-height: 1;
+  line-height: 1.7;
 }
 
+/*
+ * 图标对齐首行文字（2026-11-04）：条内 line-height 21.25px、图标 14px，
+ * 顶对齐后图标中线比首行中线高 1.6px —— 补 3.5px 顶位移让两者居中于同一根线。
+ * 折行时也只跟首行对齐（容器是 flex-start，不是整体居中）。
+ */
 .demo-banner__icon {
   flex: none;
+  margin-top: 3.5px;
   opacity: 0.85;
-}
-
-.demo-banner__label {
-  flex: none;
-  font-weight: 650;
-  letter-spacing: 0.01em;
 }
 
 .demo-banner__text {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: color-mix(in srgb, currentColor 78%, transparent);
+  color: color-mix(in srgb, currentColor 82%, transparent);
 }
 
-/* 登录出口：一条竖细线隔开，悬停浮一层同色浅底，说明这句能按 */
+/* 句中链接：下划线 + 悬停浅底，读起来是「一句话里的可点词」，不是一枚按钮 */
 .demo-banner__login {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  height: 26px;
-  margin-left: 2px;
-  padding: 0 9px;
-  border-radius: var(--radius-pill);
+  margin: 0 2px;
+  padding: 0 2px;
+  border-radius: 4px;
   color: inherit;
   font-weight: 600;
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
   transition: background-color var(--dur-fast) var(--ease);
-}
-
-.demo-banner__login::before {
-  content: '';
-  width: 1px;
-  height: 12px;
-  margin-right: 9px;
-  background-color: currentColor;
-  opacity: 0.28;
 }
 
 .demo-banner__login:hover {

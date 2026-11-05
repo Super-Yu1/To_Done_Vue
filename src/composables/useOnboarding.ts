@@ -29,7 +29,7 @@ export interface OnboardingStep {
 /**
  * 任务页的漫游步骤。**两处入口共用这一套**，只有「侧栏底部是什么」那句不同：
  *   · `'app'`  —— 登录后的任务页：底部是主题、折叠侧栏、账号菜单；
- *   · `'demo'` —— 演示模式：底部是主题与注册 / 登录。
+ *   · `'demo'` —— 演示模式：底部是主题、「去登录」与折叠。
  * 目标是 CSS 选择器，**目标不存在的那一步会被 `OnboardingTour` 自动跳过**
  * （空列表就没有「一张卡」那步，接口没回来可能连概览卡都没有），所以这里按「理想页面」写。
  */
@@ -38,7 +38,7 @@ export type OnboardingVariant = 'app' | 'demo'
 export function taskTourSteps(variant: OnboardingVariant): OnboardingStep[] {
   const sidebarTips =
     variant === 'demo'
-      ? '「任务 / 回收站」在这里切换；底部那一排是主题与注册 / 登录入口。'
+      ? '「任务 / 回收站」在这里切换；底部那一排是「去登录」、主题与折叠。'
       : '「任务 / 回收站」在这里切换；底部那一排是主题、折叠侧栏和账号菜单。'
 
   return [

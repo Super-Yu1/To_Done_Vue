@@ -41,7 +41,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <el-dialog v-model="visible" title="创建用户" width="480px" append-to-body>
+  <el-dialog v-model="visible" title="创建用户" width="480px" append-to-body align-center>
     <p class="dialog-hint">
       不需要邮箱验证码：管理员直接建号，初始密码由服务端生成（12 位，含字母与数字）。
     </p>
