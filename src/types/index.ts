@@ -140,23 +140,17 @@ export interface RegisterPayload {
   password: string
   name: string
   emailCode: string
-  /**
-   * 图形码（2026-10-14 定稿）：只在「获取验证码」时用一次，注册提交不再带。
-   * 后端已把注册接口的这两个字段改为可选并忽略（2026-10-15 确认），保留为可选仅为兼容。
-   */
-  captchaId?: string
-  captchaCode?: string
 }
 
 export interface LoginPayload {
   email: string
   password: string
   /**
-   * 图形码（2026-10-28 起改为**条件必填**）：同一邮箱连续输错 2 次密码后，第 3 次起后端才要；
-   * 前两次不带；字段以 Swagger 为准，口径见 `docs/CHANGELOG.md` 项目约定「图形码」。
+   * 人机验证票据（2026-11-05 两段式）：**按需** —— 该邮箱被判定要验证而没带，后端回 4008，
+   * 前端拿 4008 去取题换票后重发。零失败记录时服务端直接判 `NONE`，根本不会走到这里。
+   * 票据一次性、且只能用于签发它的入口（登录的票不能拿去发信）。
    */
-  captchaId?: string
-  captchaCode?: string
+  challengeTicket?: string
 }
 
 export interface ResetPasswordPayload {
@@ -208,10 +202,71 @@ export interface TaskPayload {
   imageOrder?: string[]
 }
 
-/** 验证码（6.5 ①②） */
-export interface CaptchaResult {
-  captchaId: string
-  image: string
+/* ---------- 人机验证（2026-11-05 两段式：取题 → 答题 → 换票） ---------- */
+
+/** 取题场景：登录 / 后台登录 / 发邮箱验证码，各自独立计风险 */
+export type ChallengeScene = 'USER_LOGIN' | 'ADMIN_LOGIN' | 'EMAIL_CODE'
+
+/** 题面类型：NONE 表示本次不用验证，直接发业务请求 */
+export type ChallengeType = 'NONE' | 'SLIDER_PUZZLE' | 'POINT_SELECT' | 'IMAGE_CODE'
+
+/** 风险等级（只用于展示与埋点，前端不据此分支） */
+export type ChallengeLevel = 'L0' | 'L1' | 'L2' | 'L3'
+
+/**
+ * 题面内容：按 `type` 只填对应字段，**未用到的字段不会出现在响应里**。
+ * 图片一律是 Base64（不含 `data:` 前缀），要自己拼前缀才能塞进 `<img src>`。
+ */
+export interface ChallengePayload {
+  /** 图形码 / 点选用的整图 */
+  image?: string
+  /** 滑块背景图（已画出缺口） */
+  background?: string
+  /** 滑块拼图块 */
+  piece?: string
+  /** 拼图块初始纵向位置（px） */
+  y?: number
+  /** 背景图宽度（px） */
+  width?: number
+  /** 点选的提示文案，如「请依次点击：安 全 第 一」 */
+  tip?: string
+  /** 点选次数 */
+  count?: number
+}
+
+/** `GET /verify/challenge` 的响应：`type=NONE` 时 challengeId 与 payload 都是 null */
+export interface ChallengeResponse {
+  challengeId: string | null
+  type: ChallengeType
+  level: ChallengeLevel
+  expiresInSeconds: number
+  payload: ChallengePayload | null
+}
+
+/** 点选坐标（相对图片左上角，按点击顺序提交） */
+export interface ChallengeClick {
+  x: number
+  y: number
+}
+
+/**
+ * 作答（按题面 type 只填对应字段）：
+ * · SLIDER_PUZZLE → `x` + `trail` + `durationMs`；
+ * · POINT_SELECT  → `points`（顺序敏感）；
+ * · IMAGE_CODE    → `code`（大小写不敏感）。
+ */
+export interface ChallengeAnswerRequest {
+  code?: string
+  x?: number
+  /** 拖动轨迹 `[[t, x], …]`：毫秒时间戳 + 位移；≥8 点、总时长 300~8000ms、相邻不跳 >80px */
+  trail?: [number, number][]
+  durationMs?: number
+  points?: ChallengeClick[]
+}
+
+/** 答题成功后换到的一次性票据 */
+export interface ChallengeTicket {
+  ticket: string
   expiresInSeconds: number
 }
 
@@ -221,11 +276,12 @@ export interface CaptchaResult {
  */
 export type EmailCodeScene = 'REGISTER' | 'RESET_PASSWORD' | 'CHANGE_EMAIL' | 'CHANGE_EMAIL_OLD'
 
+/** 发信请求：**必须**带人机验证票据（发信没有密码这道门槛，最低档就是滑块） */
 export interface EmailCodePayload {
   email: string
   scene: EmailCodeScene
-  captchaId: string
-  captchaCode: string
+  /** 由 `GET /verify/challenge?scene=EMAIL_CODE` 换取，一次性 */
+  challengeTicket: string
 }
 
 export interface EmailCodeResult {
@@ -308,11 +364,11 @@ export interface AdminInfo {
   createdAt: string
 }
 
+/** 后台登录：**必填**人机验证票据，且题面固定是图形码（管理端不做分层） */
 export interface AdminLoginPayload {
   name: string
   password: string
-  captchaId: string
-  captchaCode: string
+  challengeTicket: string
 }
 
 export interface AdminAuthResult {

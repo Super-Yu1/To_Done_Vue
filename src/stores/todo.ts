@@ -70,6 +70,11 @@ export const useTodoStore = defineStore('todo', () => {
   const total = ref(0)
   const totalPages = ref(0)
   const loading = ref(false)
+  /**
+   * 有没有成功取过一次数据（2026-11-05）：任务为空时，切页签、从回收站切回来都会重新取数 ——
+   * 列表本来就是空的，这时再闪一帧骨架屏纯属噪音。骨架只留给首屏。
+   */
+  const hydrated = ref(false)
 
   /** 空值统一剔除，保证「未填 = 不筛选」（8.3） */
   function buildParams(): TaskQuery {
@@ -95,6 +100,7 @@ export const useTodoStore = defineStore('todo', () => {
       tasks.value = append ? [...tasks.value, ...result.records] : result.records
       total.value = result.total
       totalPages.value = result.totalPages
+      hydrated.value = true
     } finally {
       loading.value = false
     }
@@ -303,6 +309,7 @@ export const useTodoStore = defineStore('todo', () => {
     total,
     totalPages,
     loading,
+    hydrated,
     fetchTasks,
     loadMore,
     fetchStats,

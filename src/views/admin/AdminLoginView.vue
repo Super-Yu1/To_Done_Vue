@@ -7,8 +7,9 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import AuthShell from '@/components/AuthShell.vue'
-import CaptchaDialog from '@/components/CaptchaDialog.vue'
-import { isCaptchaError } from '@/api/http'
+import ChallengeDialog from '@/components/challenge/ChallengeDialog.vue'
+import { isChallengeExpiredError } from '@/api/http'
+import { useChallenge } from '@/composables/useChallenge'
 import { useAdminStore } from '@/stores/admin'
 
 const adminStore = useAdminStore()
@@ -27,10 +28,21 @@ onMounted(() => {
 })
 
 const formRef = ref<FormInstance>()
-const captchaVisible = ref(false)
-/** 弹窗句柄：图形码输错时要让它「留住弹窗 + 红字 + 换一张新图」 */
-const captchaDialogRef = ref<InstanceType<typeof CaptchaDialog>>()
 const submitting = ref(false)
+
+/**
+ * 人机验证（2026-11-05 两段式）：后台登录**必须**带票，题面固定是图形码。
+ * `account` 传管理员名 —— 服务端拿它按账号计风险。
+ */
+const {
+  visible: challengeVisible,
+  submitting: challengeSubmitting,
+  error: challengeError,
+  challenge: challengeData,
+  request: requestChallenge,
+  submit: submitChallenge,
+  cancel: cancelChallenge,
+} = useChallenge({ scene: 'ADMIN_LOGIN', account: () => form.name })
 
 const form = reactive({
   name: '',
@@ -42,29 +54,36 @@ const rules: FormRules = {
   password: [{ required: true, message: '请填写密码', trigger: 'blur' }],
 }
 
-/** 校验通过先弹图形码，不在这里发请求 */
+/** 校验通过 → 取题换票 → 带票登录 */
 async function handleSubmit() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
-  captchaVisible.value = true
-}
 
-async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: string }) {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/admin/users'
   submitting.value = true
   try {
-    await adminStore.login({ ...form, ...payload })
-    captchaVisible.value = false
-    ElMessage.success('登录成功')
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/admin/users'
-    await router.push(redirect)
-  } catch (error) {
-    // 图形码错（4001）：留住弹窗、红字提示并换新图（与前台登录同一处理）
-    if (isCaptchaError(error)) {
-      captchaDialogRef.value?.markError()
-      return
+    // 票即使刚换到手也可能在提交前过期（120 秒），所以留一次「重取再试」的余量
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const outcome = await requestChallenge()
+      // null = 用户取消 / 取题失败；'none' 在这里不该出现，真出现就交给后端回 4008
+      if (outcome === null) return
+      const ticket = outcome === 'none' ? '' : outcome
+      if (!ticket) {
+        ElMessage.error('人机验证未完成，请重试')
+        return
+      }
+
+      try {
+        await adminStore.login({ ...form, challengeTicket: ticket })
+        ElMessage.success('登录成功')
+        await router.push(redirect)
+        return
+      } catch (error) {
+        // 4010：票过期 / 已用过 —— 换一张再试一次；其它失败（5001 账号或密码错）由 http 层提示
+        if (isChallengeExpiredError(error) && attempt === 0) continue
+        return
+      }
     }
-    // 5001（账号或密码错）等其它失败由 http 层给出；关掉弹窗，下次点「登录」自然是新图
-    captchaVisible.value = false
   } finally {
     submitting.value = false
   }
@@ -88,11 +107,13 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
       </el-button>
     </el-form>
 
-    <CaptchaDialog
-      ref="captchaDialogRef"
-      v-model:visible="captchaVisible"
-      :loading="submitting"
-      @confirm="handleCaptchaConfirm"
+    <ChallengeDialog
+      v-model:visible="challengeVisible"
+      :challenge="challengeData"
+      :submitting="challengeSubmitting"
+      :error="challengeError"
+      @answer="submitChallenge"
+      @cancel="cancelChallenge"
     />
   </AuthShell>
 </template>

@@ -42,8 +42,11 @@ export const useAdminStore = defineStore('admin', () => {
     page: 1,
     size: PAGE_SIZE,
     keyword: '',
-    /** 不传 = 正常 + 已冻结，默认不含已注销（6.5 ⑫） */
-    status: undefined,
+    /**
+     * 默认只看「正常」（2026-11-05 用户口径）：原来不传 = 正常 + 已冻结，首屏会把冻结账号混进来。
+     * 现在状态恒有值（下拉不再可清空），这个「不传 status」的后端默认口径从此不再被页面使用。
+     */
+    status: 'NORMAL',
   })
 
   const users = ref<AdminUser[]>([])

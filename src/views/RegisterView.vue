@@ -14,7 +14,6 @@ import AuthAside from '@/components/AuthAside.vue'
 import AuthShell from '@/components/AuthShell.vue'
 import EmailCodeField from '@/components/EmailCodeField.vue'
 import { PASSWORD_HINT, PASSWORD_PATTERN } from '@/constants'
-import { clearLoginFailures } from '@/utils/loginAttempts'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -47,8 +46,8 @@ const rules: FormRules = {
 }
 
 /**
- * 校验通过直接注册（2026-10-14 定稿）：图形码只在「获取验证码」时用一次，
- * 提交不再弹第二次，请求里也就不带 captchaId / captchaCode。
+ * 校验通过直接注册：人机验证只在「获取验证码」那一步（`EmailCodeField` 内换票），
+ * 注册提交本身不带任何验证字段。
  */
 async function handleSubmit() {
   // 原生表单：鼠标点击与回车共用这一条入口，请求在飞时回车也要挡住
@@ -57,9 +56,6 @@ async function handleSubmit() {
   if (!valid) return
   try {
     await auth.register({ ...form })
-    // 后端注册成功会 DEL 该邮箱的登录失败计数（注销后用同一邮箱重注册，新账号不继承旧账）。
-    // 本地这份也得跟着清，否则第 1 次登录会先被本地计数骗出一张图。
-    clearLoginFailures(form.email)
     ElMessage.success('注册成功')
     await router.push('/tasks')
   } catch {

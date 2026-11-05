@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as authApi from '@/api/auth'
 import { TOKEN_KEY } from '@/constants'
+import { setPreferenceScope } from '@/composables/usePreferences'
 import { readTokenState } from '@/utils/token'
 import type {
   ChangeEmailPayload,
@@ -33,6 +34,8 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await authApi.login(payload)
       setToken(result.token)
       user.value = result.user
+      // 偏好按账号隔离（2026-11-05）：新账号读它自己那份，没有记录就是默认（确认开、侧栏展开）
+      setPreferenceScope(result.user.id)
     } finally {
       loading.value = false
     }
@@ -44,6 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await authApi.register(payload)
       setToken(result.token)
       user.value = result.user
+      setPreferenceScope(result.user.id)
     } finally {
       loading.value = false
     }
@@ -56,6 +60,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchProfile() {
     if (!isLoggedIn.value) return
     user.value = await authApi.getProfile()
+    setPreferenceScope(user.value.id)
   }
 
   async function updateProfile(payload: UpdateProfilePayload) {
@@ -95,6 +100,8 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = ''
     user.value = null
     localStorage.removeItem(TOKEN_KEY)
+    // 回到未登录那一份偏好（演示模式用 anon）
+    setPreferenceScope(null)
   }
 
   /**

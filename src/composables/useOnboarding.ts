@@ -7,13 +7,12 @@
  * 判定用两条（用户口径，2026-11-01 定稿）：
  *   ① 账号创建不到 `FRESH_ACCOUNT_DAYS` 天；
  *   ② 该账号下**一条任务都没有**（含回收站，由 `todo.stats` 的 `total + trashCount` 给出）。
- * 不用 localStorage 记「看过了」：那是**按设备**记的，旧账号换台电脑登录时本机没有记录，
- * 会把这个已经用过很久的账号当成新人（2026-11-01 修掉的 Bug）。
- * 现在这两条都由**账号本身**的状态决定，换什么设备结论都一样；而且「建了第一条任务」
- * 之后条件 ② 永久不成立，引导自然退役，不需要再记别的状态。
  *
- * ⚠ 代价：只满足①②时每进一次任务页都会放一遍（没有「看过了」这层记忆）。
- *   这是刻意的取舍 —— 有任务就不再打扰，比「猜他看没看过」更可靠。
+ * 这**两条仍然是唯一闸门**：换设备也照样成立，不靠「看过了」来判定新旧账号。
+ * 另有一层**去重**（2026-11-05 修 Bug）：满足①②时原来每进一次任务页都弹一遍 ——
+ * 新账号从回收站切回任务、刷新页面都会再弹，很烦。现在按 **账号 + 本机** 记一次
+ * （`hasSeenOnboarding` / `markOnboardingSeen`，键里带 userId）：
+ * 同一个账号在这台机器上只弹一次，换账号仍各弹一次。它只是「别重复」，不参与「该不该」。
  */
 
 /** 一个漫游步骤：`target` 留空 = 居中卡片（开场 / 收尾用） */
@@ -81,6 +80,31 @@ export function taskTourSteps(variant: OnboardingVariant): OnboardingStep[] {
 
 /** 条件①：账号创建不到这么多天算「新人」（用户口径：7 天） */
 export const FRESH_ACCOUNT_DAYS = 7
+
+/**
+ * 「这台机器已经给这个账号弹过漫游」的记忆（2026-11-05）。
+ * 键里带 userId：同一个账号只弹一次，换账号（同一台机器）仍会各弹一次；
+ * 换设备时本机没有记录，会再弹一次 —— 但那时①②仍成立，本来就该讲一遍。
+ */
+const ONBOARDING_SEEN_PREFIX = 'todone_onboarding_seen:'
+
+/** 本机是否已经给这个账号弹过（读不到 localStorage 时按「没弹过」处理） */
+export function hasSeenOnboarding(userId: string): boolean {
+  try {
+    return window.localStorage.getItem(ONBOARDING_SEEN_PREFIX + userId) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** 记成「这个账号在本机弹过了」；隐私模式下写不进去就算了，最多多弹一次 */
+export function markOnboardingSeen(userId: string): void {
+  try {
+    window.localStorage.setItem(ONBOARDING_SEEN_PREFIX + userId, '1')
+  } catch {
+    /* 写不进去不影响主流程 */
+  }
+}
 
 /**
  * 账号算不算「新的」。`createdAt` 是后端给的 `yyyy-MM-dd'T'HH:mm:ss`（无时区），

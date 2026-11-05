@@ -9,10 +9,16 @@ import BackToTop from '@/components/BackToTop.vue'
 import TrashList from '@/components/TrashList.vue'
 import { SEARCH_DEBOUNCE_MS } from '@/constants'
   import { useTrashStore } from '@/stores/trash'
+  import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import type { TrashTask } from '@/types'
 
 const trash = useTrashStore()
 const clearing = ref(false)
+
+/** 骨架屏：请求超过 200ms 才出；首屏之后（`hydrated`）不再出，空回收站切回来也就不会闪 */
+const showSkeleton = useDelayedFlag(
+  () => trash.loading && !trash.hydrated && trash.tasks.length === 0,
+)
 
 /* ---------- 搜索（2026-10-18 改为服务端）----------
  * 后端 `GET /api/trash/tasks` 已支持 keyword（标题 / 描述模糊匹配、忽略大小写），
@@ -182,7 +188,7 @@ async function handleClear() {
       v-model:keyword="trash.query.keyword"
       :tasks="trash.tasks"
       :total="trash.total"
-      :loading="trash.loading && trash.tasks.length === 0"
+      :loading="showSkeleton"
       :clearing="clearing"
       :clear-disabled="trash.total === 0"
       :select-mode="selectMode"

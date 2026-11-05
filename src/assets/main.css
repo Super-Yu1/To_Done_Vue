@@ -32,8 +32,6 @@
   /* 设置列表分割线（2026-10-18）：比边框更浅，两端留内边距，不贴卡片边缘 */
   --color-split: #edf2f7;
   --color-hover: #f4f6f8;
-  /* 设置行悬停：比 --color-hover 更浅，避免整行像被选中 */
-  --color-row-hover: #f9fafb;
   /*
    * 品牌色（2026-10-29 改自 logo）：取 `public/logo.svg` 内盘的浅蓝 #69adff。
    * 浅蓝只能当「面」—— 对白底 2.33:1，做字、做白字底都不够；
@@ -365,7 +363,6 @@ html.dark {
   --color-border-strong: #333a45;
   --color-split: #262b34;
   --color-hover: #20252d;
-  --color-row-hover: #1d222a;
   /* 品牌·深色（2026-10-29）：同一支 logo 蓝提亮 —— 暗底上浅蓝可以直接当字（8.97:1），
    * 所以 ink 反而要更亮；压在浅蓝块上的字仍是深墨色。 */
   --color-brand: #6fb6ff;
@@ -1074,15 +1071,34 @@ img {
 }
 
 /*
- * 弹窗打开时收掉玻璃面板的外阴影（2026-11-03）：
- * 面板的落影（`--shadow-panel` 里的 `0 12px 30px -16px`）在浅色页面上只有几个色阶，
- * 但弹窗遮罩把整页压暗后，面板正下方那圈阴影会显形成一条深色横带
- * （截图里面板与弹窗之间那块「黑条」就是它 —— 行高没变，是阴影被压暗后看得见了）。
- * `el-popup-parent--hidden` 是 Element Plus 在弹窗 / 确认框锁滚动时挂到 body 上的类，
- * 因此只在遮罩在场时生效，关掉弹窗立刻恢复原本的浮起感。
+ * 弹窗打开时收掉全站玻璃卡片的落影（2026-11-03 起，2026-11-05 改成令牌级）：
+ * 卡片那圈 `0 10~12px 26~30px -14~-16px` 的影在浅色页上只有几个色阶，
+ * 弹窗遮罩把整页压暗后，卡片四周的影会显形成深色带 —— 侧栏、空状态卡、快速录入卡都会中招。
+ * 直接在 body 上改令牌，凡是吃 `--shadow-card` / `--shadow-panel` / `--glass-panel-shadow` 的
+ * 组件一起变平，不用逐个列选择器；只保留 1px 的 `--glass-edge` 描边，卡片轮廓不会糊掉。
+ *
+ * Element Plus 在锁滚动时往 body 挂 `*-parent--hidden`，四类弹层都列上
+ * （Dialog / MessageBox / 图片查看器 / 漫游）；遮罩一关类被摘掉，令牌自动回到原值。
+ * 弹窗自己用的是 `--shadow-dialog`（`--el-box-shadow`），不受影响。
+ * 不要用 `body:has(.el-overlay)` 兜底：EP 的遮罩即使关闭也常留在 DOM 里（只是 display:none），
+ * 那样会让所有卡片永远没有浮起感。
  */
-body.el-popup-parent--hidden .admin-panel,
-body.el-popup-parent--hidden .sidebar {
+body:is(.el-popup-parent--hidden, .el-message-box-parent--hidden, .el-image-viewer-parent--hidden, .el-tour-parent--hidden) {
+  --shadow-card: var(--glass-edge);
+  --shadow-card-hover: var(--glass-edge);
+  --shadow-panel: var(--glass-edge);
+  --glass-panel-shadow: var(--glass-edge);
+}
+
+/*
+ * 弹窗自身也不再投大范围落影（2026-11-05）：
+ * `0 12px 40px rgba(0,0,0,.08)` 在浅色页上几乎看不见，但遮罩把整页压暗后，
+ * 它就在弹窗四周显成一圈灰晕（验证码这种小弹窗尤其明显）。
+ * 遮罩 + 1px 描边已经把弹窗和页面分开了，这一层影去掉更干净。
+ * 只作用于弹窗本体，下拉 / 气泡仍走 `--el-box-shadow`。
+ */
+body:is(.el-popup-parent--hidden, .el-message-box-parent--hidden, .el-image-viewer-parent--hidden, .el-tour-parent--hidden) .el-dialog,
+body:is(.el-popup-parent--hidden, .el-message-box-parent--hidden, .el-image-viewer-parent--hidden, .el-tour-parent--hidden) .el-message-box {
   box-shadow: none;
 }
 

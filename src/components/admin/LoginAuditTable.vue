@@ -11,8 +11,8 @@
  */
 import { computed } from 'vue'
 import AppTooltip from '@/components/AppTooltip.vue'
+import DateTimeCell from './DateTimeCell.vue'
 import { LOGIN_AUDIT_RESULT_LABEL } from '@/constants'
-import { formatDateTime } from '@/utils/date'
 import { describeUserAgent } from '@/utils/userAgent'
 import type { LoginAudit, LoginAuditResult } from '@/types'
 
@@ -37,7 +37,8 @@ const isEmpty = computed(() => !props.loading && props.audits.length === 0)
     <el-table :data="audits" v-loading="loading && !audits.length"
     element-loading-background="transparent">
       <el-table-column label="时间" width="150">
-        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+        <!-- 两行：上日期、下时刻（2026-11-05） -->
+        <template #default="{ row }"><DateTimeCell :value="row.createdAt" /></template>
       </el-table-column>
 
       <el-table-column label="账号" min-width="200" prop="account" show-overflow-tooltip />

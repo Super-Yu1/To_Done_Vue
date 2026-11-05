@@ -39,16 +39,6 @@ export const AVATAR_OUTPUT_SIZE = 512
 export const EMAIL_CODE_LENGTH = 6
 export const EMAIL_CODE_RESEND_SECONDS = 60
 
-/**
- * 登录图形码的触发规则（2026-10-28 需求变更）：同一邮箱**连续输错 2 次密码**，
- * 从第 3 次尝试起才要求图形码；登录成功即清零。
- *
- * 计数只存本地（`utils/loginAttempts`，按邮箱分开），因为前端要**提前**决定这次点「登录」
- * 是直接提交还是先弹窗；真正的判定在后端 —— 两边窗口都是 30 分钟（见 `docs/CHANGELOG.md` 项目约定「图形码」）。
- */
-export const LOGIN_FAILURE_KEY = 'todone_login_failures'
-export const LOGIN_CAPTCHA_AFTER_FAILURES = 2
-export const LOGIN_FAILURE_TTL_MS = 30 * 60 * 1000
 
 /** 密码规则（6.5 ③）：最短 8 位，且必须同时包含字母与数字 */
 export const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/

@@ -28,6 +28,13 @@ export function formatDateTime(value?: string | null): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+/** 格式化为 HH:mm（表格时间列的第二行，2026-11-05） */
+export function formatTime(value?: string | null): string {
+  const date = parseDate(value)
+  if (!date) return ''
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 /** 格式化为 YYYY-MM-DD */
 export function formatDate(value?: string | null): string {
   const date = parseDate(value)

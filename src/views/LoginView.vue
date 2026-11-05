@@ -2,9 +2,9 @@
 /**
  * 登录（UC-02 / 6.5 ④）：邮箱 + 密码。
  *
- * 图形码**不再每次都要**（2026-10-28 需求变更）：同一邮箱连续输错 2 次密码，第 3 次点「登录」才弹窗，
- * 前两次直接提交。计数在 `utils/loginAttempts`（本地 / 按邮箱 / 30 分钟过期 / 成功清零），
- * 后端按同一规则判定 —— 本地计数没跟上时后端回 4008，这里再把弹窗递上来（口径见 `docs/CHANGELOG.md` 项目约定「图形码」）。
+ * 人机验证（2026-11-05 两段式）：**前端不再预判要不要验证** —— 一律先直接提交，
+ * 后端按风险判级后回 4008（该带票没带），这里再去取题、换票、把同一个请求重发一次。
+ * 这样零额外请求、也不会因为本地计数算错而白弹一次（旧的 `utils/loginAttempts` 因此下线）。
  *
  * 账号锁定（1009，2026-10-31）：连续 10 次密码错后台锁 2 小时，**密码正确**时才返回 1009
  * （密码错仍是 1003）。这里的原话直接展示、不改写，详见下方 `lockedNotice`。
@@ -18,15 +18,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import AuthAside from '@/components/AuthAside.vue'
 import AuthShell from '@/components/AuthShell.vue'
-import CaptchaDialog from '@/components/CaptchaDialog.vue'
-import { isCaptchaError, isCaptchaRequiredError, isCredentialError, isLockedError } from '@/api/http'
+import ChallengeDialog from '@/components/challenge/ChallengeDialog.vue'
+import { isChallengeRequiredError, isCredentialError, isLockedError, messageOf } from '@/api/http'
+import { useChallenge } from '@/composables/useChallenge'
 import { pickLoginWelcome } from '@/constants'
-import {
-  clearLoginFailures,
-  markCaptchaRequired,
-  needsLoginCaptcha,
-  recordLoginFailure,
-} from '@/utils/loginAttempts'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -62,9 +57,20 @@ onMounted(() => {
 })
 
 const formRef = ref<FormInstance>()
-const captchaVisible = ref(false)
-/** 弹窗句柄：图形码输错时要让它「留住弹窗 + 红字 + 换一张新图」 */
-const captchaDialogRef = ref<InstanceType<typeof CaptchaDialog>>()
+
+/**
+ * 人机验证（2026-11-05 两段式）：只在后端回 4008 时才取题 —— 正常登录一次都不会弹。
+ * `account` 传登录邮箱，服务端按它算风险等级。
+ */
+const {
+  visible: challengeVisible,
+  submitting: challengeSubmitting,
+  error: challengeError,
+  challenge: challengeData,
+  request: requestChallenge,
+  submit: submitChallenge,
+  cancel: cancelChallenge,
+} = useChallenge({ scene: 'USER_LOGIN', account: () => form.email })
 
 const form = reactive({
   email: '',
@@ -85,57 +91,52 @@ async function handleSubmit() {
   if (auth.loading) return
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
-  if (needsLoginCaptcha(form.email)) {
-    captchaVisible.value = true
-    return
-  }
   await submitLogin()
 }
 
-async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: string }) {
-  await submitLogin(payload)
-}
+/**
+ * 提交登录。第一次不带票（大多数情况后端直接放行）；
+ * 若回 4008 就取题换票、把**同一个请求**重发一次 —— 前端不再猜「第几次该弹码」。
+ */
+async function submitLogin() {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await auth.login({ email: form.email, password: form.password, ...(ticket.value ? { challengeTicket: ticket.value } : {}) })
+      ticket.value = undefined
+      lockedNotice.value = ''
+      ElMessage.success('登录成功')
+      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tasks'
+      await router.push(redirect)
+      return
+    } catch (error) {
+      // 锁定（1009）：密码是对的，只是账号在锁定期。后端原话常驻展示（见 lockedNotice）
+      if (isLockedError(error)) {
+        lockedNotice.value = messageOf(error)
+        return
+      }
 
-/** 提交登录；带不带图形码由调用方决定（第 1、2 次不带，第 3 次起带） */
-async function submitLogin(captcha?: { captchaId: string; captchaCode: string }) {
-  try {
-    await auth.login({ email: form.email, password: form.password, ...(captcha ?? {}) })
-    clearLoginFailures(form.email)
-    captchaVisible.value = false
-    lockedNotice.value = ''
-    ElMessage.success('登录成功')
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/tasks'
-    await router.push(redirect)
-  } catch (error) {
-    // 图形码错（4001）：留住弹窗，输入框下方给红字并换一张新图 —— 输错的那 4 位不值得让用户从头再来
-    if (isCaptchaError(error)) {
-      captchaDialogRef.value?.markError()
+      // 4008：该验证没带票 —— 取题换票后重试；用户取消就到此为止
+      if (isChallengeRequiredError(error) && attempt === 0) {
+        const outcome = await requestChallenge()
+        if (outcome === null) return
+        if (outcome === 'none') {
+          // 后端说要票、取题却判「不需要」：多半是 account 不匹配，重试也是 4008
+          ElMessage.error('验证未完成，请稍后重试')
+          return
+        }
+        ticket.value = outcome
+        continue
+      }
+
+      // 其余（1003 密码错、1006 冻结、1007 注销…）由 http 层统一提示
+      lockedNotice.value = ''
       return
-    }
-    // 锁定（1009）：密码是对的，只是账号在锁定期。后端原话常驻展示（见 lockedNotice）。
-    // 顺手清掉本地的「连续失败」计数 —— 管理员解禁时后端会把 Redis 里的计数一起清掉，
-    // 本地若还停在 2 次以上，解禁后第一次登录会白弹一次图形码。
-    if (isLockedError(error)) {
-      lockedNotice.value = error instanceof Error ? error.message : ''
-      clearLoginFailures(form.email)
-      captchaVisible.value = false
-      return
-    }
-    lockedNotice.value = ''
-    // 只有「邮箱或密码错」才累计连续失败：冻结 / 注销是账号状态问题，不该顺带把图形码逼出来
-    if (isCredentialError(error)) recordLoginFailure(form.email)
-    // 其它失败由 http 层提示；关掉弹窗，免得密码填错时逼用户为一次提交连填两次图形码。
-    // 下次点「登录」自然是一张新图。
-    captchaVisible.value = false
-    // 后端说「该输图形码了」而本地还没打算弹（换了浏览器 / 清了缓存 / 别处已经错过两次）：
-    // 把本地计数补到阈值再递上弹窗，否则关掉弹窗再点登录又会先不带码提交一次、再吃一次 4008
-    if (isCaptchaRequiredError(error)) {
-      markCaptchaRequired(form.email)
-      captchaVisible.value = true
-      captchaDialogRef.value?.refresh()
     }
   }
 }
+
+/** 本轮拿到的票：只在 4008 之后才有值，成功或放弃时清掉 */
+const ticket = ref<string | undefined>()
 </script>
 
 <template>
@@ -205,11 +206,13 @@ async function submitLogin(captcha?: { captchaId: string; captchaCode: string })
       <RouterLink class="links__item" to="/register">还没有账号？注册新账号</RouterLink>
     </div>
 
-    <CaptchaDialog
-      ref="captchaDialogRef"
-      v-model:visible="captchaVisible"
-      :loading="auth.loading"
-      @confirm="handleCaptchaConfirm"
+    <ChallengeDialog
+      v-model:visible="challengeVisible"
+      :challenge="challengeData"
+      :submitting="challengeSubmitting"
+      :error="challengeError"
+      @answer="submitChallenge"
+      @cancel="cancelChallenge"
     />
 
     <template #footer>

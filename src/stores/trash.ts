@@ -11,6 +11,8 @@ export const useTrashStore = defineStore('trash', () => {
   const total = ref(0)
   const totalPages = ref(0)
   const loading = ref(false)
+  /** 有没有成功取过一次（2026-11-05）：骨架只给首屏，空回收站切回来不再闪一帧 */
+  const hydrated = ref(false)
 
   /**
    * 与任务页 `todo.fetchPage` 同一套：
@@ -28,6 +30,7 @@ export const useTrashStore = defineStore('trash', () => {
         ...(keyword?.trim() ? { keyword: keyword.trim() } : {}),
       })
       tasks.value = append ? [...tasks.value, ...result.records] : result.records
+      hydrated.value = true
       total.value = result.total
       totalPages.value = result.totalPages
       // 请求成功才推进页码：失败时列表没变，页码也不该动，重试仍是同一页
@@ -86,6 +89,7 @@ export const useTrashStore = defineStore('trash', () => {
     total,
     totalPages,
     loading,
+    hydrated,
     fetchTrash,
     loadMore,
     restore,

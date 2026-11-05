@@ -19,6 +19,12 @@ const REQUEST_TIMEOUT = 20000
  * 所以这个码不走拦截器的 toast，交给登录页渲染。
  */
 const LOGIN_LOCKED_CODE = 1009
+/**
+ * 该验证却没带票（4008）：**不弹** —— 三处入口（登录 / 后台登录 / 发信）收到它都会打开
+ * 人机验证弹窗，提示交给流程本身。以前会弹一句「请先完成人机验证后重试」，
+ * 用户还没看到验证码就先收到一条像「失败」的红字（2026-11-05 用户反馈）。
+ */
+const CHALLENGE_REQUIRED_CODE = 4008
 
 const http = axios.create({
   baseURL: '/api',
@@ -63,8 +69,9 @@ http.interceptors.response.use(
   (response) => {
     const body = response.data as ApiResult<unknown>
     if (body.code !== 200) {
-      // 1009 的提示由登录页常驻展示（见 LOGIN_LOCKED_CODE），这里不弹
-      if (body.code !== LOGIN_LOCKED_CODE) {
+      // 1009 的提示由登录页常驻展示（见 LOGIN_LOCKED_CODE）；
+      // 4008 由调用方打开人机验证弹窗 —— 这两个都不弹，避免「先失败一回」的错觉
+      if (body.code !== LOGIN_LOCKED_CODE && body.code !== CHALLENGE_REQUIRED_CODE) {
         ElMessage.error(body.message || '操作失败')
       }
       // 把业务码带出去：调用方要能区分「图形码错（4001）」这类可以原地重试的失败
@@ -118,10 +125,33 @@ function businessCodeOf(error: unknown): number | undefined {
 }
 
 /**
- * 图形验证码错误（4001）：那张码的机会用完了，可以原地再要一张，不必让用户从头填整张表单。
+ * 人机验证「答错了」（4009，2026-11-05 两段式）：滑块超差 / 点偏了 / 轨迹不像人拖的 / 同题超 3 次。
+ * **原地重试**即可 —— 弹窗留着，让用户再拖一次；只有提示「次数用尽」时才需要重新取题。
+ * （4001「图形码错误」已随旧接口退役，号码保留不再抛出。）
  */
-export function isCaptchaError(error: unknown): boolean {
-  return businessCodeOf(error) === 4001
+export function isChallengeWrongError(error: unknown): boolean {
+  return businessCodeOf(error) === 4009
+}
+
+/**
+ * 票据失效（4010）：过期 / 已用过 / 场景不符。
+ * **必须重新取题**——拿同一张票重试一定还是 4010，所以这里不能「原地重试」。
+ */
+export function isChallengeExpiredError(error: unknown): boolean {
+  return businessCodeOf(error) === 4010
+}
+
+/**
+ * 风险过高（4011，HTTP 429）：**一个验证码都别弹**，直接提示稍后再试并按 `Retry-After` 冷却。
+ * 还弹验证码的话，用户会陷进「怎么点都不对」的死循环。
+ */
+export function isChallengeBlockedError(error: unknown): boolean {
+  return businessCodeOf(error) === 4011
+}
+
+/** 取后端给的业务提示原文（错误码里有「还剩 X 分钟」这类信息，不要自己改写） */
+export function messageOf(error: unknown): string {
+  return (error as { message?: string } | null)?.message ?? ''
 }
 
 /**
@@ -133,12 +163,12 @@ export function isCredentialError(error: unknown): boolean {
 }
 
 /**
- * 后端要求先过图形码（4008，2026-10-28 新增，口径见 `docs/CHANGELOG.md` 项目约定「图形码」）：
- * 本地计数没跟上时（换了浏览器 / 清了缓存 / 后端把计数窗口算得更久）用它把弹窗补上，
- * 用户不至于卡在「点登录只报错、却看不到要输码」。
+ * 该验证却没带票据（4008，2026-11-05 两段式）：登录页拿它去**取题 → 换票 → 重发同一个请求**。
+ * 前端现在不猜「要不要验证」（旧版靠本地失败计数预判），一律先直接发，收到 4008 再补 ——
+ * 风险规则在服务端，本地那套计数永远算不准，还会多一次无谓的取题。
  */
-export function isCaptchaRequiredError(error: unknown): boolean {
-  return businessCodeOf(error) === 4008
+export function isChallengeRequiredError(error: unknown): boolean {
+  return businessCodeOf(error) === CHALLENGE_REQUIRED_CODE
 }
 
 /**

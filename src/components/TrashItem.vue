@@ -128,10 +128,13 @@ const deletedText = computed(() => `删除于 ${formatDueLabel(props.task.delete
     box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
 }
 
-/* 悬停 / 键盘焦点：上浮 2px + 影更深 + 高光边更亮，与任务卡同一姿态 */
-.trash-row:hover,
-.trash-row:focus-visible,
-.trash-row:has(:focus-visible) {
+/*
+ * 悬停 / 键盘焦点（2026-11-05 改）：只有**批量模式**（整行可点）才给整卡反馈。
+ * 平时这一行不可点，指针落到行内的「恢复 / 彻底删除」上却把整卡点亮，看着像多出一层灰 ——
+ * 与个人中心设置行同一类问题。平时反馈交给按钮自己（purge / restore 都有自己的悬停与焦点样式）。
+ */
+.trash-row--select:hover,
+.trash-row--select:has(:focus-visible) {
   border-color: var(--glass-card-border-hover);
   background-color: var(--glass-card-bg-hover);
   box-shadow: var(--shadow-card-hover);

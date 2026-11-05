@@ -25,8 +25,26 @@ import type { LoginAuditActorType, LoginAuditResult } from '@/types'
 
 const adminStore = useAdminStore()
 
-/** 时间区间在控件里是一对字符串，到查询参数里拆成 from / to */
-const range = ref<[string, string] | null>(null)
+/**
+ * 时间区间（2026-11-05 改）：原来一个 `datetimerange` 控件会展开**两个月**的面板，
+ * 用户要求单面板 —— 拆成「起始时间 / 结束时间」两个 `datetime` 控件，各自只展开一个月。
+ * 两个值分别对应查询参数 `from` / `to`，清空即撤掉该端（后端两端都可选）。
+ */
+const from = ref<string | null>(null)
+const to = ref<string | null>(null)
+
+/** 起始时间不能晚于已选的结束时间（只按“天”禁用，具体的时分仍由用户决定） */
+function disabledFromDate(date: Date): boolean {
+  return to.value ? date.getTime() > new Date(to.value).getTime() : false
+}
+
+/** 结束时间不能早于已选的起始时间（按起始那天的 00:00 比较，当天仍可选） */
+function disabledToDate(date: Date): boolean {
+  if (!from.value) return false
+  const startOfDay = new Date(from.value)
+  startOfDay.setHours(0, 0, 0, 0)
+  return date.getTime() < startOfDay.getTime()
+}
 
 async function guard(action: () => Promise<unknown>) {
   try {
@@ -50,10 +68,10 @@ watch(
   },
 )
 
-/** 区间清空（clearable）时 EP 给 null，两个参数一起撤掉 */
-watch(range, (value) => {
-  adminStore.auditQuery.from = value?.[0]
-  adminStore.auditQuery.to = value?.[1]
+/** 任一端变化（含 clearable 清成 null）→ 写回查询参数并重取；两端同时变也只发一次 */
+watch([from, to], () => {
+  adminStore.auditQuery.from = from.value ?? undefined
+  adminStore.auditQuery.to = to.value ?? undefined
   reload()
 })
 
@@ -61,24 +79,26 @@ onUnmounted(() => window.clearTimeout(debounceTimer))
 
 onMounted(() => {
   // 两段没有「全不选」，首次进入把默认值落到 store 上，第一发请求就带 actorType
-  if (!adminStore.auditQuery.actorType) adminStore.auditQuery.actorType = 'ADMIN'
+  // 默认「用户」（2026-11-05 用户口径）：进后台先看普通用户的登录情况
+  if (!adminStore.auditQuery.actorType) adminStore.auditQuery.actorType = 'USER'
   void guard(() => adminStore.fetchAudits(1))
 })
 
 /**
- * 登录方（2026-11-02 二改）：复用前台筛选栏的 `SegmentedControl`，只留两段。
+ * 登录方（2026-11-02 二改，2026-11-05 翻转顺序）：复用前台筛选栏的 `SegmentedControl`，只留两段。
  * 去掉了「全部」—— 两段恒有一个选中，界面不会出现「谁都没亮」的空档；
  * 代价是看不到两种混排，但审计页的两类记录本来就不该混在一起读（管理员只有几个人）。
- * 默认给「管理员」：进后台先看的是谁登过后台。
+ * 顺序按用户要求改成**左「用户」、右「管理员」**；默认也选「用户」（左侧第一段）——
+ * 进后台先看普通用户的登录情况。
  */
 const ACTOR_TABS: { value: LoginAuditActorType; label: string }[] = [
-  { value: 'ADMIN', label: LOGIN_AUDIT_ACTOR_LABEL.ADMIN },
   { value: 'USER', label: LOGIN_AUDIT_ACTOR_LABEL.USER },
+  { value: 'ADMIN', label: LOGIN_AUDIT_ACTOR_LABEL.ADMIN },
 ]
 
 /** 两段里恒有一个选中，所以这里不再接受空值 */
 const actorTab = computed<LoginAuditActorType>({
-  get: () => adminStore.auditQuery.actorType ?? 'ADMIN',
+  get: () => adminStore.auditQuery.actorType ?? 'USER',
   set: (value: LoginAuditActorType) => {
     adminStore.auditQuery.actorType = value
     reload()
@@ -149,17 +169,29 @@ function handlePageChange(page: number) {
         <!--
           后端要的格式就是 yyyy-MM-ddTHH:mm:ss，与 value-format 一致，不做二次转换；
           后端按服务端时区（Asia/Shanghai）解释，上界含整秒（后端 < to + 1s），前端不加 1 秒。
+          两个独立控件（2026-11-05）：各自展开一个月，不再一次铺两个月。
         -->
-        <el-date-picker
-          v-model="range"
-          class="audit-toolbar__range"
-          type="datetimerange"
-          value-format="YYYY-MM-DDTHH:mm:ss"
-          start-placeholder="起始时间"
-          end-placeholder="结束时间"
-          unlink-panels
-          clearable
-        />
+        <div class="audit-toolbar__range">
+          <el-date-picker
+            v-model="from"
+            class="audit-toolbar__time"
+            type="datetime"
+            value-format="YYYY-MM-DDTHH:mm:ss"
+            placeholder="起始时间"
+            :disabled-date="disabledFromDate"
+            clearable
+          />
+          <span class="audit-toolbar__dash" aria-hidden="true">—</span>
+          <el-date-picker
+            v-model="to"
+            class="audit-toolbar__time"
+            type="datetime"
+            value-format="YYYY-MM-DDTHH:mm:ss"
+            placeholder="结束时间"
+            :disabled-date="disabledToDate"
+            clearable
+          />
+        </div>
       </div>
 
       <LoginAuditTable :audits="adminStore.audits" :loading="adminStore.auditLoading" />
@@ -201,8 +233,26 @@ function handlePageChange(page: number) {
 }
 
 .audit-toolbar__range {
+  display: flex;
   flex: 1;
-  min-width: 340px;
-  max-width: 420px;
+  align-items: center;
+  gap: 6px;
+  min-width: 360px;
+  max-width: 460px;
+}
+
+.audit-toolbar__time {
+  flex: 1;
+  min-width: 0;
+}
+
+/* EP 的日期编辑器默认写死宽度，这里让它跟着 flex 走 */
+.audit-toolbar__time:deep(.el-input) {
+  width: 100%;
+}
+
+.audit-toolbar__dash {
+  flex: none;
+  color: var(--color-text-3);
 }
 </style>

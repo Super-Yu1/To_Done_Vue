@@ -1,16 +1,19 @@
 <script setup lang="ts">
 /**
  * 邮箱验证码字段（3.2 / 6.5 ②，交互见 8.8）：6 位数字，按钮进入 60 秒倒计时。
- * 2026-10-14 起：图形码不再常驻表单 —— 点「获取验证码」弹窗输入，发出后自动关掉；
- * 发送失败（图形码错 / 频次限制）弹窗保持打开并换一张新图形码。
- * demo 为真时不请求后端、也不真发信，走同一套弹窗交互（图形码本地生成），只把倒计时跑起来。
+ *
+ * 2026-11-05 起发信**必须带人机验证票据**：点「获取验证码」先取题（`scene=EMAIL_CODE`），
+ * 需要验证就弹窗、答完换票，再带 `challengeTicket` 发信；票过期（4010）会自动重取一次。
+ * 换邮箱的「旧邮箱确认码」走 `direct` 模式（`POST /users/me/email-code`，服务端取收件人、免票据）。
+ * 演示模式（`demo`）不请求后端、也不真发信，只把倒计时跑起来。
  */
 import { computed, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import CaptchaDialog from '@/components/CaptchaDialog.vue'
+import ChallengeDialog from '@/components/challenge/ChallengeDialog.vue'
 import { sendCurrentEmailCode } from '@/api/auth'
-import { isCaptchaError } from '@/api/http'
+import { isChallengeExpiredError, isChallengeRequiredError } from '@/api/http'
 import { sendEmailCode } from '@/api/verify'
+import { useChallenge } from '@/composables/useChallenge'
 import { EMAIL_CODE_LENGTH, EMAIL_CODE_RESEND_SECONDS } from '@/constants'
 import type { EmailCodeScene } from '@/types'
 
@@ -34,9 +37,25 @@ const emit = defineEmits<{ sent: [number] }>()
 const seconds = ref(0)
 let timer: number | undefined
 
-const captchaVisible = ref(false)
 const sending = ref(false)
-const captchaDialogRef = ref<InstanceType<typeof CaptchaDialog>>()
+
+/**
+ * 人机验证（2026-11-05 两段式）：发信**必须**带票（发信没有密码这道门槛，最低档就是滑块）。
+ * `account` 传收件邮箱 —— 不带的话服务端按「零失败记录」判 NONE，业务接口却会回 4008。
+ */
+const {
+  visible: challengeVisible,
+  submitting: challengeSubmitting,
+  error: challengeError,
+  challenge: challengeData,
+  request: requestChallenge,
+  submit: submitChallenge,
+  cancel: cancelChallenge,
+} = useChallenge({
+  scene: 'EMAIL_CODE',
+  account: () => props.email,
+  demo: () => Boolean(props.demo),
+})
 
 const buttonText = computed(() => (seconds.value > 0 ? `${seconds.value} 秒后重发` : '获取验证码'))
 const isDisabled = computed(() => seconds.value > 0)
@@ -56,7 +75,7 @@ function startCountdown(secondsToWait: number) {
 
 onUnmounted(stopTimer)
 
-/** 点按钮：普通模式打开图形码弹窗，direct 模式直接请求当前邮箱发码 */
+/** 点按钮：direct 直接请求当前邮箱发码；其余先取题换票，再带票发信 */
 function handleSend() {
   if (props.direct) {
     void sendDirectCode()
@@ -66,7 +85,49 @@ function handleSend() {
     ElMessage.warning('请先填写邮箱')
     return
   }
-  captchaVisible.value = true
+  void sendWithTicket()
+}
+
+/**
+ * 取题 → 换票 → 发信。
+ * 票即使刚拿到也可能在发请求前失效（120 秒），所以 4008 / 4010 都重取一次再试；
+ * 4009（答错）由 `useChallenge` 留在弹窗里让用户原地重来，这里不需要分支。
+ */
+async function sendWithTicket() {
+  // 演示模式不请求后端：取题会真的打到 /verify/challenge，这里直接跑倒计时
+  if (props.demo) {
+    startCountdown(EMAIL_CODE_RESEND_SECONDS)
+    ElMessage.success('演示模式不会真的发邮件，填任意 6 位数字即可继续')
+    emit('sent', DEMO_CODE_EXPIRE_SECONDS)
+    return
+  }
+
+  sending.value = true
+  try {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const outcome = await requestChallenge()
+      if (outcome === null) return
+      const ticket = outcome === 'none' ? '' : outcome
+
+      try {
+        const result = await sendEmailCode({
+          email: props.email ?? '',
+          scene: props.scene ?? 'CHANGE_EMAIL',
+          challengeTicket: ticket,
+        })
+        startCountdown(result.resendAfterSeconds || EMAIL_CODE_RESEND_SECONDS)
+        ElMessage.success('验证码已发送，请查收邮件')
+        emit('sent', result.expiresInSeconds)
+        return
+      } catch (error) {
+        const retryable = isChallengeRequiredError(error) || isChallengeExpiredError(error)
+        if (retryable && attempt === 0) continue
+        return
+      }
+    }
+  } finally {
+    sending.value = false
+  }
 }
 
 /** direct：当前登录邮箱，服务端取收件人；演示模式不请求后端 */
@@ -89,39 +150,6 @@ async function sendDirectCode() {
   }
 }
 
-async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: string }) {
-  if (props.demo) {
-    captchaVisible.value = false
-    startCountdown(EMAIL_CODE_RESEND_SECONDS)
-    ElMessage.success('演示模式不会真的发邮件，填任意 6 位数字即可继续')
-    emit('sent', DEMO_CODE_EXPIRE_SECONDS)
-    return
-  }
-
-  sending.value = true
-  try {
-    const result = await sendEmailCode({
-      email: props.email ?? '',
-      scene: props.scene ?? 'CHANGE_EMAIL',
-      captchaId: payload.captchaId,
-      captchaCode: payload.captchaCode,
-    })
-    captchaVisible.value = false
-    startCountdown(result.resendAfterSeconds || EMAIL_CODE_RESEND_SECONDS)
-    ElMessage.success('验证码已发送，请查收邮件')
-    emit('sent', result.expiresInSeconds)
-  } catch (error) {
-    // 图形码错：红字提示 + 换一张（弹窗留着，4 位不用从头再来）；
-    // 其它失败（60 秒冷却 / 每日上限）交给 http 层提示，并关掉弹窗，免得让人对着一张没用的码继续填
-    if (isCaptchaError(error)) {
-      captchaDialogRef.value?.markError()
-    } else {
-      captchaVisible.value = false
-    }
-  } finally {
-    sending.value = false
-  }
-}
 </script>
 
 <template>
@@ -140,12 +168,13 @@ async function handleCaptchaConfirm(payload: { captchaId: string; captchaCode: s
       {{ sending ? '发送中…' : buttonText }}
     </el-button>
 
-    <CaptchaDialog
-      ref="captchaDialogRef"
-      v-model:visible="captchaVisible"
-      :loading="sending"
-      :demo="demo"
-      @confirm="handleCaptchaConfirm"
+    <ChallengeDialog
+      v-model:visible="challengeVisible"
+      :challenge="challengeData"
+      :submitting="challengeSubmitting"
+      :error="challengeError"
+      @answer="submitChallenge"
+      @cancel="cancelChallenge"
     />
   </div>
 </template>

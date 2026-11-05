@@ -13,6 +13,8 @@ import { computed, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import AppIcon from '@/components/AppIcon.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
+import AdminAvatar from './AdminAvatar.vue'
+import DateTimeCell from './DateTimeCell.vue'
 import { copyText } from '@/utils/clipboard'
 import { formatDateTime, parseDate } from '@/utils/date'
 import type { AdminUser, UserStatus } from '@/types'
@@ -104,10 +106,7 @@ onUnmounted(() => window.clearTimeout(copiedTimer))
     <el-table :data="users" v-loading="loading && !users.length"
     element-loading-background="transparent">
       <el-table-column label="头像" width="56">
-        <template #default="{ row }">
-          <img v-if="row.avatarUrl" class="avatar" :src="row.avatarUrl" alt="头像" />
-          <span v-else class="avatar avatar--text">{{ (row.name || '?').slice(0, 1) }}</span>
-        </template>
+        <template #default="{ row }"><AdminAvatar :name="row.name" :avatar-url="row.avatarUrl" /></template>
       </el-table-column>
 
       <!-- 邮箱：列表里单行省略，悬停出气泡（全串 + 复制） -->
@@ -161,7 +160,8 @@ onUnmounted(() => window.clearTimeout(copiedTimer))
         写法一旦断言成「从未」，就会把老账号读错。
       -->
       <el-table-column label="上次登录时间" width="140">
-        <template #default="{ row }">{{ row.lastLoginAt ? formatDateTime(row.lastLoginAt) : '—' }}</template>
+        <!-- 两行：上日期、下时刻（2026-11-05）；没有记录时由组件回落成「—」 -->
+        <template #default="{ row }"><DateTimeCell :value="row.lastLoginAt" /></template>
       </el-table-column>
 
       <el-table-column label="状态" width="84">
@@ -182,7 +182,7 @@ onUnmounted(() => window.clearTimeout(copiedTimer))
       </el-table-column>
 
       <el-table-column label="注册时间" width="140">
-        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+        <template #default="{ row }"><DateTimeCell :value="row.createdAt" /></template>
       </el-table-column>
 
       <el-table-column label="操作" width="236">
@@ -225,23 +225,6 @@ onUnmounted(() => window.clearTimeout(copiedTimer))
   margin-left: 0;
   padding: 0 2px;
   font-size: 13px;
-}
-
-.avatar {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.avatar--text {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--color-text-2);
-  background-color: var(--color-hover);
 }
 
 .status--frozen {

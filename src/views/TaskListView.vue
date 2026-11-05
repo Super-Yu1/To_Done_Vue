@@ -7,9 +7,12 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { confirmDestructive } from '@/composables/usePreferences'
+import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import {
+  hasSeenOnboarding,
   isAccountUntouched,
   isFreshAccount,
+  markOnboardingSeen,
   taskTourSteps,
 } from '@/composables/useOnboarding'
 import AppIcon from '@/components/AppIcon.vue'
@@ -58,6 +61,15 @@ const activeFilter = ref<TaskQuickFilter | null>(null)
 /** 服务端筛选后列表就是 store 里那一页；保留别名让模板与批量逻辑少改一处 */
 const visibleTasks = computed(() => todo.tasks)
 
+/**
+ * 骨架屏：**请求超过 200ms 才出**（2026-11-05）。
+ * 空账号的列表几十毫秒就回来，按 loading 直接画骨架反而闪一帧；
+ * 加上 `hydrated`（首屏之后不再出），切页 / 切页签就完全看不到占位了。
+ */
+const showSkeleton = useDelayedFlag(
+  () => todo.loading && !todo.hydrated && visibleTasks.value.length === 0,
+)
+
 const hasFilters = computed(() =>
   Boolean(
     todo.query.keyword ||
@@ -105,8 +117,9 @@ onMounted(async () => {
  * 登录后的任务页 = **两条同时满足才弹**（2026-11-01 用户口径）：
  *   ① 账号创建不到 7 天（`isFreshAccount`）；
  *   ② 这个账号一条任务都没有 —— 含回收站（`isAccountUntouched`，读首屏已拉过的 `/tasks/stats`）。
- * 不记「看过了」：那玩意儿只能记在本机，换台设备就失灵（之前恰恰是这么误弹的）；
- * 而「建了第一条任务」以后条件②永久不成立，引导自己就退役了。
+ * 另加一层去重（2026-11-05 修 Bug）：满足①②时原来每进一次任务页都弹 ——
+ * 新账号从回收站切回任务、刷新页面都再弹一遍。现在按「账号 + 本机」记一次
+ * （`hasSeenOnboarding` / `markOnboardingSeen`），只影响「要不要重复」，不影响「要不要弹」。
  */
 const auth = useAuthStore()
 const tourVisible = ref(false)
@@ -130,6 +143,9 @@ async function startOnboardingIfNeeded() {
   const user = auth.user
   if (!user || !isFreshAccount(user.createdAt)) return
   if (!isAccountUntouched(todo.stats)) return
+  // 这台机器已经给这个账号弹过就不再弹（切回收站再回来、刷新都算）
+  if (hasSeenOnboarding(user.id)) return
+  markOnboardingSeen(user.id)
   await nextTick()
   tourVisible.value = true
 }
@@ -409,7 +425,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     -->
     <TaskList
       :tasks="visibleTasks"
-      :loading="todo.loading && visibleTasks.length === 0"
+      :loading="showSkeleton"
       :select-mode="selectMode"
       :leaving-on-toggle="
         Boolean(activeFilter) || Boolean(todo.query.onlyUnfinished) || Boolean(todo.query.status)

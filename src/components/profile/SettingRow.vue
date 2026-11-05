@@ -96,33 +96,15 @@ const emit = defineEmits<{ action: []; cancel: [] }>()
 }
 
 /*
- * 整行悬停的浅灰底保留 —— 它是「这一行」的反馈，不是「可点」的暗示；
- * 可点的暗示交给右侧按钮自己的悬停色（2026-10-31 去掉整行 click）。
+ * 不再给整行铺悬停底色（2026-11-05 用户反馈）：
+ * 指针落在行内任何位置 —— 包括右侧那枚小按钮 —— 整行都会泛一层灰；
+ * 弹窗遮罩压暗页面时这层灰尤其明显，看着像「按钮背后多了一层」。
+ * 行本身不可点（2026-10-31 去掉整行 click），反馈交给右侧按钮自己的悬停色。
  */
-.setting-row:hover,
-.setting-row:focus-within {
-  background-color: var(--color-row-hover);
-}
-
-/* 左侧项名加深到正文色：浅底上不再发灰，可读性优先 */
 .setting-row__label {
   font-size: 13px;
   font-weight: 500;
   color: var(--color-text);
-}
-
-/* 行悬停时右侧动作同步加深；危险动作悬停更深一档 */
-.setting-row:hover .row-action {
-  color: var(--color-text);
-}
-
-.setting-row:hover .row-action--danger {
-  color: var(--color-danger-hover);
-}
-
-/* 确认按钮在悬停时仍保持主色：它是这一行唯一的「落点」，不该被融进正文色 */
-.setting-row:hover .row-action--primary {
-  color: var(--color-accent-hover);
 }
 
 .setting-row__value {

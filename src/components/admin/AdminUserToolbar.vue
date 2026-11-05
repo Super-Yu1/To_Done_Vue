@@ -12,6 +12,7 @@ const emit = defineEmits<{ change: []; refresh: [] }>()
  * 状态选项与字典同源（`constants` 的 USER_STATUS_OPTIONS，含 2026-10-31 新增的「已锁定」）。
  * 用「清空筛选」表达「不传 status」= 正常 + 已冻结（6.5 ⑫）——「已锁定」是叠加在正常账号上的
  * 临时状态，所以被锁的人默认列表里也在（后端已确认默认列表不排除锁定账号）。
+ * 默认值改成了 `status = 'NORMAL'`（2026-11-05）：首屏只看正常账号，冻结的要自己切/清空才出现。
  * 后端同日放宽了 `LOCKED`：不再排除已冻结的账号，所以筛「已锁定」时会出现标注为「已冻结」的行 ——
  * 那是「冻结期间又被锁」的账号，状态列按冻结显示，气泡里另有锁定截止时间。
  * 不给选项传 undefined —— Element Plus 的 el-option 不接 undefined，会报属性类型告警。
@@ -29,15 +30,16 @@ watch(
 
 onUnmounted(() => window.clearTimeout(debounceTimer))
 
-/** 清空（clearable）时 EP 给的是空字符串，统一折成 undefined = 不筛选 */
-function handleStatusChange(value: UserStatus | '' | undefined) {
-  props.query.status = value ? value : undefined
+/** 状态恒有值（下拉不再可清空）：选了哪个就筛哪个 */
+function handleStatusChange(value: UserStatus) {
+  props.query.status = value
   emit('change')
 }
 
+/** 清空筛选只清关键词，状态回到默认的「正常」 */
 function clearFilters() {
   props.query.keyword = ''
-  props.query.status = undefined
+  props.query.status = 'NORMAL'
   emit('change')
 }
 
@@ -55,8 +57,7 @@ defineExpose({ clearFilters })
     <el-select
       class="toolbar__status"
       :model-value="query.status"
-      placeholder="全部（正常 + 已冻结）"
-      clearable
+      placeholder="状态"
       @change="handleStatusChange"
     >
       <el-option
