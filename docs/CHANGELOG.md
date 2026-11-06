@@ -35,15 +35,45 @@
 
 ## 三、修订记录
 
-### 2026-11-05 23:40 · 弹窗自身也不再投落影
+### 2026-11-06 17:39 · 浅色画布提亮，去掉「蒙了一层灰」
 
-用户反馈：登录页弹「人机验证」时，验证码弹窗周围又出现阴影。
+用户反馈浅色模式整页像蒙了一层灰，要求先排查再改。
 
-**排查**：23:10 那条把**页面卡片**的阴影令牌全收了，但弹窗自己用的是 `--shadow-dialog`（`0 12px 40px rgba(0,0,0,.08)`）—— 浅色页上几乎看不见，遮罩把整页压暗后就在弹窗四周显成一圈灰晕，验证码这种小弹窗最明显。CDP 实测该状态下全页只剩这一处外阴影（其余都是输入框的 inset）。
+**排查**：在 2560×1440、4 条任务的空白场景下实测：空白区只有 `#EDEAF1~#F0EFF6`（RGB 最大差 5~6，几乎无彩度），卡片 `#FBFBFF`、侧栏 `#F6F6FF` —— 画布比卡片暗 12 级左右，大片空地就成了一层灰紫纱。逐项对照：去掉 `--page-noise` 只提升 1~2 级；关掉 `backdrop-filter` 反而更中性更灰（`saturate` 一直在补彩度）；玻璃填色 `.46→.62` 面板只差 1~2 级。根因是浅色画布这组渐变：基色 `#e8edf6`、末端灰紫 / 灰粉，加上中央 `.35` 白光把彩度冲平。
 
-**改法**（`main.css`）：在弹层锁滚动的那组 body 类下，把 `.el-dialog` / `.el-message-box` 的 `box-shadow` 置 `none`。遮罩 + 1px 描边已经足够分层；下拉 / 气泡仍走 `--el-box-shadow`，不受影响。
+**改法**（`src/assets/main.css`）：只改浅色画布令牌 —— `--page-bg` `#e8edf6→#f4f7fd`；末端渐变改为 `#f4f7fd / #f5f3fb / #faf5fa`；中央白光 `.35→.10`、斜向白光 `.22/.08→.10/.04`；四角彩色各降 `.02`。玻璃、文字令牌与深色主题不动。
 
-验证：`npm run build` EXIT=0；Edge 无头 + CDP（`/login`，mock 登录回 4008 + 图形码题面）—— 弹窗 `box-shadow` 从 `rgba(0,0,0,.08) 0px 12px 40px` 变成 `none`，全页扫描只剩输入框的 inset 阴影；截图确认弹窗边缘干净、与遮罩的分层仍然清楚。
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（2560×1440，演示页保留 4 行制造大空白）—— 空白区从 `#EDEAF1` 提到 `#F6F3FA~#F8F4FA`，卡片 `#FDFDFF`、侧栏 `#FCFBFF`，层次仍在；切 dark 后 `--page-bg` 仍为 `#101319`，深色不受影响。临时脚本与截图已删除。
+
+### 2026-11-06 17:21 · 登录审计「账号」改名「邮箱」，列宽不再吃满剩余空间
+
+用户反馈：登录审计的「账号」列太宽，要求标题改为「邮箱」并调整列表布局。
+
+**排查**：该列用的是 `min-width="200"` —— Element Plus 的表格布局会把所有剩余宽度都分给唯一带 `min-width` 的列（`table-layout` 里 flexColumns 只有它），窗口一宽就被撑到 500px 以上，短邮箱周围空出一大片；其余列都是固定宽。
+
+**改法**（`components/admin/LoginAuditTable.vue`）：列名改「邮箱」、宽度固定 240（长邮箱仍靠单行省略 + 气泡看全）；把唯一的伸缩位交给 User-Agent 列（`min-width="180"`），表格继续铺满面板；顺带把时间 150→140、IP 140→130，1024 宽下五列合计 821 正好放得下，不再出现横向滚动。
+
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 审计数据 14 行）—— 1440 下各列 140 / 240 / 120 / 130 / 398，1024 下 140 / 240 / 120 / 130 / 191，表格宽度分别 1028 / 821 且无横向滚动；截图确认邮箱列收窄、UA 简写完整显示。临时脚本与截图已删除。
+
+### 2026-11-06 17:11 · 登录审计的账号与 User-Agent 也能悬停出气泡并复制
+
+用户要求：用户管理里悬停邮箱会出「全串 + 复制」气泡，登录审计的「账号」与「User-Agent」要有同一套。
+
+**排查**：邮箱那套气泡原本内联在 `AdminUserTable.vue` 里（`el-popover` + 复制按钮 + 1.6 秒勾选反馈），审计表摸不到；账号列只用了 EP 的 `show-overflow-tooltip`（单行、不能复制），UA 列用的是 `AppTooltip`（`pointer-events: none`，按钮点不到）。
+
+**改法**：新增 `components/admin/CopyPopover.vue`，把邮箱气泡抽成组件（`text` + `copyLabel` + `width`，默认插槽放触发元素），复制按钮的 aria-label、失败提示与 1.6 秒「已复制」反馈原样收进来；`AdminUserTable.vue` 的邮箱列改用它（删掉原内联逻辑与局部样式）；`LoginAuditTable.vue` 的账号列改成 `CopyPopover` + 自绘单行省略（气泡 300），UA 列从 `AppTooltip` 换成 `CopyPopover`（气泡 420，长串自动断行）。三处气泡共用 `.copy-popover` 排版（非 scoped，因为 teleport 到 body）。
+
+验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 管理员接口 + 本地假 JWT）—— `/admin/users` 邮箱、`/admin/audit` 账号与 UA 悬停后气泡文本都等于完整原串（宽 300 / 300 / 420）；点复制后按钮 `aria-label` 变「已复制」，邮箱剪贴板读回也是全串。临时脚本验完已删除。
+
+### 2026-11-06 11:38 · 验证弹窗关闭即销毁内容，重新打开不再残留上次验证码
+
+用户反馈：后台登录点「登录」弹出验证码时，输入框里还留着上一次输入的字符。
+
+**排查**：`ChallengeDialog` 没开 `destroy-on-close`，弹窗关闭后 `ImageCode` 组件仍挂载，`code` 这个本地 ref 一直保留；`ImageCode` 虽然 `defineExpose({ reset })`，但没有任何地方调用它，所以取消 / 答完 / 答错后再打开都会带出旧值。三处入口（前台登录、后台登录、发邮箱验证码）共用这个弹窗，问题一致。
+
+**改法**（`src/components/challenge/ChallengeDialog.vue`）：给 `el-dialog` 加 `destroy-on-close` —— 每次关闭都销毁档位组件，重新打开时 `ImageCode` 重新挂载、`code` 归零，并沿用已有的 `onMounted` 自动聚焦；滑块 / 点选也一并回到初始态，后续新增验证档位不用再补 reset。
+
+验证：`npm run build` EXIT=0（vue-tsc + vite build 通过）；Edge 无头 + CDP（本机 5173 + 8081 真实后端，`/admin/login`）—— 填管理员名 / 密码点登录 → 图形码弹窗首次输入框为空 → 输入 `abcd` → 点「取消」关闭 → 再点登录 → 输入框 `value` 仍为 `""`，题面换成新图片。临时脚本验完已删除。
 
 ### 2026-11-05 23:52 · 4008 不再弹「请先完成人机验证后重试」，弹窗文案只写「验证」
 
@@ -54,43 +84,3 @@
 **改法**：① `api/http.ts` 把 4008 加入静默名单（与 1009 同款处理；`isChallengeRequiredError` 一并改用常量）—— 三处入口（用户登录 / 后台登录 / 发信）收到 4008 都会自己开验证弹窗，提示交给流程本身；② `ChallengeDialog.vue` 标题从「人机验证」改为「验证」，删掉副题「完成下面这一步以证明你是真人」。验证后密码错时后端 1003 返回「邮箱或密码错误」，要改成「密码错误」涉及后端与防枚举取舍，已记入 `docs/后端修改说明.md` 待产品确认。
 
 验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock：登录① 4008 → 图形码题面 → 答题换票 → 登录② 1003）—— 4008 时**没有任何 toast**，弹窗标题「验证」、无副题；答题换票后弹窗关闭（overlay `display: none`）、重试的 toast 是「邮箱或密码错误」。
-
-### 2026-11-05 23:31 · 接入两段式人机验证（取题 → 答题 → 换票）
-
-后端把「一问一答的图形码」换成了按风险分层的挑战（`NONE / SLIDER_PUZZLE / POINT_SELECT / IMAGE_CODE`），旧接口 `GET /verify/captcha` 与请求体里的 `captchaId / captchaCode` 已删除。字段以 `http://localhost:8081/v3/api-docs` 为准。
-
-**新增**
-- `composables/useChallenge.ts`：把「取题 → 弹窗 → 答题 → 换票」收成 Promise —— `request()` 返回 `'none'`（不用验证）/ `string`（票）/ `null`（取消或失败）。三处入口都只写一句 `await requestChallenge()`。
-- `components/challenge/`：`ChallengeDialog`（按 `type` 分发）+ `SliderPuzzle` / `PointSelect` / `ImageCode`。
-- 滑块**必须报轨迹**：`pointermove` 每次采一点，两位移之间按 40px 插值补齐（服务端硬阈值是「相邻不跳 >80px、≥8 点、300~8000ms」）；点数不足时在松手前补够 8 个。
-- 点选按**图片原始尺寸**提交坐标（显示尺寸被容器缩过），顺序敏感、点满才提交。
-
-**改造**
-- `LoginView`：**不再预判**要不要验证 —— 先直接提交，收到 **4008** 才取题换票、把同一个请求重发一次（最多两次）。本地「连错 2 次才弹码」的计数与 `utils/loginAttempts.ts` 一并删除：风险规则在服务端，本地算不准还多一次取题。
-- `AdminLoginView`：票必填，提交前先取题（题面固定图形码）；4010 时自动换一张再试一次。
-- `EmailCodeField`：发信必带票（`scene=EMAIL_CODE`，`account` 传收件邮箱）；4008 / 4010 重取一次再试。`direct` 模式（`POST /users/me/email-code`）仍然免票。
-- `api/http.ts`：4001 退役，换成 `isChallengeWrongError(4009)` / `isChallengeExpiredError(4010)` / `isChallengeBlockedError(4011)` / `messageOf()`；4008 改名 `isChallengeRequiredError`。**4010 不能原地重试**（同一张票重发一定还是 4010），4009 才是「原地再来一次」。
-
-**删除**：`CaptchaDialog.vue`、`CaptchaField.vue`、`mock/demoCaptcha.ts`、`utils/loginAttempts.ts`，以及注册请求里的 `captchaId / captchaCode`。
-
-验证：`npm run build` EXIT=0；playwright-cli 用 mock 跑通两条链路 ——
-· 用户登录：mock 登录回 4008 → 弹窗出现滑块 → 拖 12 步（590ms）→ 答题请求体 `{"x":168,"trail":[…14 点…],"durationMs":590}`（点数/步长/时长都过阈值）→ 重试登录体 `{"email","password","challengeTicket":"tk_abc123"}`；
-· 后台登录：题面 `IMAGE_CODE` → 输入后登录体 `{"name":"root","password":"…","challengeTicket":"tk_admin"}`。
-
-### 2026-11-05 23:10 · 弹窗打开时全站卡片阴影一起收掉
-
-用户反馈：任务页开着「新建任务」弹窗时，卡片周围又出现深色带。
-
-**排查**：先前的抑制只框了 `.admin-panel` / `.sidebar` 两个选择器 —— 任务页的 `.summary`、`.filter-bar`、`.task-list__empty`、`.task-row` 等卡片不在名单里，遮罩压暗后它们的落影照样显形。所以这次不再逐个补选择器。
-
-**改法**（`main.css`）：改成**令牌级** —— 弹层在场时把 body 上的 `--shadow-card` / `--shadow-card-hover` / `--shadow-panel` / `--glass-panel-shadow` 全部替换成 `var(--glass-edge)`（只留 1px 描边）。凡是吃这几个令牌的组件（侧栏、汇总、筛选栏、空状态、任务卡、回收站卡、回到顶部等）一起变平；弹窗自己走 `--shadow-dialog`，阴影保留。弹层类名仍是四类 `*-parent--hidden`（Dialog / MessageBox / 图片查看器 / 漫游），遮罩关掉自动还原。
-
-验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 空账号 `/tasks`，1080×592，先关掉首屏漫游）—— 空闲时 `.summary` / `.filter-bar` / `.task-list__empty` / `.sidebar` 都是完整阴影（`0 0 0 1px` + `0 12~10px 30~26px`）；打开「新建任务」后四者只剩 `0 0 0 1px` 描边，`.el-dialog` 仍是 `0 24px 64px -16px, 0 6px 20px -6px`；点 × 关闭后四个卡片的阴影恢复。
-
-### 2026-11-05 22:55 · 用户管理默认「正常」，状态不再有「全部」
-
-用户两条：① 默认不要展示「正常 + 已冻结」，只看正常；② **不要这个组合态**。
-
-`stores/admin.ts` 的 `query.status` 从 `undefined` 改成 `'NORMAL'`；`AdminUserToolbar.vue` 把状态下拉收成**必选四项**（正常 / 已冻结 / 已锁定 / 已注销）—— 去掉 `clearable`、占位符从「全部（正常 + 已冻结）」改成「状态」，`handleStatusChange` 只接具体值，`clearFilters` 把状态复位到「正常」。于是「不传 status = 正常 + 已冻结」这条后端默认口径前端用不到了，**不需要改后端**（status 恒传）。
-
-验证：`npm run build` EXIT=0；Edge 无头 + CDP（mock 用户）—— 首个请求 `/admin/users?page=1&size=20&status=NORMAL`、下拉显示「正常」；悬停时没有清除图标；展开只有 `["正常","已冻结","已锁定","已注销"]`；选「已冻结」后请求变 `status=FROZEN`、显示同步。

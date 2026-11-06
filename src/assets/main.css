@@ -141,23 +141,28 @@
    * 底色同时压暗半档（#e4e9f2 → #dfe5ee），整页从「白+彩」变成「一层浅灰蓝 + 极淡冷暖」。
    */
   /*
-   * 2026-10-30 五改（回到「玻璃」而不是「灰板」）：
-   * 前几轮把「文字对比度」和「玻璃质感」当成一件事在调，一路压画布、削彩色、降填色，
-   * 结果玻璃背后没有可折射的东西，整页只剩灰。
-   * 这一版把对比度交回给文字色（#4b5563 / #626c7a 本身已过 AA），画布亮回来：
-   * 底色 #e8edf6、四角彩色回到 .30 / .26 / .18、面板后 .30 / .24、中段白光 .35。
+   * 2026-11-06 六改（去掉「蒙了一层灰」）：
+   * 用户反馈浅色模式整页像蒙了灰。实测（2560×1440、4 条任务、大片空白）：
+   * 空白画布只有 #EDEAF1~#F0EFF6，RGB 最大差 5~6（几乎无彩度），而卡片是 #FBFBFF ——
+   * 画布比卡片暗 12 级左右，大片空地就成了一层灰紫纱。
+   * 对照实验把噪点、backdrop-filter、玻璃填色逐个排除：噪点只占 1~2 级；去掉模糊反而更灰
+   * （saturate 一直在补彩度）；玻璃 .46→.62 面板只变 1~2 级。问题确实在这组画布渐变：
+   * 基色偏灰、末端是灰紫灰粉，中段又压了一层 .35 白光，把仅剩的冷调冲平。
+   * 改法：提亮基色与末端渐变、中央白光 .35→.10、斜向白光 .22/.08→.10/.04，四角彩色各降 0.02；
+   * 只动浅色这一组，深色主题与玻璃 / 文字令牌都不动。
+   * 改后实测空白区约 #F7F4FA、卡片 #FEFEFF，灰感消失，卡片仍靠描边与落影分层。
    * ⚠ 画布只负责提供「透过去的明暗与色彩」，不要再靠压暗它来救文字。
    */
-  --page-bg: #e8edf6;
+  --page-bg: #f4f7fd;
   --page-bg-image:
-    linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.22) 42%, rgba(255, 255, 255, 0.08) 56%, transparent 74%),
-    radial-gradient(720px 620px at 8% 22%, rgba(96, 150, 255, 0.3), transparent 84%),
-    radial-gradient(680px 580px at 76% 20%, rgba(150, 132, 246, 0.24), transparent 86%),
-    radial-gradient(640px 480px at -8% -10%, rgba(88, 132, 226, 0.3), transparent 70%),
-    radial-gradient(600px 480px at 106% -8%, rgba(140, 126, 240, 0.26), transparent 72%),
-    radial-gradient(600px 500px at 106% 106%, rgba(232, 150, 186, 0.18), transparent 72%),
-    radial-gradient(1300px 1000px at 50% 44%, rgba(255, 255, 255, 0.35), transparent 84%),
-    linear-gradient(158deg, #e8edf6 0%, #e9e9f4 48%, #efe9f0 100%);
+    linear-gradient(115deg, transparent 18%, rgba(255, 255, 255, 0.1) 42%, rgba(255, 255, 255, 0.04) 56%, transparent 74%),
+    radial-gradient(720px 620px at 8% 22%, rgba(96, 150, 255, 0.28), transparent 84%),
+    radial-gradient(680px 580px at 76% 20%, rgba(150, 132, 246, 0.22), transparent 86%),
+    radial-gradient(640px 480px at -8% -10%, rgba(88, 132, 226, 0.28), transparent 70%),
+    radial-gradient(600px 480px at 106% -8%, rgba(140, 126, 240, 0.24), transparent 72%),
+    radial-gradient(600px 500px at 106% 106%, rgba(232, 150, 186, 0.16), transparent 72%),
+    radial-gradient(1300px 1000px at 50% 44%, rgba(255, 255, 255, 0.1), transparent 84%),
+    linear-gradient(158deg, #f4f7fd 0%, #f5f3fb 48%, #faf5fa 100%);
   /*
    * 磨砂噪点（2026-10-30，同日再降）：5% 太重了 —— 它铺满整个可视区，分不清「玻璃上」和「空地上」，
    * 视觉上就是给整页蒙了一层灰纱，这也是「灰蒙蒙」最直接的一层。

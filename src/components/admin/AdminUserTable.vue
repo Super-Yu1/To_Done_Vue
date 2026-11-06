@@ -6,16 +6,14 @@
  * 去掉「图片数」（管理员只需要知道这个账号有多少数据，不需要按图片再分一列）、
  * 增加「上次登录时间」（取 `lastLoginAt`，为 null 时显示「—」）。
  *
- * 邮箱列（2026-11-02 晚）：单元格放不下完整地址，悬停给气泡 —— 全串 + 一个复制按钮。
- * 这里不能用 AppTooltip：它 `pointer-events: none`，按钮点不到，所以走 `el-popover`。
+ * 邮箱列（2026-11-02 晚）：单元格放不下完整地址，悬停给气泡 —— 全串 + 一个复制按钮；
+ * 气泡本身交给 `CopyPopover`（2026-11-06），登录审计的账号 / UA 列用的是同一个。
  */
-import { computed, onUnmounted, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import AppIcon from '@/components/AppIcon.vue'
+import { computed } from 'vue'
 import AppTooltip from '@/components/AppTooltip.vue'
 import AdminAvatar from './AdminAvatar.vue'
+import CopyPopover from './CopyPopover.vue'
 import DateTimeCell from './DateTimeCell.vue'
-import { copyText } from '@/utils/clipboard'
 import { formatDateTime, parseDate } from '@/utils/date'
 import type { AdminUser, UserStatus } from '@/types'
 
@@ -75,24 +73,6 @@ function statusDetail(user: AdminUser): string {
 }
 
 const isEmpty = computed(() => !props.loading && props.users.length === 0)
-
-/** 刚复制过的那一封邮箱：按钮就地变「已复制」，1.6 秒后复位（不用 toast 打扰整屏） */
-const copiedEmail = ref('')
-let copiedTimer: number | undefined
-
-async function copyEmail(email: string) {
-  if (!(await copyText(email))) {
-    ElMessage.error('复制失败，请手动选中')
-    return
-  }
-  copiedEmail.value = email
-  window.clearTimeout(copiedTimer)
-  copiedTimer = window.setTimeout(() => {
-    copiedEmail.value = ''
-  }, 1600)
-}
-
-onUnmounted(() => window.clearTimeout(copiedTimer))
 </script>
 
 <template>
@@ -112,30 +92,9 @@ onUnmounted(() => window.clearTimeout(copiedTimer))
       <!-- 邮箱：列表里单行省略，悬停出气泡（全串 + 复制） -->
       <el-table-column label="邮箱" min-width="180">
         <template #default="{ row }">
-          <el-popover
-            trigger="hover"
-            placement="top"
-            :width="300"
-            :show-after="200"
-            popper-class="email-popover"
-          >
-            <template #reference>
-              <span class="email">{{ row.email }}</span>
-            </template>
-            <div class="email-pop">
-              <span class="email-pop__text">{{ row.email }}</span>
-              <!-- 只放图标：文案交给 aria-label，复制成功后图标换成勾并转绿 -->
-              <el-button
-                link
-                class="email-pop__copy"
-                :class="{ 'email-pop__copy--done': copiedEmail === row.email }"
-                :aria-label="copiedEmail === row.email ? '已复制' : '复制邮箱'"
-                @click="copyEmail(row.email)"
-              >
-                <AppIcon :name="copiedEmail === row.email ? 'check' : 'copy'" :size="14" />
-              </el-button>
-            </div>
-          </el-popover>
+          <CopyPopover :text="row.email" copy-label="复制邮箱">
+            <span class="email">{{ row.email }}</span>
+          </CopyPopover>
         </template>
       </el-table-column>
       <el-table-column label="手机号" width="120">
@@ -256,51 +215,5 @@ onUnmounted(() => window.clearTimeout(copiedTimer))
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-</style>
-
-<style>
-/*
- * 邮箱气泡（teleport 到 body，scoped 够不到）：全串允许断行（长邮箱没有空档），
- * 复制按钮贴右；底色、描边、模糊都复用全局那套玻璃弹层，这里只管排版。
- */
-.email-popover.el-popper {
-  padding: 10px 12px;
-}
-
-.email-pop {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.email-pop__text {
-  flex: 1;
-  min-width: 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--color-text);
-  word-break: break-all;
-  /* 点一下就能整串选中，复制失败时还有退路 */
-  user-select: all;
-}
-
-/* 只有图标：24 的方形热区，默认墨灰、悬停品牌蓝、复制完换成勾并转绿 */
-.email-pop__copy.el-button {
-  flex: none;
-  width: 24px;
-  height: 24px;
-  margin-left: 0;
-  padding: 0;
-  color: var(--color-text-2);
-}
-
-.email-pop__copy.el-button:hover {
-  color: var(--color-brand-ink);
-}
-
-.email-pop__copy.el-button.email-pop__copy--done,
-.email-pop__copy.el-button.email-pop__copy--done:hover {
-  color: var(--color-status-done);
 }
 </style>

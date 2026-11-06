@@ -43,6 +43,7 @@ function handleClosed() {
     width="420px"
     append-to-body
     align-center
+    destroy-on-close
     class="challenge-dialog"
     :close-on-click-modal="!submitting"
     :close-on-press-escape="!submitting"
